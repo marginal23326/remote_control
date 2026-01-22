@@ -1,0 +1,20 @@
+{
+    "name": "remote-control",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "build": "pnpm dlx @tailwindcss/cli -i ./static/input.css -o ./static/css/tailwind.css",
+        "watch": "pnpm dlx @tailwindcss/cli -i ./static/input.css -o ./static/css/tailwind.css --watch"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "@xterm/addon-fit": "^0.11.0",
+        "@xterm/addon-web-links": "^0.12.0",
+        "@xterm/xterm": "^6.0.0",
+        "socket.io-client": "^4.8.1",
+        "tailwindcss": "^4.0.17"
+    }
+}

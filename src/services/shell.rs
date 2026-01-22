@@ -1,0 +1,98 @@
+use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem, MasterPty};
+use std::collections::HashMap;
+use std::io::{Read, Write};
+use std::thread;
+use socketioxide::extract::SocketRef;
+use serde_json::json;
+use anyhow::Result;
+
+pub struct ShellSession {
+    pub master: Box<dyn MasterPty + Send>,
+    pub writer: Box<dyn Write + Send>,
+}
+
+pub struct ShellManager {
+    // Map of SessionID -> Active Shell Data
+    sessions: HashMap<String, ShellSession>,
+    pty_system: Box<dyn PtySystem + Send>,
+}
+
+impl ShellManager {
+    pub fn new() -> Self {
+        Self {
+            sessions: HashMap::new(),
+            // Load the native PTY backend (ConPTY on Windows)
+            pty_system: Box::new(NativePtySystem::default()),
+        }
+    }
+
+    pub fn create_session(
+        &mut self, 
+        session_id: String, 
+        cols: u16, 
+        rows: u16, 
+        socket: SocketRef
+    ) -> Result<()> {
+        // 1. Configure the PTY
+        let size = PtySize { rows, cols, pixel_width: 0, pixel_height: 0 };
+        let pair = self.pty_system.openpty(size)?;
+
+        // 2. Spawn cmd.exe (or powershell.exe)
+        let cmd = CommandBuilder::new("cmd.exe");
+        let _child = pair.slave.spawn_command(cmd)?;
+
+        // 3. Clone the reader to move into a background thread
+        let mut reader = pair.master.try_clone_reader()?;
+        let socket_clone = socket.clone();
+        let sid = session_id.clone();
+
+        // 4. SPAWN BACKGROUND THREAD (The "Push" Mechanism)
+        thread::spawn(move || {
+            let mut buffer = [0u8; 1024];
+            loop {
+                match reader.read(&mut buffer) {
+                    Ok(n) if n > 0 => {
+                        let output = String::from_utf8_lossy(&buffer[..n]).to_string();
+                        let _ = socket_clone.emit("shell_output", &json!({
+                            "session_id": sid,
+                            "output": output
+                        }));
+                    }
+                    Ok(_) => break, // EOF
+                    Err(_) => break, // Error or closed
+                }
+            }
+        });
+
+        // 5. Store the writer/master so we can send input/resize later
+        let writer = pair.master.take_writer()?;
+        
+        self.sessions.insert(session_id, ShellSession {
+            master: pair.master,
+            writer,
+        });
+
+        Ok(())
+    }
+
+    pub fn write_to_shell(&mut self, session_id: &str, data: &str) -> Result<()> {
+        if let Some(session) = self.sessions.get_mut(session_id) {
+            write!(session.writer, "{}", data)?;
+        }
+        Ok(())
+    }
+
+    pub fn resize_shell(&mut self, session_id: &str, cols: u16, rows: u16) -> Result<()> {
+        if let Some(session) = self.sessions.get_mut(session_id) {
+            session.master.resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })?;
+        }
+        Ok(())
+    }
+    
+    // Clean up session
+    pub fn close_session(&mut self, session_id: &str) {
+        if self.sessions.remove(session_id).is_some() {
+            tracing::info!("Shell session closed/cleaned up: {}", session_id);
+        }
+    }
+}

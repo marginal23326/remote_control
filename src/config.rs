@@ -1,0 +1,98 @@
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::io::{self, Write};
+use tokio::fs;
+use anyhow::Result;
+use bcrypt::{hash, DEFAULT_COST};
+use uuid::Uuid;
+
+const CONFIG_FILE: &str = "user_config.json";
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct AppConfig {
+    pub username: String,
+    pub password_hash: String,
+    pub jwt_secret: String,
+    pub port: u16,
+}
+
+// Default used only for internal fallback
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            username: "admin".to_string(),
+            password_hash: "".to_string(),
+            jwt_secret: "".to_string(),
+            port: 5000,
+        }
+    }
+}
+
+pub struct ConfigManager;
+
+impl ConfigManager {
+    pub async fn load() -> Result<AppConfig> {
+        if Path::new(CONFIG_FILE).exists() {
+            let content = fs::read_to_string(CONFIG_FILE).await?;
+            let config: AppConfig = serde_json::from_str(&content)?;
+            return Ok(config);
+        }
+
+        println!("\n=== First Time Setup ===");
+        println!("No configuration found. Please create your admin credentials.\n");
+
+        let username = Self::prompt_input("Enter username: ")?;
+        let password = Self::prompt_password()?;
+        let port_str = Self::prompt_input("Enter port (default 5000): ")?;
+        
+        let port = if port_str.is_empty() {
+            5000
+        } else {
+            port_str.parse::<u16>().unwrap_or(5000)
+        };
+
+        println!("\nGenerating security keys...");
+        let password_hash = hash(&password, DEFAULT_COST)?;
+        let jwt_secret = Uuid::new_v4().to_string();
+
+        let config = AppConfig {
+            username,
+            password_hash,
+            jwt_secret,
+            port,
+        };
+
+        // Save to file
+        let json = serde_json::to_string_pretty(&config)?;
+        fs::write(CONFIG_FILE, json).await?;
+
+        println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
+
+        Ok(config)
+    }
+
+    fn prompt_input(prompt: &str) -> Result<String> {
+        print!("{}", prompt);
+        io::stdout().flush()?; // Ensure prompt appears before input
+        let mut buffer = String::new();
+        io::stdin().read_line(&mut buffer)?;
+        Ok(buffer.trim().to_string())
+    }
+
+    fn prompt_password() -> Result<String> {
+        loop {
+            let p1 = Self::prompt_input("Enter password: ")?;
+            if p1.is_empty() {
+                println!("Password cannot be empty.");
+                continue;
+            }
+            
+            let p2 = Self::prompt_input("Confirm password: ")?;
+            
+            if p1 == p2 {
+                return Ok(p1);
+            }
+            println!("Passwords do not match. Please try again.\n");
+        }
+    }
+}
