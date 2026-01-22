@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use serde::Serialize;
-use sysinfo::{Disks, System};
+use sysinfo::Disks;
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 

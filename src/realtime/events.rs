@@ -9,6 +9,8 @@ use crate::realtime::handlers::{
     handle_shell_create,
     handle_shell_input,
     handle_shell_resize,
+    handle_task_poll_start,
+    handle_task_poll_stop,
     handle_disconnect
 };
 
@@ -40,14 +42,15 @@ fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     info!("Socket connected & authenticated: {}", socket.id);
     let _ = socket.emit("auth_status", &json!({ "authenticated": true }));
 
-    // Input
     socket.on("mouse_event", handle_mouse_event);
     socket.on("keyboard_event", handle_keyboard_event);
 
-    // Shell
     socket.on("shell_create", handle_shell_create);
     socket.on("shell_input", handle_shell_input);
     socket.on("shell_resize", handle_shell_resize);
+    
+    socket.on("task_poll_start", handle_task_poll_start);
+    socket.on("task_poll_stop", handle_task_poll_stop);
 
     // Cleanup
     socket.on_disconnect(handle_disconnect);

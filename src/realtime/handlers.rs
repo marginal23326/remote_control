@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use serde_json::json;
 use socketioxide::extract::{Data, State, SocketRef};
+use tokio::time::Duration;
+use tokio::task::AbortHandle;
 use crate::state::SharedState;
 
 // --- DATA STRUCTURES ---
@@ -42,13 +44,17 @@ pub struct ShellResizeEvent {
     pub rows: u16,
 }
 
+#[derive(Debug, Clone)]
+struct TaskPollTask {
+    handle: AbortHandle,
+}
+
 // --- HANDLERS ---
 
 pub async fn handle_mouse_event(
     Data(data): Data<MouseEvent>,
     State(state): State<SharedState>,
 ) {
-    // We have to lock the mutex inside the Arc
     let input = state.input.lock().unwrap();
 
     match data.r#type.as_str() {
@@ -96,8 +102,6 @@ pub async fn handle_shell_create(
     State(state): State<SharedState>,
 ) {
     let mut shell_manager = state.shell.lock().unwrap();
-    
-    // Use socket ID as session ID
     let session_id = socket.id.to_string(); 
 
     if let Err(e) = shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone()) {
@@ -106,7 +110,6 @@ pub async fn handle_shell_create(
         return;
     }
 
-    // Tell frontend the ID
     let _ = socket.emit("shell_created", &json!({ 
         "status": "success",
         "session_id": session_id 
@@ -137,7 +140,69 @@ pub async fn handle_disconnect(
     socket: SocketRef,
     State(state): State<SharedState>,
 ) {
+    // Abort the polling task if it exists
+    if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
+        task.handle.abort();
+    }
+
     let mut shell_manager = state.shell.lock().unwrap();
-    // Try to close session for this socket ID (if it exists)
     shell_manager.close_session(&socket.id.to_string());
+}
+
+pub async fn handle_task_poll_start(
+    socket: SocketRef,
+    State(state): State<SharedState>,
+) {
+    // 1. Check if a task is already running for this socket and abort it to prevent duplicates
+    if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
+        task.handle.abort();
+    }
+
+    let socket_clone = socket.clone();
+    
+    // 2. Spawn the task and get the JoinHandle
+    let join_handle = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(2));
+        
+        loop {
+            interval.tick().await;
+
+            let data = {
+                let tasks = state.tasks.lock().unwrap();
+                let processes = tasks.get_processes();
+                
+                let sys = state.sys.lock().unwrap();
+                let total_mem = sys.total_memory() as f64;
+                let used_mem = sys.used_memory() as f64;
+                let mem_pct = if total_mem > 0.0 { (used_mem / total_mem) * 100.0 } else { 0.0 };
+                
+                let cpu_global = sys.global_cpu_usage();
+
+                json!({
+                    "processes": processes,
+                    "total_cpu_usage": cpu_global,
+                    "total_memory_percentage": mem_pct
+                })
+            };
+
+            // If emit fails (socket closed), break the loop
+            if socket_clone.emit("task_list", &data).is_err() {
+                break; 
+            }
+        }
+    });
+
+    // 3. Store the AbortHandle in the socket extensions
+    socket.extensions.insert(TaskPollTask { 
+        handle: join_handle.abort_handle() 
+    });
+}
+
+pub async fn handle_task_poll_stop(
+    socket: SocketRef,
+) {
+    // Retrieve the handle from extensions and abort the task
+    if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
+        task.handle.abort();
+    }
 }

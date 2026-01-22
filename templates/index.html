@@ -170,7 +170,7 @@
                 <div class="glass-card rounded-2xl p-8">
                     <h2 class="text-xl font-bold text-white mb-8 flex items-center gap-2">
                         <span class="w-2 h-8 bg-purple-500 rounded-sm"></span>
-                        AUDIO MATRIX
+                        AUDIO PANEL
                     </h2>
                     
                     <div class="grid md:grid-cols-2 gap-8">
@@ -426,10 +426,18 @@
                             <table class="w-full">
                                 <thead class="sticky top-0 z-10 backdrop-blur-md">
                                     <tr>
-                                        <th class="px-6 py-3 text-left w-1/2">Process Name</th>
-                                        <th class="px-6 py-3 text-left">CPU %</th>
-                                        <th class="px-6 py-3 text-left">MEM %</th>
-                                        <th class="px-6 py-3 text-left">PID</th>
+                                        <th class="px-6 py-3 text-left w-1/2 cursor-pointer hover:bg-white/5 transition-colors" data-column="name">
+                                            <div class="flex items-center gap-1">Process Name <span class="sort-icon text-[10px] opacity-0"></span></div>
+                                        </th>
+                                        <th class="px-6 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors" data-column="cpu_percent">
+                                            <div class="flex items-center gap-1">CPU <span class="total-usage text-[10px] opacity-50"></span> <span class="sort-icon text-[10px] opacity-0"></span></div>
+                                        </th>
+                                        <th class="px-6 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors" data-column="memory_usage">
+                                            <div class="flex items-center gap-1">MEM <span class="total-usage text-[10px] opacity-50"></span> <span class="sort-icon text-[10px] opacity-0"></span></div>
+                                        </th>
+                                        <th class="px-6 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors" data-column="pid">
+                                            <div class="flex items-center gap-1">PID <span class="sort-icon text-[10px] opacity-0"></span></div>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody id="taskList" class="font-mono text-sm divide-y divide-white/5 text-gray-300">
