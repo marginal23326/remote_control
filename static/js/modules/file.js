@@ -96,7 +96,7 @@ class FileManager extends BaseFileManager {
 
     createTableRow(item, additionalClasses = []) {
         const row = document.createElement('tr');
-        row.classList.add(...CLASSES.row, ...additionalClasses, 'hover:!bg-blue-600/20', 'transition-colors');
+        row.classList.add(...CLASSES.row, ...additionalClasses, CLASSES.defaultHover);
         if (item) {
             row.dataset.path = item.path;
             row.dataset.isDir = item.is_dir.toString();

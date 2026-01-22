@@ -23,7 +23,7 @@ function initializeTaskManager(socket) {
         const fragment = document.createDocumentFragment();
         processes.forEach(process => {
             const row = document.createElement('tr');
-            row.classList.add('hover:bg-gray-700/50', 'cursor-pointer');
+            row.classList.add('cursor-pointer');
             row.dataset.pid = process.pid;
 
             const expandArrow = process.is_group 
@@ -44,7 +44,7 @@ function initializeTaskManager(socket) {
             if (process.is_group && process.expanded && process.children) {
                 process.children.forEach(childProcess => {
                     const childRow = document.createElement('tr');
-                    childRow.classList.add('hover:bg-gray-700/50', 'cursor-pointer', 'child-process');
+                    childRow.classList.add('cursor-pointer', 'child-process');
                     childRow.dataset.pid = childProcess.pid;
                     childRow.dataset.parentPid = process.pid;
 
@@ -65,12 +65,33 @@ function initializeTaskManager(socket) {
         taskList.innerHTML = '';
         taskList.appendChild(fragment);
 
+        // Update sort indicators
+        document.querySelectorAll('#processSection thead th').forEach(header => {
+            const column = header.dataset.column;
+            const icon = header.querySelector('.sort-icon');
+            if (icon) {
+                if (column === currentSort.column) {
+                    icon.textContent = currentSort.order === 'asc' ? '▲' : '▼';
+                    icon.classList.remove('opacity-0');
+                    icon.classList.add('opacity-100', 'text-blue-400');
+                } else {
+                    icon.classList.remove('opacity-100', 'text-blue-400');
+                    icon.classList.add('opacity-0');
+                }
+            }
+        });
+
         taskManager.selectionManager.notifyItemsUpdate();
         taskManager.config.onSelectionChange(taskManager.getSelectedItems());
 
         const endTaskButton = document.getElementById('endTaskButton');
         if (!endTaskButton.hasListener) {
-            endTaskButton.innerHTML = SVG_TEMPLATES.cross() + endTaskButton.innerHTML;
+            endTaskButton.innerHTML = `
+                <span class="flex items-center gap-2">
+                    ${SVG_TEMPLATES.cross()}
+                    <span>KILL PROCESS</span>
+                </span>
+            `;
             endTaskButton.addEventListener('click', () => {
                 const selectedItems = taskManager.getSelectedItems();
                 if (selectedItems.length > 0) {
@@ -147,9 +168,15 @@ function initializeTaskManager(socket) {
         const totalCpuUsage = document.querySelector('#processSection th[data-column="cpu_percent"] .total-usage');
         const totalMemoryUsage = document.querySelector('#processSection th[data-column="memory_usage"] .total-usage');
 
-        totalCpuUsage.textContent = `(${data.total_cpu_usage.toFixed(1)}%)`;
-        totalMemoryUsage.textContent = `(${data.total_memory_percentage.toFixed(1)}%)`;
+        if (totalCpuUsage) {
+            totalCpuUsage.textContent = `(${data.total_cpu_usage.toFixed(1)}%)`;
+        }
+        
+        if (totalMemoryUsage) {
+            totalMemoryUsage.textContent = `(${data.total_memory_percentage.toFixed(1)}%)`;
+        }
 
+        if (taskManager.selectionManager.isDragging) return;
         renderTaskList(data.processes);
     });
 

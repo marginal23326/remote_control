@@ -80,7 +80,7 @@ class SelectionManager {
             itemSelector: 'tr',
             selectedClass: 'bg-blue-500/50',
             defaultHoverClass: 'hover:bg-gray-700/50',
-            selectedHoverClass: 'hover:bg-blue-700/50',
+            selectedHoverClass: 'hover:!bg-blue-600/20',
             disabledClass: 'cursor-not-allowed opacity-50',
             getItemId: (element) => element.dataset.id,
             isItemSelectable: (element) => !element.classList.contains('cursor-not-allowed'),
@@ -100,6 +100,25 @@ class SelectionManager {
                     this.handleItemSelection(item, e);
                     this.handleDragStart(e, item);
                 }
+            } else {
+                // Clicked inside container but not on an item
+                this.clearSelection();
+            }
+        });
+
+        // Deselect when clicking outside the container
+        document.addEventListener('mousedown', (e) => {
+            const container = document.querySelector(this.config.containerSelector);
+            if (container && !container.contains(e.target)) {
+                // Check if we're clicking on something that shouldn't clear selection
+                // (like context menus or operation buttons)
+                if (e.target.closest('.context-menu') ||
+                    e.target.closest('#fileOperations') ||
+                    e.target.closest('#endTaskContainer') ||
+                    e.target.closest('nav')) {
+                    return;
+                }
+                this.clearSelection();
             }
         });
 
@@ -112,6 +131,23 @@ class SelectionManager {
         document.addEventListener('mouseup', () => {
             if (this.isDragging) {
                 this.handleDragEnd();
+            }
+        });
+
+        // Add mouseenter and mouseleave listeners to update hover state
+        container.addEventListener('mouseover', (e) => {
+            const item = e.target.closest(this.config.itemSelector);
+            if (item && this.config.getItemId(item)) {
+                item.dataset.hovered = 'true';
+                this.updateItemHover(item);
+            }
+        });
+
+        container.addEventListener('mouseout', (e) => {
+            const item = e.target.closest(this.config.itemSelector);
+            if (item && this.config.getItemId(item)) {
+                item.dataset.hovered = 'false';
+                this.updateItemHover(item);
             }
         });
 
