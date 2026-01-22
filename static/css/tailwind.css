@@ -414,6 +414,9 @@
   .h-\[85vh\] {
     height: 85vh;
   }
+  .h-\[95vh\] {
+    height: 95vh;
+  }
   .h-auto {
     height: auto;
   }
@@ -1322,6 +1325,16 @@
       }
     }
   }
+  .hover\:\!bg-blue-600\/20 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: color-mix(in srgb, oklch(0.546 0.245 262.881) 20%, transparent) !important;
+        @supports (color: color-mix(in lab, red, red)) {
+          background-color: color-mix(in oklab, var(--color-blue-600) 20%, transparent) !important;
+        }
+      }
+    }
+  }
   .hover\:bg-blue-500 {
     &:hover {
       @media (hover: hover) {
@@ -1600,6 +1613,16 @@
     &:active {
       --tw-shadow: inset 0 2px 4px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05));
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+  }
+  .disabled\:cursor-not-allowed {
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+  .disabled\:opacity-50 {
+    &:disabled {
+      opacity: 50%;
     }
   }
   .data-\[active\=true\]\:border-blue-500 {

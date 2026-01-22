@@ -38,7 +38,13 @@ class FileManager extends BaseFileManager {
                 .map(([id, loadingText]) => {
                     const button = document.getElementById(id);
                     if (id === 'deleteItem' && button) {
-                        button.innerHTML = SVG_TEMPLATES.cross() + ' ' + button.textContent;
+                        const label = button.textContent.trim();
+                        button.innerHTML = `
+                            <span class="inline-flex items-center gap-2">
+                                ${SVG_TEMPLATES.cross('w-4 h-4')}
+                                <span>${label}</span>
+                            </span>
+                        `;
                     }
                     return button ? [id, new LoadingButton(button, loadingText)] : null;
                 })
@@ -90,8 +96,7 @@ class FileManager extends BaseFileManager {
 
     createTableRow(item, additionalClasses = []) {
         const row = document.createElement('tr');
-        row.classList.add(...CLASSES.row, ...additionalClasses, CLASSES.defaultHover);
-
+        row.classList.add(...CLASSES.row, ...additionalClasses, 'hover:!bg-blue-600/20', 'transition-colors');
         if (item) {
             row.dataset.path = item.path;
             row.dataset.isDir = item.is_dir.toString();
@@ -232,6 +237,7 @@ class FileManager extends BaseFileManager {
 
     async listFiles(path, highlightPath = null) {
         this.clearSelection();
+        this.updateFileOperationsUI();
         const fileList = document.getElementById('fileList');
 
         if (path !== this.currentPath) {
@@ -305,6 +311,9 @@ class FileManager extends BaseFileManager {
     }
 
     initializeEventListeners() {
+        this.elements.fileList.addEventListener('click', () => {
+            setTimeout(() => this.updateFileOperationsUI(), 50);
+        });
         const handleButtonClick = async (buttonId, action) => {
             const button = this.buttons[buttonId];
             if (button) {
