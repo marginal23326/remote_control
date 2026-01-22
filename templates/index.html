@@ -352,7 +352,7 @@
 
             <!-- File Section -->
             <section id="fileSection" class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div class="glass-card rounded-2xl p-6 h-[85vh] flex flex-col">
+                <div class="glass-card rounded-2xl p-6 h-[95vh] flex flex-col">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <h2 class="text-xl font-bold text-white flex items-center gap-2">
                             <span class="w-2 h-8 bg-pink-500 rounded-sm"></span>
@@ -388,12 +388,15 @@
                         
                         <!-- File Actions Bar -->
                         <div id="fileOperations" class="p-4 border-t border-white/10 bg-black/40 flex flex-wrap gap-3 hidden">
-                             <button id="downloadFile" class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-sm font-medium">Download</button>
-                             <button id="deleteItem" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded text-sm font-medium">Delete</button>
-                             <div class="flex gap-2 flex-1 justify-end">
-                                <input type="text" id="renameInput" placeholder="New filename..." class="px-3 py-1 bg-gray-900 border border-gray-700 rounded text-sm">
-                                <button id="renameItem" class="px-4 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/30 rounded text-sm font-medium">Rename</button>
-                             </div>
+                            <!-- Added disabled:opacity-50 disabled:cursor-not-allowed to buttons below -->
+                            <button id="downloadFile" class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all">Download</button>
+                            
+                            <button id="deleteItem" class="inline-flex items-center justify-center px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"> Delete </button>
+                            
+                            <div class="flex gap-2 flex-1 justify-end">
+                                <input type="text" id="renameInput" placeholder="New filename..." class="px-3 py-1 bg-gray-900 border border-gray-700 rounded text-sm disabled:opacity-50">
+                                <button id="renameItem" class="px-4 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/30 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all">Rename</button>
+                            </div>
                         </div>
                     </div>
 
