@@ -35,7 +35,7 @@ fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     if !is_authenticated {
         warn!("Socket connection rejected: Invalid or missing token");
         let _ = socket.emit("auth_error", &json!({ "message": "Unauthorized" }));
-        socket.disconnect();
+        let _ = socket.disconnect();
         return;
     }
 
