@@ -18,7 +18,11 @@ pub enum AppError {
     #[error("Input/Output Error: {0}")]
     IoError(#[from] std::io::Error),
     
-    // We will add more specific errors later (e.g., ScreenCaptureError)
+    #[error("Bad Request: {0}")]
+    BadRequest(String),
+    
+    #[error("Not Found: {0}")]
+    NotFound(String),
 }
 
 // This allows us to use our Error type in Axum routes
@@ -28,6 +32,8 @@ impl IntoResponse for AppError {
             AppError::AuthError(msg) => (StatusCode::UNAUTHORIZED, msg),
             AppError::InternalError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
             AppError::IoError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
         };
 
         let body = Json(json!({

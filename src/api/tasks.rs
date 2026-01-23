@@ -1,12 +1,11 @@
 use axum::{
     extract::State,
     Json,
-    http::StatusCode,
-    response::IntoResponse,
 };
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use crate::state::SharedState;
+use crate::utils::error::{AppError, AppResult};
 
 #[derive(Deserialize)]
 pub struct KillPayload {
@@ -16,14 +15,11 @@ pub struct KillPayload {
 pub async fn kill_process_handler(
     State(state): State<SharedState>,
     Json(payload): Json<KillPayload>,
-) -> impl IntoResponse {
-    if let Some(pid) = payload.pid {
-        let tasks = state.tasks.lock().unwrap();
-        match tasks.kill_process(pid) {
-            Ok(_) => Json(json!({"status": "success", "message": "Process killed"})).into_response(),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"status": "error", "message": e.to_string()}))).into_response(),
-        }
-    } else {
-        (StatusCode::BAD_REQUEST, Json(json!({"status": "error", "message": "PID required"}))).into_response()
-    }
+) -> AppResult<Json<Value>> {
+    let pid = payload.pid.ok_or(AppError::BadRequest("PID required".to_string()))?;
+
+    let tasks = state.tasks.lock().unwrap();
+    tasks.kill_process(pid)?;
+    
+    Ok(Json(json!({"status": "success", "message": "Process killed"})))
 }
