@@ -18,33 +18,38 @@ strip = true
 [dependencies]
 # --- Web Server & Async Runtime ---
 axum = { version = "0.8", features = ["ws", "multipart", "macros"] }
-tokio = { version = "1", features = ["full", "sync"] }
+tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "trace", "auth"] }
 
-# --- Realtime (Socket.IO) ---
+# --- Realtime ---
 socketioxide = { version = "0.16", features = ["state", "extensions"] }
 
 # --- Serialization & Data ---
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_qs = "0.15.0"
+
+# --- Network ---
+reqwest = { version = "0.13", features = ["json"] }
+local-ip-address = "0.6.9"
 
 # --- Security (Auth) ---
 jsonwebtoken = "9.3"
 bcrypt = "0.15"
 rand = "0.8"
 
-# --- Utilities & Error Handling ---
-thiserror = "2.0" # Simplifies custom error creation
-anyhow = "1.0"    # Generic error handling
+# --- Utilities ---
+thiserror = "2.0"
+anyhow = "1.0"
 once_cell = "1.21"
-dotenvy = "0.15"  # Load .env files
+dotenvy = "0.15"
+regex = "1.12"
 
-
+# --- System & Media ---
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 whoami = "2.0"
-local-ip-address = "0.6.9"
 sysinfo = "0.37"
 portable-pty = "0.9"
 image = "0.25"
@@ -53,16 +58,15 @@ tokio-stream = { version = "0.1.18", features = ["sync"] }
 futures = "0.3"
 async-stream = "0.3"
 windows-capture = "2.0.0-alpha.7"
-jpeg-encoder = "0.7"
-fast_image_resize = "6.0.0"
-crossbeam-channel = "0.5.15"
 turbojpeg = "1.3.3"
 zip = "7.2.0"
-serde_qs = "0.15.0"
 uuid = { version = "1.19", features = ["v4"] }
 tokio-util = { version = "0.7", features = ["io"] }
 mime_guess = "2.0.5"
 chrono = { version = "0.4.43", features = ["serde"] }
+fast_image_resize = "6.0.0"
+crossbeam-channel = "0.5.15"
+hostname = "0.4.2"
 
 # --- Windows System API ---
 [target.'cfg(windows)'.dependencies.windows]
@@ -79,4 +83,6 @@ features = [
     "Win32_Foundation",
     "Win32_System_Com",
     "Win32_System_SystemInformation",
+    "Win32_System_Registry",
+    "Win32_System_Power",
 ]
