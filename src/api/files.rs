@@ -9,13 +9,19 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use crate::state::SharedState;
 use crate::utils::error::{AppError, AppResult};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 use mime_guess::from_path;
 use anyhow::anyhow;
+use futures::Stream; 
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::Duration;
+
+// --- DATA STRUCTURES ---
 
 #[derive(Deserialize)]
 pub struct ListQuery {
@@ -36,6 +42,32 @@ pub struct ActionPayload {
     folder_name: Option<String>,
     old_path: Option<String>,
     new_name: Option<String>,
+}
+
+pub struct DeleteOnDropStream<S> {
+    pub inner: S,
+    pub path: PathBuf,
+}
+
+impl<S: Stream + Unpin> Stream for DeleteOnDropStream<S> {
+    type Item = S::Item;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.inner).poll_next(cx)
+    }
+}
+
+impl<S> Drop for DeleteOnDropStream<S> {
+    fn drop(&mut self) {
+        let path = self.path.clone();
+        // Spawn a background task to delete the file
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            if let Err(e) = tokio::fs::remove_file(&path).await {
+                tracing::error!("Failed to delete temp file {:?}: {}", path, e);
+            }
+        });
+    }
 }
 
 // --- HANDLERS ---
@@ -165,6 +197,7 @@ pub async fn download_handler(
         return Err(AppError::BadRequest("No files selected".to_string()));
     }
 
+    // Single file download (No changes needed here usually, unless you want to log it)
     if paths.len() == 1 {
         let path_str = &paths[0];
         let path = Path::new(path_str);
@@ -193,6 +226,7 @@ pub async fn download_handler(
     let zip_path = std::env::temp_dir().join(&zip_filename);
     let zip_path_clone = zip_path.clone();
 
+    // Create the Zip in a blocking task
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
         let file = std::fs::File::create(&zip_path_clone)?;
         let mut zip = zip::ZipWriter::new(file);
@@ -218,7 +252,13 @@ pub async fn download_handler(
 
     let file = File::open(&zip_path).await?;
     let stream = ReaderStream::new(file);
-    let body = Body::from_stream(stream);
+    
+    let wrapped_stream = DeleteOnDropStream {
+        inner: stream,
+        path: zip_path,
+    };
+
+    let body = Body::from_stream(wrapped_stream);
     
     let mut headers = HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, "application/zip".parse().unwrap());
