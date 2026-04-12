@@ -11,6 +11,11 @@ use crate::realtime::handlers::{
     handle_shell_resize,
     handle_task_poll_start,
     handle_task_poll_stop,
+    handle_start_server_audio,
+    handle_stop_server_audio,
+    handle_start_client_audio,
+    handle_stop_client_audio,
+    handle_client_audio_data,
     handle_disconnect
 };
 
@@ -51,6 +56,12 @@ fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     
     socket.on("task_poll_start", handle_task_poll_start);
     socket.on("task_poll_stop", handle_task_poll_stop);
+
+    socket.on("start_server_audio", handle_start_server_audio);
+    socket.on("stop_server_audio", handle_stop_server_audio);
+    socket.on("start_client_audio", handle_start_client_audio);
+    socket.on("stop_client_audio", handle_stop_client_audio);
+    socket.on("client_audio_data", handle_client_audio_data);
 
     // Cleanup
     socket.on_disconnect(handle_disconnect);

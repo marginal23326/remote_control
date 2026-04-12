@@ -5,6 +5,7 @@ use crate::services::shell::ShellManager;
 use crate::services::screen::ScreenManager;
 use crate::services::files::FileManager;
 use crate::services::tasks::TaskManager;
+use crate::services::audio::AudioManager;
 use crate::config::AppConfig;
 
 #[derive(Clone)]
@@ -17,6 +18,7 @@ pub struct AppState {
     pub screen: Arc<Mutex<ScreenManager>>,
     pub files: Arc<Mutex<FileManager>>,
     pub tasks: Arc<Mutex<TaskManager>>,
+    pub audio: Arc<Mutex<AudioManager>>,
 }
 
 impl AppState {
@@ -32,16 +34,18 @@ impl AppState {
         let screen = ScreenManager::new();
         let files = FileManager::new();
         let tasks = TaskManager::new(sys_shared.clone()); 
+        let audio = AudioManager::new();
 
         Self {
             config: Arc::new(Mutex::new(config)),
-            sys: sys_shared, // Use the shared one
+            sys: sys_shared,
             networks: Arc::new(Mutex::new(networks)),
             input: Arc::new(Mutex::new(input)),
             shell: Arc::new(Mutex::new(shell)),
             screen: Arc::new(Mutex::new(screen)),
             files: Arc::new(Mutex::new(files)),
             tasks: Arc::new(Mutex::new(tasks)),
+            audio: Arc::new(Mutex::new(audio)),
         }
     }
 }

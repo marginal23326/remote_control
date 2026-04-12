@@ -108,31 +108,39 @@ class AudioManager {
 
     async startAudioStream(type, settings = {}) {
         try {
-            // Check if stream is already active and settings haven't changed
+            // Check if stream is active
             if (this.streamActive[type] && !await this.updateSettings({ ...settings, type })) {
-                console.log(`${type} audio stream is already active`);
                 return;
             }
 
-            // Stop any existing stream first
             await this.stopAudioStream(type, true);
-
-            await this.ensureAudioContext(settings.rate || this.currentSettings[type].rate);
+            
+            // IMPORTANT: If user didn't specify a rate, default to 48000
+            const targetRate = settings.rate || 48000;
+            await this.ensureAudioContext(targetRate);
 
             if (type === 'client') {
-                this.currentStream = await this.getMicrophoneStream(settings);
-                if (!this.currentStream) {
-                    throw new Error('Failed to access microphone');
-                }
+                // Get Mic
+                this.currentStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: targetRate,
+                        channelCount: 1, // FORCE MONO
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+
+                if (!this.currentStream) throw new Error('Microphone access denied');
 
                 await this.initializeAudioWorklet();
-                this.setupWorkletNode(settings.chunk || this.currentSettings.client.chunk);
+                // Use a larger buffer chunk (e.g. 2048 or 4096) to prevent network crackling
+                this.setupWorkletNode(settings.chunk || 4096); 
 
                 const source = this.audioContext.createMediaStreamSource(this.currentStream);
                 source.connect(this.workletNode);
             }
 
-            // Remove any existing server_audio_data listeners before adding new one
             if (type === 'server') {
                 this.socket.off('server_audio_data', this.handleServerAudioData);
                 this.socket.on('server_audio_data', this.handleServerAudioData);
@@ -144,7 +152,7 @@ class AudioManager {
         } catch (error) {
             console.error(`Error starting ${type} audio:`, error);
             await this.stopAudioStream(type);
-            throw error;
+            alert("Audio Error: " + error.message);
         }
     }
 
@@ -178,23 +186,25 @@ class AudioManager {
     }
 
     handleServerAudioData(data) {
-        const uint8Array = new Uint8Array(data);
-        if (uint8Array.length === 0) return;
+        // Convert raw ArrayBuffer to Int16
+        const int16Array = new Int16Array(data);
+        if (int16Array.length === 0) return;
 
-        const bufferLength = uint8Array.length - (uint8Array.length % 2);
-        const int16Array = new Int16Array(uint8Array.buffer, 0, bufferLength / 2);
-
+        // Create buffer
         const audioBuffer = this.audioContext.createBuffer(1, int16Array.length, this.audioContext.sampleRate);
         const audioData = audioBuffer.getChannelData(0);
 
+        // Convert Int16 back to Float32
         for (let i = 0; i < int16Array.length; i++) {
             audioData[i] = int16Array[i] / 32768.0;
         }
 
+        // Play immediately
         const source = this.audioContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(this.audioContext.destination);
         source.start();
+        // Garbage collection helper
         source.onended = () => source.disconnect();
     }
 

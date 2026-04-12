@@ -2,37 +2,37 @@ class ClientAudioProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     this.buffer = [];
-    this.bufferSize = options.processorOptions.bufferSize || 512; // Get buffer size from options
+    // Increase buffer size slightly to reduce network jitter noise
+    this.bufferSize = options.processorOptions.bufferSize || 2048; 
   }
 
   process(inputs, outputs, parameters) {
     const input = inputs[0];
     
-    if (input.length > 0) {
-      const inputChannelData = input[0]; // Assuming mono audio
+    if (input && input.length > 0) {
+      const inputChannelData = input[0]; // Get first channel (Mono)
 
-      // Downsample and buffer
-      for (let i = 0; i < inputChannelData.length; i+=2) {
-        // Take every other sample for simple downsampling (you can improve this)
+      // 1. Push all samples to buffer
+      for (let i = 0; i < inputChannelData.length; i++) {
         this.buffer.push(inputChannelData[i]);
       }
       
-      // Send when buffer is full
+      // 2. Send chunks when buffer is full
       while (this.buffer.length >= this.bufferSize) {
         const chunk = this.buffer.splice(0, this.bufferSize);
         
-        // Convert to Int16
+        // Convert Float32 (-1.0 to 1.0) to Int16
         const int16Chunk = new Int16Array(chunk.length);
         for (let i = 0; i < chunk.length; i++) {
-          const sample = Math.max(-1, Math.min(1, chunk[i]));
-          int16Chunk[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+          const s = Math.max(-1, Math.min(1, chunk[i]));
+          // 0x7FFF = 32767
+          int16Chunk[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
 
-        // Post the PCM data to the main thread
         this.port.postMessage({
           type: 'pcmData',
           pcmData: int16Chunk.buffer
-        }, [int16Chunk.buffer]); // Transfer the buffer
+        }, [int16Chunk.buffer]); 
       }
     }
 
