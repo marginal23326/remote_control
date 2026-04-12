@@ -4,3 +4,4 @@ pub mod shell;
 pub mod screen;
 pub mod files;
 pub mod tasks;
+pub mod audio;

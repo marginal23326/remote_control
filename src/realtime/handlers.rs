@@ -49,6 +49,13 @@ struct TaskPollTask {
     handle: AbortHandle,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct AudioConfig {
+    pub source: Option<String>,
+    pub rate: Option<u32>,
+    pub chunk: Option<u32>,
+}
+
 // --- HANDLERS ---
 
 pub async fn handle_mouse_event(
@@ -205,4 +212,55 @@ pub async fn handle_task_poll_stop(
     if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
         task.handle.abort();
     }
+}
+
+pub async fn handle_start_server_audio(
+    socket: SocketRef,
+    Data(data): Data<AudioConfig>,
+    State(state): State<SharedState>,
+) {
+    let audio = state.audio.lock().unwrap();
+    let source = data.source.unwrap_or("mic".to_string());
+    let rate = data.rate.unwrap_or(48000);
+
+    if let Err(e) = audio.start_server_stream(socket, source, rate) {
+        tracing::error!("Failed to start server audio: {}", e);
+    }
+}
+
+pub async fn handle_stop_server_audio(
+    State(state): State<SharedState>,
+) {
+    let audio = state.audio.lock().unwrap();
+    audio.stop_server_stream();
+}
+
+pub async fn handle_start_client_audio(
+    Data(data): Data<AudioConfig>,
+    State(state): State<SharedState>,
+) {
+    let audio = state.audio.lock().unwrap();
+    let rate = data.rate.unwrap_or(48000);
+    
+    if let Err(e) = audio.start_client_playback(rate) {
+        tracing::error!("Failed to start client playback: {}", e);
+    }
+}
+
+pub async fn handle_stop_client_audio(
+    State(state): State<SharedState>,
+) {
+    let audio = state.audio.lock().unwrap();
+    audio.stop_client_playback();
+}
+
+pub async fn handle_client_audio_data(
+    Data(data): Data<Vec<u8>>, // Receive raw binary data
+    State(state): State<SharedState>,
+    ack: socketioxide::extract::AckSender,
+) {
+    let audio = state.audio.lock().unwrap();
+    audio.process_client_audio(data);
+    // Acknowledge receipt so client sends next chunk
+    let _ = ack.send(&json!({"status": "ok"}));
 }
