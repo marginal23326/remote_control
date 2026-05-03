@@ -4,10 +4,9 @@ use std::sync::{
 };
 use std::thread;
 use std::time::{Duration, Instant};
-use std::collections::VecDeque;
 
+use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
 use tokio::sync::watch;
-use crossbeam_channel::{bounded, Sender, Receiver, TrySendError};
 
 use windows_capture::{
     capture::{Context, GraphicsCaptureApiHandler},
@@ -21,40 +20,10 @@ use windows_capture::{
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
-use fast_image_resize::images::{Image, ImageRef};
-use fast_image_resize::{Resizer, PixelType, ResizeOptions};
+use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-use turbojpeg::{Compressor, Image as JpegImage, PixelFormat, OutputBuf, Subsamp};
-
-#[derive(Clone, Default, Debug)]
-pub struct StreamFrame {
-    pub jpeg: Arc<Vec<u8>>, 
-    pub active_window: String,
-    pub actual_fps: u32,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct StreamSettings {
-    pub quality: u8,
-    pub resolution_percentage: u8,
-    pub target_fps: u64,
-}
-
-impl Default for StreamSettings {
-    fn default() -> Self {
-        Self {
-            quality: 80,
-            resolution_percentage: 100,
-            target_fps: 60,
-        }
-    }
-}
-
-struct RawFrame {
-    buffer: Vec<u8>,
-    width: u32,
-    height: u32,
-}
+use super::encoder::run_encoder_loop;
+use super::{RawFrame, StreamFrame, StreamSettings};
 
 pub struct ScreenManager {
     pub settings: Arc<Mutex<StreamSettings>>,
@@ -89,9 +58,9 @@ impl ScreenManager {
         s.target_fps = fps.clamp(1, 144);
     }
 
-    pub fn start_capture(&self) {
+    pub async fn start_capture(&self) -> anyhow::Result<()> {
         if self.is_running.load(Ordering::SeqCst) {
-            return;
+            return Ok(());
         }
         self.is_running.store(true, Ordering::SeqCst);
 
@@ -113,17 +82,14 @@ impl ScreenManager {
                     tx_web,
                     settings_enc,
                     is_running_enc,
+                    get_active_window_title,
                 );
             });
 
             let monitor = Monitor::primary().expect("No primary monitor found");
 
-            let capture_ctx = CaptureContext::new(
-                work_tx,
-                recycle_rx,
-                is_running_clone.clone(),
-                settings_arc,
-            );
+            let capture_ctx =
+                CaptureContext::new(work_tx, recycle_rx, is_running_clone.clone(), settings_arc);
 
             let settings = Settings::new(
                 monitor,
@@ -142,10 +108,16 @@ impl ScreenManager {
 
             is_running_clone.store(false, Ordering::SeqCst);
         });
+
+        Ok(())
     }
 
     pub fn stop_capture(&self) {
         self.is_running.store(false, Ordering::SeqCst);
+    }
+
+    pub fn native_size(&self) -> (i32, i32) {
+        unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) }
     }
 }
 
@@ -201,7 +173,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         let target_fps = self.ctx.settings.lock().unwrap().target_fps;
         let now = Instant::now();
 
-        if target_fps < 120 { 
+        if target_fps < 120 {
             let interval = Duration::from_secs_f64(1.0 / target_fps as f64);
             let elapsed = now.saturating_duration_since(self.ctx.last_arrival);
             self.ctx.last_arrival = now;
@@ -220,116 +192,21 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         }
 
         let mut buffer = self.ctx.recycle_rx.try_recv().unwrap_or_default();
-        
+
         let frame_buffer = frame.buffer()?;
         let _ = frame_buffer.as_nopadding_buffer(&mut buffer);
 
-        let raw = RawFrame { buffer, width, height };
+        let raw = RawFrame {
+            buffer,
+            width,
+            height,
+        };
 
         if let Err(TrySendError::Full(returned)) = self.ctx.work_tx.try_send(raw) {
             let _ = self.ctx.recycle_rx.try_recv().unwrap_or(returned.buffer);
         }
 
         Ok(())
-    }
-}
-
-fn run_encoder_loop(
-    rx: Receiver<RawFrame>,
-    recycle_tx: Sender<Vec<u8>>,
-    tx_web: watch::Sender<StreamFrame>,
-    settings: Arc<Mutex<StreamSettings>>,
-    is_running: Arc<AtomicBool>,
-) {
-    let mut resizer = Resizer::new();
-    let mut resized_storage = Vec::new();
-    
-    let mut compressor = Compressor::new().expect("Failed to create TurboJPEG compressor");
-    let mut comp_buf = OutputBuf::new_owned(); 
-
-    let mut frame_times: VecDeque<Instant> = VecDeque::new();
-
-    while is_running.load(Ordering::SeqCst) {
-        let Ok(raw) = rx.recv() else { break };
-
-        // 1. Add current time
-        let now = Instant::now();
-        frame_times.push_back(now);
-
-        // 2. Remove timestamps older than 1 second
-        while let Some(&t) = frame_times.front() {
-            if now.duration_since(t) > Duration::from_secs(1) {
-                frame_times.pop_front();
-            } else {
-                break;
-            }
-        }
-
-        // 3. The length of the queue is exactly how many frames happened in the last second
-        let current_fps = frame_times.len() as u32;
-
-        let (quality, scale_pct) = {
-            let s = settings.lock().unwrap();
-            (s.quality, s.resolution_percentage)
-        };
-
-        let mut final_width = raw.width;
-        let mut final_height = raw.height;
-        let mut final_pixels: &[u8] = &raw.buffer;
-
-        if scale_pct < 100 {
-            final_width = (raw.width * scale_pct as u32) / 100;
-            final_height = (raw.height * scale_pct as u32) / 100;
-
-            if final_width > 0 && final_height > 0 {
-                let src = ImageRef::new(
-                    raw.width,
-                    raw.height,
-                    &raw.buffer,
-                    PixelType::U8x4,
-                ).unwrap();
-
-                let required = (final_width * final_height * 4) as usize;
-                if resized_storage.len() < required {
-                    resized_storage.resize(required, 0);
-                }
-
-                let mut dst = Image::from_slice_u8(
-                    final_width,
-                    final_height,
-                    &mut resized_storage,
-                    PixelType::U8x4,
-                ).unwrap();
-
-                let opts = ResizeOptions::new()
-                    .resize_alg(fast_image_resize::ResizeAlg::Nearest);
-
-                if resizer.resize(&src, &mut dst, &opts).is_ok() {
-                    final_pixels = &resized_storage[..required];
-                }
-            }
-        }
-
-        let image = JpegImage {
-            pixels: final_pixels,
-            width: final_width as usize,
-            height: final_height as usize,
-            pitch: (final_width * 4) as usize,
-            format: PixelFormat::BGRA, 
-        };
-
-        let _ = compressor.set_quality(quality as i32);
-        let _ = compressor.set_subsamp(Subsamp::Sub2x2);
-
-        if compressor.compress(image, &mut comp_buf).is_ok() {
-             let _ = tx_web.send(StreamFrame {
-                jpeg: Arc::new(comp_buf.to_vec()), 
-                active_window: get_active_window_title(),
-                actual_fps: current_fps, // This now updates every frame!
-            });
-        }
-
-        let _ = recycle_tx.try_send(raw.buffer);
     }
 }
 

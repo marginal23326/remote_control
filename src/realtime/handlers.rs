@@ -1,9 +1,9 @@
+use crate::state::SharedState;
 use serde::Deserialize;
 use serde_json::json;
-use socketioxide::extract::{Data, State, SocketRef};
-use tokio::time::Duration;
+use socketioxide::extract::{Data, SocketRef, State};
 use tokio::task::AbortHandle;
-use crate::state::SharedState;
+use tokio::time::Duration;
 
 // --- DATA STRUCTURES ---
 
@@ -19,10 +19,15 @@ pub struct MouseEvent {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(tag = "type", rename_all = "camelCase")] 
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum KeyboardEvent {
-    Text { text: String },
-    Shortcut { shortcut: String, modifiers: Option<Vec<String>> },
+    Text {
+        text: String,
+    },
+    Shortcut {
+        shortcut: String,
+        modifiers: Option<Vec<String>>,
+    },
 }
 
 #[derive(Deserialize, Debug)]
@@ -58,31 +63,41 @@ pub struct AudioConfig {
 
 // --- HANDLERS ---
 
-pub async fn handle_mouse_event(
-    Data(data): Data<MouseEvent>,
-    State(state): State<SharedState>,
-) {
-    let input = state.input.lock().unwrap();
+pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<SharedState>) {
+    let input = state.input.clone();
 
-    match data.r#type.as_str() {
+    let result = match data.r#type.as_str() {
         "move" => {
             if let (Some(x), Some(y)) = (data.x, data.y) {
-                input.move_mouse(x as i32, y as i32);
+                input.move_mouse(x as i32, y as i32).await
+            } else {
+                Ok(())
             }
         }
         "click" => {
+            if let (Some(x), Some(y)) = (data.x, data.y) {
+                let _ = input.move_mouse(x as i32, y as i32).await;
+            }
             if let (Some(btn), Some(pressed)) = (data.button, data.pressed) {
-                input.click_mouse(&btn, pressed);
+                input.click_mouse(&btn, pressed).await
+            } else {
+                Ok(())
             }
         }
         "scroll" => {
             let dx = data.dx.unwrap_or(0);
             let dy = data.dy.unwrap_or(0);
             if dx != 0 || dy != 0 {
-                input.scroll_mouse(dx, dy);
+                input.scroll_mouse(dx, dy).await
+            } else {
+                Ok(())
             }
         }
-        _ => {}
+        _ => Ok(()),
+    };
+
+    if let Err(err) = result {
+        tracing::error!("Input mouse event failed: {err:#}");
     }
 }
 
@@ -90,16 +105,21 @@ pub async fn handle_keyboard_event(
     Data(data): Data<KeyboardEvent>,
     State(state): State<SharedState>,
 ) {
-    let input = state.input.lock().unwrap();
-    
-    match data {
-        KeyboardEvent::Text { text } => {
-            input.type_text(&text);
-        },
-        KeyboardEvent::Shortcut { shortcut, modifiers } => {
+    let input = state.input.clone();
+
+    let result = match data {
+        KeyboardEvent::Text { text } => input.type_text(&text).await,
+        KeyboardEvent::Shortcut {
+            shortcut,
+            modifiers,
+        } => {
             let mods = modifiers.unwrap_or_default();
-            input.send_shortcut(&shortcut, mods);
+            input.send_shortcut(&shortcut, mods).await
         }
+    };
+
+    if let Err(err) = result {
+        tracing::error!("Input keyboard event failed: {err:#}");
     }
 }
 
@@ -109,18 +129,23 @@ pub async fn handle_shell_create(
     State(state): State<SharedState>,
 ) {
     let mut shell_manager = state.shell.lock().unwrap();
-    let session_id = socket.id.to_string(); 
+    let session_id = socket.id.to_string();
 
-    if let Err(e) = shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone()) {
+    if let Err(e) =
+        shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone())
+    {
         tracing::error!("Failed to create shell: {}", e);
         let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
         return;
     }
 
-    let _ = socket.emit("shell_created", &json!({ 
-        "status": "success",
-        "session_id": session_id 
-    }));
+    let _ = socket.emit(
+        "shell_created",
+        &json!({
+            "status": "success",
+            "session_id": session_id
+        }),
+    );
 }
 
 pub async fn handle_shell_input(
@@ -143,10 +168,7 @@ pub async fn handle_shell_resize(
     }
 }
 
-pub async fn handle_disconnect(
-    socket: SocketRef,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedState>) {
     // Abort the polling task if it exists
     if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
         task.handle.abort();
@@ -156,33 +178,34 @@ pub async fn handle_disconnect(
     shell_manager.close_session(&socket.id.to_string());
 }
 
-pub async fn handle_task_poll_start(
-    socket: SocketRef,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {
     // 1. Check if a task is already running for this socket and abort it to prevent duplicates
     if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
         task.handle.abort();
     }
 
     let socket_clone = socket.clone();
-    
+
     // 2. Spawn the task and get the JoinHandle
     let join_handle = tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(2));
-        
+
         loop {
             interval.tick().await;
 
             let data = {
                 let tasks = state.tasks.lock().unwrap();
                 let processes = tasks.get_processes();
-                
+
                 let sys = state.sys.lock().unwrap();
                 let total_mem = sys.total_memory() as f64;
                 let used_mem = sys.used_memory() as f64;
-                let mem_pct = if total_mem > 0.0 { (used_mem / total_mem) * 100.0 } else { 0.0 };
-                
+                let mem_pct = if total_mem > 0.0 {
+                    (used_mem / total_mem) * 100.0
+                } else {
+                    0.0
+                };
+
                 let cpu_global = sys.global_cpu_usage();
 
                 json!({
@@ -194,20 +217,18 @@ pub async fn handle_task_poll_start(
 
             // If emit fails (socket closed), break the loop
             if socket_clone.emit("task_list", &data).is_err() {
-                break; 
+                break;
             }
         }
     });
 
     // 3. Store the AbortHandle in the socket extensions
-    socket.extensions.insert(TaskPollTask { 
-        handle: join_handle.abort_handle() 
+    socket.extensions.insert(TaskPollTask {
+        handle: join_handle.abort_handle(),
     });
 }
 
-pub async fn handle_task_poll_stop(
-    socket: SocketRef,
-) {
+pub async fn handle_task_poll_stop(socket: SocketRef) {
     // Retrieve the handle from extensions and abort the task
     if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
         task.handle.abort();
@@ -228,9 +249,7 @@ pub async fn handle_start_server_audio(
     }
 }
 
-pub async fn handle_stop_server_audio(
-    State(state): State<SharedState>,
-) {
+pub async fn handle_stop_server_audio(State(state): State<SharedState>) {
     let audio = state.audio.lock().unwrap();
     audio.stop_server_stream();
 }
@@ -241,15 +260,13 @@ pub async fn handle_start_client_audio(
 ) {
     let audio = state.audio.lock().unwrap();
     let rate = data.rate.unwrap_or(48000);
-    
+
     if let Err(e) = audio.start_client_playback(rate) {
         tracing::error!("Failed to start client playback: {}", e);
     }
 }
 
-pub async fn handle_stop_client_audio(
-    State(state): State<SharedState>,
-) {
+pub async fn handle_stop_client_audio(State(state): State<SharedState>) {
     let audio = state.audio.lock().unwrap();
     audio.stop_client_playback();
 }

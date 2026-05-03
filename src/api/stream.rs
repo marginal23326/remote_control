@@ -1,13 +1,15 @@
+use crate::state::SharedState;
 use axum::{
-    extract::{State, WebSocketUpgrade, ws::{WebSocket, Message}},
-    response::IntoResponse,
-    body::Bytes,
     Json,
+    body::Bytes,
+    extract::{
+        State, WebSocketUpgrade,
+        ws::{Message, WebSocket},
+    },
+    response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::state::SharedState;
-use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
 #[derive(Deserialize, Serialize)]
 pub struct StreamSettingsDTO {
@@ -25,13 +27,12 @@ pub struct CurrentSettingsResponse {
     pub native_height: i32,
 }
 
-pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<CurrentSettingsResponse> {
-    let screen = state.screen.lock().unwrap();
+pub async fn get_settings_handler(
+    State(state): State<SharedState>,
+) -> Json<CurrentSettingsResponse> {
+    let screen = state.screen.clone();
     let s = screen.settings.lock().unwrap();
-    
-    // Get actual monitor resolution
-    let native_width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
-    let native_height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
+    let (native_width, native_height) = screen.native_size();
 
     Json(CurrentSettingsResponse {
         quality: s.quality,
@@ -46,8 +47,8 @@ pub async fn update_settings_handler(
     State(state): State<SharedState>,
     Json(payload): Json<StreamSettingsDTO>,
 ) -> Json<CurrentSettingsResponse> {
-    let screen = state.screen.lock().unwrap();
-    
+    let screen = state.screen.clone();
+
     // Update settings in the manager
     screen.update_settings(
         payload.quality.unwrap_or(75),
@@ -60,8 +61,7 @@ pub async fn update_settings_handler(
 
     // Drop the lock before calling get_settings_handler logic or just re-fetch
     let s = screen.settings.lock().unwrap();
-    let native_width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
-    let native_height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
+    let (native_width, native_height) = screen.native_size();
 
     Json(CurrentSettingsResponse {
         quality: s.quality,
@@ -73,7 +73,7 @@ pub async fn update_settings_handler(
 }
 
 pub async fn stop_stream_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
-    state.screen.lock().unwrap().stop_capture();
+    state.screen.stop_capture();
     Json(json!({"status": "success"}))
 }
 
@@ -86,14 +86,17 @@ pub async fn stream_handler(
 
 async fn handle_socket(mut socket: WebSocket, state: SharedState) {
     let mut rx = {
-        let screen = state.screen.lock().unwrap();
-        screen.start_capture();
+        let screen = state.screen.clone();
+        if let Err(err) = screen.start_capture().await {
+            tracing::error!("Failed to start screen capture: {err:#}");
+            return;
+        }
         screen.get_frame_receiver()
     };
 
     loop {
         if rx.changed().await.is_err() {
-            break; 
+            break;
         }
 
         // We extract the data we need and drop the 'frame' reference IMMEDIATELY
@@ -104,14 +107,19 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState) {
                 continue;
             }
             // Cloning the Arc is cheap (just increments a counter)
-            (frame.jpeg.clone(), frame.actual_fps, frame.active_window.clone())
-        }; 
+            (
+                frame.jpeg.clone(),
+                frame.actual_fps,
+                frame.active_window.clone(),
+            )
+        };
         // 'frame' is dropped here, so the lock is released.
 
         let meta = json!({
             "fps": fps,
             "win": active_window
-        }).to_string();
+        })
+        .to_string();
 
         if let Err(_) = socket.send(Message::Text(meta.into())).await {
             break;
@@ -119,7 +127,7 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState) {
 
         // Convert Arc<Vec<u8>> to Bytes
         let image_bytes = Bytes::from(jpeg_data.to_vec());
-        
+
         if let Err(_) = socket.send(Message::Binary(image_bytes)).await {
             break;
         }
@@ -128,15 +136,17 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState) {
 
 pub async fn screenshot_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
     let mut rx = {
-        let screen_manager = state.screen.lock().unwrap();
-        screen_manager.start_capture();
+        let screen_manager = state.screen.clone();
+        if let Err(err) = screen_manager.start_capture().await {
+            return Json(json!({"status": "error", "message": err.to_string()}));
+        }
         screen_manager.get_frame_receiver()
     };
 
     if let Err(_) = rx.changed().await {
         return Json(json!({"status": "error", "message": "Channel closed"}));
     }
-    
+
     let frame_data = rx.borrow();
     if !frame_data.jpeg.is_empty() {
         use base64::{Engine as _, engine::general_purpose};

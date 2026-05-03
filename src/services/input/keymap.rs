@@ -1,0 +1,43 @@
+use xkeysym::key;
+
+pub(crate) fn shortcut_keysym(name: &str) -> Option<u32> {
+    match name.to_lowercase().as_str() {
+        "shift" => Some(key::Shift_L),
+        "ctrl" | "control" => Some(key::Control_L),
+        "alt" => Some(key::Alt_L),
+        "win" | "super" | "meta" => Some(key::Super_L),
+        "enter" | "return" => Some(key::Return),
+        "backspace" => Some(key::BackSpace),
+        "tab" => Some(key::Tab),
+        "esc" | "escape" => Some(key::Escape),
+        "space" => Some(key::space),
+        "up" => Some(key::Up),
+        "down" => Some(key::Down),
+        "left" => Some(key::Left),
+        "right" => Some(key::Right),
+        "home" => Some(key::Home),
+        "end" => Some(key::End),
+        "pageup" => Some(key::Page_Up),
+        "pagedown" => Some(key::Page_Down),
+        "insert" => Some(key::Insert),
+        "delete" => Some(key::Delete),
+        "printscreen" => Some(key::Print),
+        "f1" => Some(key::F1),
+        "f2" => Some(key::F2),
+        "f3" => Some(key::F3),
+        "f4" => Some(key::F4),
+        "f5" => Some(key::F5),
+        "f6" => Some(key::F6),
+        "f7" => Some(key::F7),
+        "f8" => Some(key::F8),
+        "f9" => Some(key::F9),
+        "f10" => Some(key::F10),
+        "f11" => Some(key::F11),
+        "f12" => Some(key::F12),
+        s if s.chars().count() == 1 => s
+            .chars()
+            .next()
+            .map(|ch| xkeysym::Keysym::from_char(ch).raw()),
+        _ => None,
+    }
+}
