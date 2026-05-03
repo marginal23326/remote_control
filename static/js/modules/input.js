@@ -274,8 +274,8 @@ function initializeInputHandlers(socket) {
         const relativeY = clientY - dimensions.container.top - dimensions.offsetY;
         
         // Scale to native resolution
-        const x = Math.max(0, Math.min(streamUI.nativeWidth, relativeX * dimensions.scaleX));
-        const y = Math.max(0, Math.min(streamUI.nativeHeight, relativeY * dimensions.scaleY));
+        const x = Math.max(0, Math.min(dimensions.nativeWidth, relativeX * dimensions.scaleX));
+        const y = Math.max(0, Math.min(dimensions.nativeHeight, relativeY * dimensions.scaleY));
         
         const data = { type, x, y, ...options };
         socket.emit('mouse_event', data);

@@ -219,8 +219,10 @@ function calculateStreamDimensions() {
         streamHeight,
         offsetX,
         offsetY,
-        scaleX: nativeWidth / streamWidth,
-        scaleY: nativeHeight / streamHeight
+        scaleX: w / streamWidth,
+        scaleY: h / streamHeight,
+        nativeWidth: w,
+        nativeHeight: h,
     };
 }
 

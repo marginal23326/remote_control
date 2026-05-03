@@ -1,15 +1,11 @@
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, Networks, ProcessesToUpdate};
 use std::sync::{Arc, Mutex};
+use sysinfo::{Networks, ProcessesToUpdate, System};
 use tokio::process::Command;
-use windows::core::{PCWSTR, HSTRING};
-use windows::Win32::System::Registry::{
-    RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ,
-};
-use windows::Win32::System::Power::{
-    GetSystemPowerStatus, SYSTEM_POWER_STATUS,
-};
+use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
+use windows::core::{HSTRING, PCWSTR};
 
 #[derive(Serialize)]
 pub struct SystemInfoDTO {
@@ -67,8 +63,8 @@ struct LocationData {
 }
 
 pub async fn get_system_info(
-    sys_lock: &Arc<Mutex<System>>, 
-    net_lock: &Arc<Mutex<Networks>>
+    sys_lock: &Arc<Mutex<System>>,
+    net_lock: &Arc<Mutex<Networks>>,
 ) -> SystemInfoDTO {
     // 1. Refresh Dynamic Data
     {
@@ -86,38 +82,46 @@ pub async fn get_system_info(
             sys.total_memory() / 1024 / 1024,
             sys.processes().len(),
             sys.cpus().len(),
-            sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default(),
+            sys.cpus()
+                .first()
+                .map(|c| c.brand().to_string())
+                .unwrap_or_default(),
         )
     };
-    
+
     let cpu_cores = System::physical_core_count().unwrap_or(0);
 
     // 2. Hardware Info (Async / WMIC)
     let (gpu_info, disk_model_info, antivirus_info, cpu_max_speed_info) = tokio::join!(
         run_wmic_command("path win32_VideoController get name"),
         run_wmic_command("diskdrive get Model,Size"),
-        run_wmic_command(r"/namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName"),
+        run_wmic_command(
+            r"/namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName"
+        ),
         run_wmic_command("cpu get MaxClockSpeed")
     );
-    
+
     // CPU Speeds
     let cpu_base = get_cpu_base_speed(&cpu_brand);
     let cpu_max = parse_wmic_cpu_speed(&cpu_max_speed_info);
 
     // 3. Windows Specifics
     let os_edition = get_windows_product_name().unwrap_or_else(|| "Windows".to_string());
-    let (screen_w, screen_h) = unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) };
+    let (screen_w, screen_h) =
+        unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) };
 
     // 4. Battery
     let battery_status = get_battery_status();
 
     // 5. Network (Async HTTP)
     let wan_info = fetch_wan_info().await;
-    let lan_ip = local_ip_address::local_ip().map(|i| i.to_string()).unwrap_or("127.0.0.1".to_string());
+    let lan_ip = local_ip_address::local_ip()
+        .map(|i| i.to_string())
+        .unwrap_or("127.0.0.1".to_string());
     let mac = get_mac_address(net_lock);
 
     // 6. User & Host Info
-    
+
     let username = whoami::username().unwrap_or_else(|_| "Unknown".to_string());
     let pc_name = whoami::devicename().unwrap_or_else(|_| "Unknown".to_string());
     let hostname = hostname::get()
@@ -174,10 +178,10 @@ pub async fn get_system_info(
 async fn run_wmic_command(args: &str) -> String {
     let output = Command::new("cmd")
         .args(["/C", "wmic"])
-        .raw_arg(args) 
+        .raw_arg(args)
         .creation_flags(0x08000000)
         .output()
-        .await; 
+        .await;
 
     match output {
         Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
@@ -189,31 +193,38 @@ fn clean_wmic_list(output: &str) -> String {
     let mut items = Vec::new();
     for line in output.lines() {
         let trimmed = line.trim();
-        if trimmed.is_empty() 
-           || trimmed.to_lowercase().contains("name") 
-           || trimmed.to_lowercase().contains("displayname") 
-           || trimmed.contains("AntiVirusProduct") { 
+        if trimmed.is_empty()
+            || trimmed.to_lowercase().contains("name")
+            || trimmed.to_lowercase().contains("displayname")
+            || trimmed.contains("AntiVirusProduct")
+        {
             continue;
         }
         if !items.contains(&trimmed.to_string()) {
             items.push(trimmed.to_string());
         }
     }
-    if items.is_empty() { "N/A".to_string() } else { items.join(", ") }
+    if items.is_empty() {
+        "N/A".to_string()
+    } else {
+        items.join(", ")
+    }
 }
 
 fn parse_disk_info(output: &str) -> String {
     let mut disks = Vec::new();
     for line in output.lines() {
         let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.to_lowercase().contains("model") { continue; }
-        
+        if trimmed.is_empty() || trimmed.to_lowercase().contains("model") {
+            continue;
+        }
+
         let parts: Vec<&str> = trimmed.split_whitespace().collect();
         if parts.len() >= 2 {
             // WMIC output puts size at the end usually
             let size_str = parts.last().unwrap();
-            let model = parts[..parts.len()-1].join(" ");
-            
+            let model = parts[..parts.len() - 1].join(" ");
+
             if let Ok(bytes) = size_str.parse::<u64>() {
                 let gb = bytes / 1024 / 1024 / 1024;
                 disks.push(format!("{} ({}GB)", model, gb));
@@ -222,7 +233,11 @@ fn parse_disk_info(output: &str) -> String {
             }
         }
     }
-    if disks.is_empty() { "N/A".to_string() } else { disks.join(", ") }
+    if disks.is_empty() {
+        "N/A".to_string()
+    } else {
+        disks.join(", ")
+    }
 }
 
 fn get_windows_product_name() -> Option<String> {
@@ -243,7 +258,7 @@ fn get_windows_product_name() -> Option<String> {
         );
 
         if result.is_ok() {
-            let len = (size / 2) - 1; 
+            let len = (size / 2) - 1;
             Some(String::from_utf16_lossy(&buffer[..len as usize]))
         } else {
             None
@@ -258,11 +273,14 @@ fn get_battery_status() -> String {
             match status.ACLineStatus {
                 0 => {
                     let pct = status.BatteryLifePercent;
-                    if pct == 255 { "Battery (Unknown %)".to_string() }
-                    else { format!("Discharging ({}% remaining)", pct) }
-                },
-                1 => "No battery detected".to_string(), 
-                _ => "Unknown".to_string()
+                    if pct == 255 {
+                        "Battery (Unknown %)".to_string()
+                    } else {
+                        format!("Discharging ({}% remaining)", pct)
+                    }
+                }
+                1 => "No battery detected".to_string(),
+                _ => "Unknown".to_string(),
             }
         } else {
             "Unknown".to_string()
@@ -272,7 +290,7 @@ fn get_battery_status() -> String {
 
 fn get_cpu_base_speed(brand: &str) -> String {
     if let Some(idx) = brand.find('@') {
-        return brand[idx+1..].trim().to_string();
+        return brand[idx + 1..].trim().to_string();
     }
     "N/A".to_string()
 }
@@ -281,9 +299,9 @@ fn parse_wmic_cpu_speed(output: &str) -> String {
     for line in output.lines() {
         let trimmed = line.trim();
         if trimmed.chars().all(char::is_numeric) && !trimmed.is_empty() {
-             if let Ok(mhz) = trimmed.parse::<f64>() {
-                 return format!("{:.2} GHz", mhz / 1000.0);
-             }
+            if let Ok(mhz) = trimmed.parse::<f64>() {
+                return format!("{:.2} GHz", mhz / 1000.0);
+            }
         }
     }
     "N/A".to_string()
@@ -291,30 +309,65 @@ fn parse_wmic_cpu_speed(output: &str) -> String {
 
 async fn fetch_wan_info() -> (String, String, String, String, String) {
     let client = reqwest::Client::new();
-    match client.get("https://api.ipapi.is/")
-        .timeout(std::time::Duration::from_secs(3)) 
-        .send().await {
+    match client
+        .get("https://api.ipapi.is/")
+        .timeout(std::time::Duration::from_secs(3))
+        .send()
+        .await
+    {
         Ok(resp) => {
             if let Ok(data) = resp.json::<IpApiConnect>().await {
                 let ip = data.ip.unwrap_or("N/A".to_string());
-                let asn = data.asn.as_ref().map(|a| a.asn.unwrap_or(0).to_string()).unwrap_or("N/A".to_string());
-                let isp = data.asn.as_ref().and_then(|a| a.org.clone()).unwrap_or("N/A".to_string());
-                let country = data.location.as_ref().and_then(|l| l.country.clone()).unwrap_or("N/A".to_string());
-                let timezone = data.location.as_ref().and_then(|l| l.timezone.clone()).unwrap_or("N/A".to_string());
-                
+                let asn = data
+                    .asn
+                    .as_ref()
+                    .map(|a| a.asn.unwrap_or(0).to_string())
+                    .unwrap_or("N/A".to_string());
+                let isp = data
+                    .asn
+                    .as_ref()
+                    .and_then(|a| a.org.clone())
+                    .unwrap_or("N/A".to_string());
+                let country = data
+                    .location
+                    .as_ref()
+                    .and_then(|l| l.country.clone())
+                    .unwrap_or("N/A".to_string());
+                let timezone = data
+                    .location
+                    .as_ref()
+                    .and_then(|l| l.timezone.clone())
+                    .unwrap_or("N/A".to_string());
+
                 (ip, asn, isp, country, timezone)
             } else {
-                ("N/A".to_string(), "N/A".to_string(), "N/A".to_string(), "N/A".to_string(), "N/A".to_string())
+                (
+                    "N/A".to_string(),
+                    "N/A".to_string(),
+                    "N/A".to_string(),
+                    "N/A".to_string(),
+                    "N/A".to_string(),
+                )
             }
-        },
-        Err(_) => ("N/A".to_string(), "N/A".to_string(), "N/A".to_string(), "N/A".to_string(), "N/A".to_string())
+        }
+        Err(_) => (
+            "N/A".to_string(),
+            "N/A".to_string(),
+            "N/A".to_string(),
+            "N/A".to_string(),
+            "N/A".to_string(),
+        ),
     }
 }
 
 async fn get_firewall_status() -> String {
     let output = run_wmic_command("path HNetCfg.FwMgr get CurrentProfileType").await;
     // If output has a number (profile type), firewall is effectively "On" or at least active.
-    if !output.trim().is_empty() { "Enabled".to_string() } else { "Disabled".to_string() }
+    if !output.trim().is_empty() {
+        "Enabled".to_string()
+    } else {
+        "Disabled".to_string()
+    }
 }
 
 fn get_mac_address(net_lock: &Arc<Mutex<Networks>>) -> String {
