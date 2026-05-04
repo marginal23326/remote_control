@@ -1,5 +1,5 @@
 // static/js/modules/input.js
-import { streamUI, streamActive, calculateStreamDimensions, isFullscreen } from './stream.js';
+import { streamUI, streamActive, calculateStreamDimensions } from './stream.js';
 
 // Mapping for abstract action names to actual keys
 const SHORTCUT_MAP = {
@@ -24,7 +24,7 @@ function initializeInputHandlers(socket) {
 
     // 2. Handle Standard Shortcut Buttons (Grid buttons like "Copy", "Up", "Esc")
     document.querySelectorAll('[data-key]').forEach(button => {
-        button.addEventListener('click', (e) => {
+        button.addEventListener('click', (_e) => {
             // Add a visual click effect for the HUD aesthetic
             button.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
             setTimeout(() => {

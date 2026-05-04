@@ -1,3 +1,6 @@
+import '../input.css';
+import '../css/styles.css';
+
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
     const errorBox = document.getElementById('errorBox');

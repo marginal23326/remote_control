@@ -1,6 +1,7 @@
 // static/js/main.js
+import '../input.css';
+import '../css/styles.css';
 import { initializeSocketIO } from './modules/connection.js';
-import { showConnectionOverlay, hideConnectionOverlay, LoadingButton } from './modules/dom.js';
 import { AudioManager } from './modules/audio.js';
 import { initializeStream, updateSettingsDisplay } from './modules/stream.js';
 import { InteractiveShell } from './modules/shell.js';
@@ -33,9 +34,9 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
 
     const sessionId = Math.random().toString(36).substring(2);
 
-    const audioManager = new AudioManager(socket);
+    const _audioManager = new AudioManager(socket);
 
-    const shell = new InteractiveShell('shellSection', socket);
+    const _shell = new InteractiveShell('shellSection', socket);
         
     // Initialize different parts of the application
     initializeStream(sessionId, socket);
@@ -50,7 +51,7 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
     try {
         const initialSettings = await apiCall('/api/stream/settings', 'GET');
         updateSettingsDisplay(initialSettings);
-    } catch (e) {
+    } catch {
         console.log("Stream settings not yet available");
     }
 
