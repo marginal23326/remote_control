@@ -1,4 +1,5 @@
 // static/js/modules/connection.js
+import { io } from 'socket.io-client';
 import { showConnectionOverlay, hideConnectionOverlay } from './dom.js';
 
 function initializeSocketIO(authCallback) {

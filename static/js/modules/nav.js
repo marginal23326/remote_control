@@ -11,7 +11,7 @@ function initializeNavigation(isAuthenticated = true) {
                 section.classList.remove('hidden');
                 // Trigger animation replay if needed
                 section.style.animation = 'none';
-                section.offsetHeight; /* trigger reflow */
+                void section.offsetHeight; /* trigger reflow */
                 section.style.animation = null; 
             } else {
                 section.classList.add('hidden');

@@ -237,7 +237,6 @@ class SelectionManager {
         if (!this.isDragging || !this.dragStartElement) return;
 
         const container = document.querySelector(this.config.containerSelector);
-        const rect = container.getBoundingClientRect();
         const mouseY = event.clientY;
 
         const items = Array.from(container.querySelectorAll(this.config.itemSelector))
@@ -575,7 +574,7 @@ class BaseTaskManager extends UIManager {
             containerSelector: '#taskList',
             itemDataAttribute: 'pid',
             getItemId: (element) => element.dataset.pid,
-            isItemSelectable: (element) => true,
+            isItemSelectable: (_element) => true,
             getContextMenuItems: () => [{
                 label: 'End Task',
                 action: () => {

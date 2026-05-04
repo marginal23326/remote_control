@@ -58,7 +58,6 @@ struct TaskPollTask {
 pub struct AudioConfig {
     pub source: Option<String>,
     pub rate: Option<u32>,
-    pub chunk: Option<u32>,
 }
 
 // --- HANDLERS ---

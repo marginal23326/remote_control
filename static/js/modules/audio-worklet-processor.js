@@ -6,7 +6,7 @@ class ClientAudioProcessor extends AudioWorkletProcessor {
     this.bufferSize = options.processorOptions.bufferSize || 2048; 
   }
 
-  process(inputs, outputs, parameters) {
+  process(inputs, _outputs, _parameters) {
     const input = inputs[0];
     
     if (input && input.length > 0) {

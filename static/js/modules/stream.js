@@ -161,7 +161,7 @@ function initializeStream(sessionId, socket) {
         if (isFullscreen) {
             streamUI.container.classList.add('fullscreen');
             streamUI.container.style.display = 'none';
-            streamUI.container.offsetHeight;
+            void streamUI.container.offsetHeight;
             streamUI.container.style.display = 'flex';
         } else {
             streamUI.container.classList.remove('fullscreen');

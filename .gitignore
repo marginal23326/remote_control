@@ -1,2 +1,13 @@
-/target
-node_modules
+/target/
+node_modules/
+/static/dist/
+/static/css/tailwind.css
+user_config.json
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log

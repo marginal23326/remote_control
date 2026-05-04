@@ -3,7 +3,7 @@ import { apiCall, SVG_TEMPLATES, BaseTaskManager } from './utils.js';
 
 function initializeTaskManager(socket) {
     const taskManager = new BaseTaskManager();
-    let selectedProcess = null;
+    let _selectedProcess = null;
     let currentSort = { column: 'name', order: 'asc' };
     let processes = [];
     let expandedGroups = new Set();

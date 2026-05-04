@@ -1,3 +1,7 @@
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import '@xterm/xterm/css/xterm.css';
 import { SVG_TEMPLATES } from './utils.js';
 
 export class InteractiveShell {
@@ -18,9 +22,9 @@ export class InteractiveShell {
             scrollback: 10000
         });
 
-        this.fitAddon = new window.FitAddon.FitAddon();
+        this.fitAddon = new FitAddon();
         this.terminal.loadAddon(this.fitAddon);
-        this.terminal.loadAddon(new window.WebLinksAddon.WebLinksAddon());
+        this.terminal.loadAddon(new WebLinksAddon());
 
         this.initializeTerminal();
         this.setupEventHandlers();

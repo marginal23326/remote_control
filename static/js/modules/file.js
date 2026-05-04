@@ -64,7 +64,8 @@ class FileManager extends BaseFileManager {
         try {
             await this.handleApiCall('/api/upload', 'POST', formData, async () => {
                 const lastFile = files[files.length - 1].name;
-                const highlightPath = `${this.currentPath}${this.currentPath.endsWith('\\') ? '' : '\\'}${lastFile}`;
+                const sep = this.getSeparator();
+                const highlightPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? '' : sep}${lastFile}`;
                 await this.listFiles(this.currentPath, highlightPath);
 
                 if (!isDropZone) {
@@ -229,10 +230,24 @@ class FileManager extends BaseFileManager {
         return `<div class="flex items-center gap-2">${icon}${nameContent}</div>`;
     }
 
+    getSeparator() {
+        return this.currentPath.includes('\\') ? '\\' : '/';
+    }
+
     getParentPath() {
-        if (this.currentPath.match(/^[A-Z]:\\$/)) return '/';
-        const path = this.currentPath.replace(/\\$/, '');
-        return path.substring(0, path.lastIndexOf('\\')) + '\\';
+        const path = this.currentPath;
+        
+        if (path.match(/^[A-Z]:\\$/)) return '/';
+        
+        const cleaned = path.replace(/[\\/]$/, '');
+        const lastSlash = cleaned.lastIndexOf('/');
+        const lastBackslash = cleaned.lastIndexOf('\\');
+        const lastSep = Math.max(lastSlash, lastBackslash);
+        
+        if (lastSep <= 0) return '/';
+        
+        const sep = lastSep === lastSlash ? '/' : '\\';
+        return cleaned.substring(0, lastSep) + sep;
     }
 
     async listFiles(path, highlightPath = null) {
@@ -304,7 +319,7 @@ class FileManager extends BaseFileManager {
 
         if (!confirm(confirmMessage)) return;
 
-        await this.handleApiCall('/api/delete', 'POST', { paths }, async (response) => {
+        await this.handleApiCall('/api/delete', 'POST', { paths }, async (_response) => {
             await this.listFiles(this.currentPath);
             this.clearSelection();
         });
@@ -364,9 +379,10 @@ class FileManager extends BaseFileManager {
                     'POST',
                     { parentPath: this.currentPath, folderName },
                     async () => {
-                        const newFolderPath = this.currentPath.endsWith('\\')
+                        const sep = this.getSeparator();
+                        const newFolderPath = this.currentPath.endsWith(sep)
                             ? `${this.currentPath}${folderName}`
-                            : `${this.currentPath}\\${folderName}`;
+                            : `${this.currentPath}${sep}${folderName}`;
                         await this.listFiles(this.currentPath, newFolderPath);
                         if (folderNameInput) folderNameInput.value = '';
                     }
@@ -387,9 +403,10 @@ class FileManager extends BaseFileManager {
                 }
 
                 await this.handleApiCall('/api/rename', 'POST', { oldPath, newName }, async () => {
-                    const newPath = this.currentPath.endsWith('\\')
+                    const sep = this.getSeparator();
+                    const newPath = this.currentPath.endsWith(sep)
                         ? `${this.currentPath}${newName}`
-                        : `${this.currentPath}\\${newName}`;
+                        : `${this.currentPath}${sep}${newName}`;
                     await this.listFiles(this.currentPath, newPath);
                     document.getElementById('fileOperations')?.classList.add('hidden');
                     this.clearSelection();
