@@ -3,10 +3,8 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
-use std::time::{Duration, Instant};
 
-use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
-use tokio::sync::watch;
+use crossbeam_channel::{Receiver, Sender, TrySendError};
 
 use windows_capture::{
     capture::{Context, GraphicsCaptureApiHandler},
@@ -22,103 +20,42 @@ use windows_capture::{
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-use super::encoder::run_encoder_loop;
-use super::{RawFrame, StreamFrame, StreamSettings};
+use super::{FrameRateLimiter, RawFrame, StreamSettings};
 
-pub struct ScreenManager {
-    pub settings: Arc<Mutex<StreamSettings>>,
-    tx: watch::Sender<StreamFrame>,
-    rx: watch::Receiver<StreamFrame>,
+pub(crate) async fn start_os_capture(
+    work_tx: Sender<RawFrame>,
+    recycle_rx: Receiver<Vec<u8>>,
+    settings: Arc<Mutex<StreamSettings>>,
     is_running: Arc<AtomicBool>,
+    _native_size: Arc<Mutex<(i32, i32)>>,
+) -> anyhow::Result<()> {
+    thread::spawn(move || {
+        let monitor = Monitor::primary().expect("No primary monitor found");
+        let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings);
+
+        let settings = Settings::new(
+            monitor,
+            CursorCaptureSettings::Default,
+            DrawBorderSettings::WithoutBorder,
+            SecondaryWindowSettings::Default,
+            MinimumUpdateIntervalSettings::Custom(std::time::Duration::ZERO),
+            DirtyRegionSettings::Default,
+            ColorFormat::Bgra8,
+            capture_ctx,
+        );
+
+        if let Err(e) = CaptureHandler::start(settings) {
+            tracing::error!("Capture ended: {}", e);
+        }
+
+        is_running.store(false, Ordering::SeqCst);
+    });
+
+    Ok(())
 }
 
-impl ScreenManager {
-    pub fn new() -> Self {
-        let (tx, rx) = watch::channel(StreamFrame::default());
-        Self {
-            settings: Arc::new(Mutex::new(StreamSettings::default())),
-            tx,
-            rx,
-            is_running: Arc::new(AtomicBool::new(false)),
-        }
-    }
-
-    pub fn get_frame_receiver(&self) -> watch::Receiver<StreamFrame> {
-        self.rx.clone()
-    }
-
-    pub fn update_settings(&self, quality: u8, resolution: u8) {
-        let mut s = self.settings.lock().unwrap();
-        s.quality = quality.clamp(10, 100);
-        s.resolution_percentage = resolution.clamp(10, 100);
-    }
-
-    pub fn set_target_fps(&self, fps: u64) {
-        let mut s = self.settings.lock().unwrap();
-        s.target_fps = fps.clamp(1, 144);
-    }
-
-    pub async fn start_capture(&self) -> anyhow::Result<()> {
-        if self.is_running.load(Ordering::SeqCst) {
-            return Ok(());
-        }
-        self.is_running.store(true, Ordering::SeqCst);
-
-        let settings_arc = self.settings.clone();
-        let tx_web = self.tx.clone();
-        let is_running_clone = self.is_running.clone();
-
-        thread::spawn(move || {
-            let (work_tx, work_rx) = bounded::<RawFrame>(3);
-            let (recycle_tx, recycle_rx) = bounded::<Vec<u8>>(5);
-
-            let settings_enc = settings_arc.clone();
-            let is_running_enc = is_running_clone.clone();
-
-            thread::spawn(move || {
-                run_encoder_loop(
-                    work_rx,
-                    recycle_tx,
-                    tx_web,
-                    settings_enc,
-                    is_running_enc,
-                    get_active_window_title,
-                );
-            });
-
-            let monitor = Monitor::primary().expect("No primary monitor found");
-
-            let capture_ctx =
-                CaptureContext::new(work_tx, recycle_rx, is_running_clone.clone(), settings_arc);
-
-            let settings = Settings::new(
-                monitor,
-                CursorCaptureSettings::Default,
-                DrawBorderSettings::WithoutBorder,
-                SecondaryWindowSettings::Default,
-                MinimumUpdateIntervalSettings::Custom(Duration::ZERO),
-                DirtyRegionSettings::Default,
-                ColorFormat::Bgra8,
-                capture_ctx,
-            );
-
-            if let Err(e) = CaptureHandler::start(settings) {
-                tracing::error!("Capture ended: {}", e);
-            }
-
-            is_running_clone.store(false, Ordering::SeqCst);
-        });
-
-        Ok(())
-    }
-
-    pub fn stop_capture(&self) {
-        self.is_running.store(false, Ordering::SeqCst);
-    }
-
-    pub fn native_size(&self) -> (i32, i32) {
-        unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) }
-    }
+pub(crate) fn get_os_native_size(_native_size: &Arc<Mutex<(i32, i32)>>) -> (i32, i32) {
+    unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) }
 }
 
 struct CaptureContext {
@@ -126,8 +63,7 @@ struct CaptureContext {
     recycle_rx: Receiver<Vec<u8>>,
     is_running: Arc<AtomicBool>,
     settings: Arc<Mutex<StreamSettings>>,
-    last_arrival: Instant,
-    accumulated: Duration,
+    limiter: FrameRateLimiter,
 }
 
 impl CaptureContext {
@@ -142,8 +78,7 @@ impl CaptureContext {
             recycle_rx,
             is_running,
             settings,
-            last_arrival: Instant::now(),
-            accumulated: Duration::ZERO,
+            limiter: FrameRateLimiter::new(),
         }
     }
 }
@@ -171,18 +106,9 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         }
 
         let target_fps = self.ctx.settings.lock().unwrap().target_fps;
-        let now = Instant::now();
 
-        if target_fps < 120 {
-            let interval = Duration::from_secs_f64(1.0 / target_fps as f64);
-            let elapsed = now.saturating_duration_since(self.ctx.last_arrival);
-            self.ctx.last_arrival = now;
-            self.ctx.accumulated += elapsed;
-
-            if self.ctx.accumulated < interval {
-                return Ok(());
-            }
-            self.ctx.accumulated -= interval;
+        if !self.ctx.limiter.should_process(target_fps) {
+            return Ok(());
         }
 
         let width = frame.width();
@@ -210,7 +136,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
     }
 }
 
-fn get_active_window_title() -> String {
+pub(crate) fn get_active_window_title() -> String {
     unsafe {
         let hwnd = GetForegroundWindow();
         if hwnd.0.is_null() {
