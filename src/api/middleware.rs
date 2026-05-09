@@ -1,10 +1,13 @@
+use crate::{
+    state::SharedState,
+    utils::auth::{extract_token_from_cookie, verify_jwt},
+};
 use axum::{
-    extract::{State, Request},
+    extract::{Request, State},
     http::{StatusCode, header},
     middleware::Next,
     response::Response,
 };
-use crate::{state::SharedState, utils::auth::{extract_token_from_cookie, verify_jwt}};
 
 pub async fn auth_middleware(
     State(state): State<SharedState>,

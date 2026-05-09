@@ -31,10 +31,16 @@ fn read_monitor_info() -> String {
     if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
         for entry in entries.flatten() {
             let status_path = entry.path().join("status");
-            let Ok(status) = std::fs::read_to_string(&status_path) else { continue };
-            if status.trim() != "connected" { continue; }
+            let Ok(status) = std::fs::read_to_string(&status_path) else {
+                continue;
+            };
+            if status.trim() != "connected" {
+                continue;
+            }
             let modes_path = entry.path().join("modes");
-            let Ok(modes) = std::fs::read_to_string(&modes_path) else { continue };
+            let Ok(modes) = std::fs::read_to_string(&modes_path) else {
+                continue;
+            };
             if let Some(mode) = modes.lines().next().filter(|m| !m.is_empty()) {
                 resolutions.push(mode.to_string());
             }
