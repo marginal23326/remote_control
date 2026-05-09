@@ -108,7 +108,7 @@ pub async fn get_system_info(
         },
         memory: format!("{} MB", memory_total_mb),
         gpu: read_gpu_info(),
-        monitors: "Wayland portal selected display".to_string(),
+        monitors: read_monitor_info(),
         disks,
         battery: read_battery_status(),
         username: whoami::username().unwrap_or_else(|_| "Unknown".to_string()),
@@ -133,6 +133,27 @@ pub async fn get_system_info(
         disk_used: format!("{} GB", disk_used),
         disk_free: format!("{} GB", disk_free),
         active_processes,
+    }
+}
+
+fn read_monitor_info() -> String {
+    let mut resolutions = Vec::new();
+    if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
+        for entry in entries.flatten() {
+            let status_path = entry.path().join("status");
+            let Ok(status) = std::fs::read_to_string(&status_path) else { continue };
+            if status.trim() != "connected" { continue; }
+            let modes_path = entry.path().join("modes");
+            let Ok(modes) = std::fs::read_to_string(&modes_path) else { continue };
+            if let Some(mode) = modes.lines().next().filter(|m| !m.is_empty()) {
+                resolutions.push(mode.to_string());
+            }
+        }
+    }
+    if resolutions.is_empty() {
+        "N/A".to_string()
+    } else {
+        resolutions.join(", ")
     }
 }
 
