@@ -1,8 +1,8 @@
+use anyhow::{Result, anyhow};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use sysinfo::{Pid, ProcessesToUpdate, System};
-use serde::Serialize;
-use anyhow::{Result, anyhow};
 
 #[derive(Serialize, Clone)]
 pub struct ProcessDTO {
@@ -26,18 +26,20 @@ impl TaskManager {
 
     pub fn get_processes(&self) -> Vec<ProcessDTO> {
         let mut sys = self.sys.lock().unwrap();
-        
+
         sys.refresh_processes(ProcessesToUpdate::All, true);
 
         let mut groups: HashMap<String, ProcessDTO> = HashMap::new();
 
         for (pid, proc) in sys.processes() {
-            if proc.name().to_string_lossy().is_empty() { continue; }
+            if proc.name().to_string_lossy().is_empty() {
+                continue;
+            }
 
             let mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
             let cpu = proc.cpu_usage();
             let name = proc.name().to_string_lossy().to_string();
-            
+
             let dto = ProcessDTO {
                 pid: pid.as_u32(),
                 name: name.clone(),
@@ -48,7 +50,8 @@ impl TaskManager {
                 children: vec![],
             };
 
-            groups.entry(name)
+            groups
+                .entry(name)
                 .and_modify(|group| {
                     if !group.is_group {
                         let first_child = group.clone();
@@ -63,7 +66,7 @@ impl TaskManager {
         }
 
         let mut result: Vec<ProcessDTO> = groups.into_values().collect();
-        
+
         for proc in &mut result {
             if proc.is_group && proc.children.len() <= 1 {
                 proc.is_group = false;

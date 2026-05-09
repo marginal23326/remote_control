@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::io::{self, Write};
-use tokio::fs;
 use anyhow::Result;
-use bcrypt::{hash, DEFAULT_COST};
+use bcrypt::{DEFAULT_COST, hash};
+use serde::{Deserialize, Serialize};
+use std::io::{self, Write};
+use std::path::Path;
+use tokio::fs;
 use uuid::Uuid;
 
 const CONFIG_FILE: &str = "user_config.json";
@@ -44,7 +44,7 @@ impl ConfigManager {
         let username = Self::prompt_input("Enter username: ")?;
         let password = Self::prompt_password()?;
         let port_str = Self::prompt_input("Enter port (default 5000): ")?;
-        
+
         let port = if port_str.is_empty() {
             5000
         } else {
@@ -66,7 +66,10 @@ impl ConfigManager {
         let json = serde_json::to_string_pretty(&config)?;
         fs::write(CONFIG_FILE, json).await?;
 
-        println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
+        println!(
+            "Configuration saved to '{}'. Starting server...\n",
+            CONFIG_FILE
+        );
 
         Ok(config)
     }
@@ -86,9 +89,9 @@ impl ConfigManager {
                 println!("Password cannot be empty.");
                 continue;
             }
-            
+
             let p2 = Self::prompt_input("Confirm password: ")?;
-            
+
             if p1 == p2 {
                 return Ok(p1);
             }

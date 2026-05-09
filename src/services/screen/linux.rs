@@ -521,7 +521,8 @@ fn run_pipewire_capture(
     .context("Failed to serialize PipeWire format parameters")?
     .0
     .into_inner();
-    let mut params = [spa::pod::Pod::from_bytes(&values).ok_or_else(|| anyhow::anyhow!("Failed to parse Pod from bytes"))?];
+    let mut params = [spa::pod::Pod::from_bytes(&values)
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse Pod from bytes"))?];
 
     stream.connect(
         spa::utils::Direction::Input,
@@ -654,7 +655,10 @@ async fn query_active_window_title() -> Result<String> {
     .await?;
 
     let script_id: i32 = scripting
-        .call("loadScript", &(script_path_text.as_str(), script_name.as_str()))
+        .call(
+            "loadScript",
+            &(script_path_text.as_str(), script_name.as_str()),
+        )
         .await?;
 
     if script_id < 0 {

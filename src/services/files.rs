@@ -1,9 +1,9 @@
-use std::fs;
-use std::path::Path;
-use serde::Serialize;
-use sysinfo::Disks;
 use anyhow::{Result, anyhow};
 use jiff::Timestamp;
+use serde::Serialize;
+use std::fs;
+use std::path::Path;
+use sysinfo::Disks;
 
 #[derive(Serialize, Debug)]
 pub struct FileEntry {
@@ -33,15 +33,18 @@ impl FileManager {
     pub fn get_drives(&self) -> Vec<DriveEntry> {
         let disks = Disks::new_with_refreshed_list();
 
-        disks.iter().map(|disk| {
-            let path = disk.mount_point().to_string_lossy().to_string();
-            DriveEntry {
-                name: format!("{} ({:?})", path, disk.kind()),
-                path: path.clone(),
-                is_dir: true,
-                drive_type: 3, 
-            }
-        }).collect()
+        disks
+            .iter()
+            .map(|disk| {
+                let path = disk.mount_point().to_string_lossy().to_string();
+                DriveEntry {
+                    name: format!("{} ({:?})", path, disk.kind()),
+                    path: path.clone(),
+                    is_dir: true,
+                    drive_type: 3,
+                }
+            })
+            .collect()
     }
 
     /// Helper to check if we have read access to a directory
@@ -52,7 +55,7 @@ impl FileManager {
 
     pub fn list_directory(&self, path_str: &str) -> Result<Vec<FileEntry>> {
         let path = Path::new(path_str);
-        
+
         if !path.exists() {
             return Err(anyhow!("Path does not exist"));
         }
@@ -69,10 +72,11 @@ impl FileManager {
             // Skip items we can't even read the entry for
             if let Ok(entry) = entry {
                 let metadata_res = entry.metadata();
-                
+
                 // If we can't get metadata, use defaults
                 let (is_dir, len, modified_str) = if let Ok(meta) = metadata_res {
-                    let date = meta.modified()
+                    let date = meta
+                        .modified()
                         .ok()
                         .map(|t| Timestamp::try_from(t).unwrap().to_string());
                     (meta.is_dir(), meta.len(), date)
@@ -103,7 +107,9 @@ impl FileManager {
 
         // Sort: Directories first, then files (case-insensitive)
         entries.sort_by(|a, b| {
-            b.is_dir.cmp(&a.is_dir).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+            b.is_dir
+                .cmp(&a.is_dir)
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
 
         Ok(entries)
@@ -129,9 +135,9 @@ impl FileManager {
                 failed.push(p);
             }
         }
-        
+
         if !failed.is_empty() {
-             return Err(anyhow!("Failed to delete some items: {:?}", failed));
+            return Err(anyhow!("Failed to delete some items: {:?}", failed));
         }
         Ok(vec![])
     }

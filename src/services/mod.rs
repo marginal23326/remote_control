@@ -1,7 +1,7 @@
-pub mod system;
-pub mod input;
-pub mod shell;
-pub mod screen;
-pub mod files;
-pub mod tasks;
 pub mod audio;
+pub mod files;
+pub mod input;
+pub mod screen;
+pub mod shell;
+pub mod system;
+pub mod tasks;

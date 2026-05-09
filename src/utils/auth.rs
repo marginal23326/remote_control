@@ -1,7 +1,7 @@
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use hmac::{Hmac, Mac};
-use sha2::Sha256;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -12,16 +12,14 @@ pub struct Claims {
 }
 
 pub fn extract_token_from_cookie(cookie_str: &str) -> Option<&str> {
-    cookie_str
-        .split(';')
-        .find_map(|s| {
-            let s = s.trim();
-            if s.starts_with("auth_token=") {
-                Some(s.trim_start_matches("auth_token="))
-            } else {
-                None
-            }
-        })
+    cookie_str.split(';').find_map(|s| {
+        let s = s.trim();
+        if s.starts_with("auth_token=") {
+            Some(s.trim_start_matches("auth_token="))
+        } else {
+            None
+        }
+    })
 }
 
 pub fn create_jwt(claims: &Claims, secret: &str) -> anyhow::Result<String> {

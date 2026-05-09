@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 use thiserror::Error;
@@ -17,10 +17,10 @@ pub enum AppError {
 
     #[error("Input/Output Error: {0}")]
     IoError(#[from] std::io::Error),
-    
+
     #[error("Bad Request: {0}")]
     BadRequest(String),
-    
+
     #[error("Not Found: {0}")]
     NotFound(String),
 }
