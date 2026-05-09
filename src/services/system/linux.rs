@@ -245,43 +245,45 @@ fn read_gpu_info() -> String {
 }
 
 async fn fetch_wan_info() -> (String, String, String, String, String) {
-    let client = reqwest::Client::new();
-    match client
-        .get("https://api.ipapi.is/")
-        .timeout(std::time::Duration::from_secs(3))
-        .send()
-        .await
-    {
-        Ok(resp) => {
-            if let Ok(data) = resp.json::<IpApiConnect>().await {
-                let ip = data.ip.unwrap_or("N/A".to_string());
-                let asn = data
-                    .asn
-                    .as_ref()
-                    .map(|a| a.asn.unwrap_or(0).to_string())
-                    .unwrap_or("N/A".to_string());
-                let isp = data
-                    .asn
-                    .as_ref()
-                    .and_then(|a| a.org.clone())
-                    .unwrap_or("N/A".to_string());
-                let country = data
-                    .location
-                    .as_ref()
-                    .and_then(|l| l.country.clone())
-                    .unwrap_or("N/A".to_string());
-                let timezone = data
-                    .location
-                    .as_ref()
-                    .and_then(|l| l.timezone.clone())
-                    .unwrap_or("N/A".to_string());
+    let result = tokio::task::spawn_blocking(|| {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(std::time::Duration::from_secs(3)))
+            .build()
+            .into();
+        agent
+            .get("https://api.ipapi.is/")
+            .call()
+            .and_then(|mut resp| resp.body_mut().read_json::<IpApiConnect>())
+    })
+    .await;
 
-                (ip, asn, isp, country, timezone)
-            } else {
-                na_wan_info()
-            }
+    match result {
+        Ok(Ok(data)) => {
+            let ip = data.ip.unwrap_or("N/A".to_string());
+            let asn = data
+                .asn
+                .as_ref()
+                .map(|a| a.asn.unwrap_or(0).to_string())
+                .unwrap_or("N/A".to_string());
+            let isp = data
+                .asn
+                .as_ref()
+                .and_then(|a| a.org.clone())
+                .unwrap_or("N/A".to_string());
+            let country = data
+                .location
+                .as_ref()
+                .and_then(|l| l.country.clone())
+                .unwrap_or("N/A".to_string());
+            let timezone = data
+                .location
+                .as_ref()
+                .and_then(|l| l.timezone.clone())
+                .unwrap_or("N/A".to_string());
+
+            (ip, asn, isp, country, timezone)
         }
-        Err(_) => na_wan_info(),
+        _ => na_wan_info(),
     }
 }
 

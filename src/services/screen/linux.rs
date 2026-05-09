@@ -21,7 +21,7 @@ use ashpd::desktop::{
 };
 use ashpd::enumflags2::BitFlags;
 use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
-use futures::StreamExt;
+use futures_util::StreamExt;
 use once_cell::sync::Lazy;
 use pipewire as pw;
 use pw::{properties::properties, spa};

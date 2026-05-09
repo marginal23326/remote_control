@@ -7,9 +7,8 @@ use axum::{
 use serde::Deserialize;
 use serde_json::json;
 use bcrypt::verify;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use crate::state::SharedState;
-use crate::utils::auth::Claims;
+use crate::utils::auth::{Claims, create_jwt};
 use crate::utils::error::{AppError, AppResult};
 
 #[derive(Deserialize)]
@@ -38,11 +37,7 @@ pub async fn login_handler(
             exp: expiration,
         };
 
-        let token = encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
-        ).map_err(|e| AppError::InternalError(e.into()))?;
+        let token = create_jwt(&claims, &config.jwt_secret)?;
 
         let mut headers = HeaderMap::new();
         let cookie_value = format!("auth_token={}; Path=/; HttpOnly; SameSite=Strict", token);

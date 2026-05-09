@@ -3,7 +3,7 @@ use std::path::Path;
 use serde::Serialize;
 use sysinfo::Disks;
 use anyhow::{Result, anyhow};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 #[derive(Serialize, Debug)]
 pub struct FileEntry {
@@ -74,10 +74,7 @@ impl FileManager {
                 let (is_dir, len, modified_str) = if let Ok(meta) = metadata_res {
                     let date = meta.modified()
                         .ok()
-                        .map(|t| {
-                            let dt: DateTime<Utc> = t.into();
-                            dt.to_rfc3339() // ISO 8601 format (e.g., "2023-01-01T12:00:00Z")
-                        });
+                        .map(|t| Timestamp::try_from(t).unwrap().to_string());
                     (meta.is_dir(), meta.len(), date)
                 } else {
                     (false, 0, None)

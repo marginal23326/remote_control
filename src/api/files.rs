@@ -16,7 +16,7 @@ use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 use mime_guess::from_path;
 use anyhow::anyhow;
-use futures::Stream; 
+use futures_core::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
