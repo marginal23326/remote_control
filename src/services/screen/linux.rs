@@ -7,7 +7,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, anyhow};
 use ashpd::desktop::{
@@ -20,16 +20,15 @@ use ashpd::desktop::{
     screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream},
 };
 use ashpd::enumflags2::BitFlags;
-use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
+use crossbeam_channel::{Receiver, Sender, TrySendError};
 use futures_util::StreamExt;
 use once_cell::sync::Lazy;
 use pipewire as pw;
 use pw::{properties::properties, spa};
-use tokio::sync::{Mutex as AsyncMutex, watch};
+use tokio::sync::Mutex as AsyncMutex;
 use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
-use super::encoder::run_encoder_loop;
-use super::{RawFrame, StreamFrame, StreamSettings};
+use super::{FrameRateLimiter, RawFrame, StreamSettings};
 
 static PORTAL_SESSION: Lazy<Arc<PortalSessionManager>> =
     Lazy::new(|| Arc::new(PortalSessionManager::new()));
@@ -38,292 +37,39 @@ pub(crate) fn portal_session() -> Arc<PortalSessionManager> {
     PORTAL_SESSION.clone()
 }
 
-#[derive(Clone, Copy)]
-struct PortalStreamInfo {
-    node_id: u32,
-    size: (i32, i32),
-}
-
-struct PortalSession {
-    remote_desktop: RemoteDesktop,
-    screencast: Screencast,
-    session: Session<RemoteDesktop>,
-    stream: PortalStreamInfo,
-}
-
-pub(crate) struct PortalSessionManager {
-    state: AsyncMutex<Option<PortalSession>>,
-}
-
-impl PortalSessionManager {
-    fn new() -> Self {
-        Self {
-            state: AsyncMutex::new(None),
-        }
-    }
-
-    async fn ensure_started(&self) -> Result<PortalStreamInfo> {
-        let mut state = self.state.lock().await;
-        if let Some(session) = state.as_ref() {
-            return Ok(session.stream);
-        }
-
-        let restore_token = read_restore_token();
-        let session = match create_portal_session(restore_token.as_deref()).await {
-            Ok(session) => session,
-            Err(err) if restore_token.is_some() => {
-                tracing::warn!(
-                    "Portal restore token failed, falling back to a new prompt: {err:#}"
-                );
-                create_portal_session(None).await?
-            }
-            Err(err) => return Err(err),
-        };
-        let stream = session.stream;
-
-        *state = Some(session);
-
-        Ok(stream)
-    }
-
-    pub(crate) async fn open_pipewire_remote(&self) -> Result<(u32, (i32, i32), OwnedFd)> {
-        let info = self.ensure_started().await?;
-        let state = self.state.lock().await;
-        let session = state
-            .as_ref()
-            .ok_or_else(|| anyhow!("Portal session was not initialized"))?;
-        let fd = session
-            .screencast
-            .open_pipe_wire_remote(&session.session, Default::default())
-            .await?;
-        Ok((info.node_id, info.size, fd))
-    }
-
-    pub(crate) async fn notify_pointer_motion_absolute(&self, x: f64, y: f64) -> Result<()> {
-        self.ensure_started().await?;
-        let state = self.state.lock().await;
-        let session = state
-            .as_ref()
-            .ok_or_else(|| anyhow!("Portal session was not initialized"))?;
-        session
-            .remote_desktop
-            .notify_pointer_motion_absolute(
-                &session.session,
-                session.stream.node_id,
-                x,
-                y,
-                NotifyPointerMotionAbsoluteOptions::default(),
-            )
-            .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn notify_pointer_button(&self, button: i32, state: KeyState) -> Result<()> {
-        self.ensure_started().await?;
-        let guard = self.state.lock().await;
-        let session = guard
-            .as_ref()
-            .ok_or_else(|| anyhow!("Portal session was not initialized"))?;
-        session
-            .remote_desktop
-            .notify_pointer_button(
-                &session.session,
-                button,
-                state,
-                NotifyPointerButtonOptions::default(),
-            )
-            .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn notify_pointer_axis(&self, dx: i32, dy: i32) -> Result<()> {
-        self.ensure_started().await?;
-        let guard = self.state.lock().await;
-        let session = guard
-            .as_ref()
-            .ok_or_else(|| anyhow!("Portal session was not initialized"))?;
-
-        if dx != 0 {
-            session
-                .remote_desktop
-                .notify_pointer_axis_discrete(
-                    &session.session,
-                    Axis::Horizontal,
-                    dx,
-                    NotifyPointerAxisDiscreteOptions::default(),
-                )
-                .await?;
-        }
-
-        if dy != 0 {
-            session
-                .remote_desktop
-                .notify_pointer_axis_discrete(
-                    &session.session,
-                    Axis::Vertical,
-                    dy,
-                    NotifyPointerAxisDiscreteOptions::default(),
-                )
-                .await?;
-        }
-
-        session
-            .remote_desktop
-            .notify_pointer_axis(
-                &session.session,
-                dx as f64,
-                dy as f64,
-                NotifyPointerAxisOptions::default().set_finish(true),
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    pub(crate) async fn notify_keyboard_keysym(&self, keysym: i32, state: KeyState) -> Result<()> {
-        self.ensure_started().await?;
-        let guard = self.state.lock().await;
-        let session = guard
-            .as_ref()
-            .ok_or_else(|| anyhow!("Portal session was not initialized"))?;
-        session
-            .remote_desktop
-            .notify_keyboard_keysym(
-                &session.session,
-                keysym,
-                state,
-                NotifyKeyboardKeysymOptions::default(),
-            )
-            .await?;
-        Ok(())
-    }
-}
-
-async fn create_portal_session(restore_token: Option<&str>) -> Result<PortalSession> {
-    let remote_desktop = RemoteDesktop::new().await?;
-    let screencast = Screencast::new().await?;
-    let session = remote_desktop.create_session(Default::default()).await?;
-
-    remote_desktop
-        .select_devices(
-            &session,
-            SelectDevicesOptions::default()
-                .set_devices(DeviceType::Keyboard | DeviceType::Pointer)
-                .set_restore_token(restore_token),
-        )
-        .await?
-        .response()?;
-
-    screencast
-        .select_sources(
-            &session,
-            SelectSourcesOptions::default()
-                .set_sources(BitFlags::from_flag(SourceType::Monitor))
-                .set_multiple(false)
-                .set_cursor_mode(CursorMode::Embedded)
-                .set_restore_token(restore_token),
-        )
-        .await?
-        .response()?;
-
-    let selected = remote_desktop
-        .start(&session, None, Default::default())
-        .await?
-        .response()?;
-
-    if let Some(token) = selected.restore_token() {
-        write_restore_token(token);
-    }
-
-    let selected_stream = selected
-        .streams()
-        .first()
-        .cloned()
-        .ok_or_else(|| anyhow!("Portal session did not return a PipeWire stream"))?;
-    let stream = stream_info(&selected_stream);
-
-    Ok(PortalSession {
-        remote_desktop,
-        screencast,
-        session,
-        stream,
-    })
-}
-
-pub struct ScreenManager {
-    pub settings: Arc<Mutex<StreamSettings>>,
-    tx: watch::Sender<StreamFrame>,
-    rx: watch::Receiver<StreamFrame>,
+pub(crate) async fn start_os_capture(
+    work_tx: Sender<RawFrame>,
+    recycle_rx: Receiver<Vec<u8>>,
+    settings: Arc<Mutex<StreamSettings>>,
     is_running: Arc<AtomicBool>,
     native_size: Arc<Mutex<(i32, i32)>>,
+) -> Result<()> {
+    let (node_id, size, fd) = portal_session().open_pipewire_remote().await?;
+    *native_size.lock().unwrap() = size;
+
+    let title_running = is_running.clone();
+    thread::spawn(move || run_active_window_title_poll(title_running));
+
+    thread::spawn(move || {
+        if let Err(err) = run_pipewire_capture(
+            node_id,
+            fd,
+            work_tx,
+            recycle_rx,
+            settings,
+            is_running.clone(),
+            native_size,
+        ) {
+            tracing::error!("PipeWire capture ended: {err:#}");
+        }
+        is_running.store(false, Ordering::SeqCst);
+    });
+
+    Ok(())
 }
 
-impl ScreenManager {
-    pub fn new() -> Self {
-        let (tx, rx) = watch::channel(StreamFrame::default());
-        Self {
-            settings: Arc::new(Mutex::new(StreamSettings::default())),
-            tx,
-            rx,
-            is_running: Arc::new(AtomicBool::new(false)),
-            native_size: Arc::new(Mutex::new((0, 0))),
-        }
-    }
-
-    pub fn get_frame_receiver(&self) -> watch::Receiver<StreamFrame> {
-        self.rx.clone()
-    }
-
-    pub fn update_settings(&self, quality: u8, resolution: u8) {
-        let mut s = self.settings.lock().unwrap();
-        s.quality = quality.clamp(10, 100);
-        s.resolution_percentage = resolution.clamp(10, 100);
-    }
-
-    pub fn set_target_fps(&self, fps: u64) {
-        let mut s = self.settings.lock().unwrap();
-        s.target_fps = fps.clamp(1, 144);
-    }
-
-    pub async fn start_capture(&self) -> Result<()> {
-        if self.is_running.load(Ordering::SeqCst) {
-            return Ok(());
-        }
-
-        let (node_id, size, fd) = portal_session().open_pipewire_remote().await?;
-        *self.native_size.lock().unwrap() = size;
-
-        self.is_running.store(true, Ordering::SeqCst);
-
-        let settings = self.settings.clone();
-        let tx_web = self.tx.clone();
-        let is_running = self.is_running.clone();
-        let native_size = self.native_size.clone();
-
-        thread::spawn(move || {
-            if let Err(err) = run_pipewire_capture(
-                node_id,
-                fd,
-                tx_web,
-                settings,
-                is_running.clone(),
-                native_size,
-            ) {
-                tracing::error!("PipeWire capture ended: {err:#}");
-            }
-            is_running.store(false, Ordering::SeqCst);
-        });
-
-        Ok(())
-    }
-
-    pub fn stop_capture(&self) {
-        self.is_running.store(false, Ordering::SeqCst);
-    }
-
-    pub fn native_size(&self) -> (i32, i32) {
-        *self.native_size.lock().unwrap()
-    }
+pub(crate) fn get_os_native_size(native_size: &Arc<Mutex<(i32, i32)>>) -> (i32, i32) {
+    *native_size.lock().unwrap()
 }
 
 struct PipeWireUserData {
@@ -334,38 +80,19 @@ struct PipeWireUserData {
     native_size: Arc<Mutex<(i32, i32)>>,
     main_loop: *mut pw::sys::pw_main_loop,
     settings: Arc<Mutex<StreamSettings>>,
-    last_arrival: Instant,
-    accumulated: Duration,
+    limiter: FrameRateLimiter,
 }
 
 fn run_pipewire_capture(
     node_id: u32,
     fd: OwnedFd,
-    tx_web: watch::Sender<StreamFrame>,
+    work_tx: Sender<RawFrame>,
+    recycle_rx: Receiver<Vec<u8>>,
     settings: Arc<Mutex<StreamSettings>>,
     is_running: Arc<AtomicBool>,
     native_size: Arc<Mutex<(i32, i32)>>,
 ) -> Result<()> {
     pw::init();
-
-    let (work_tx, work_rx) = bounded::<RawFrame>(3);
-    let (recycle_tx, recycle_rx) = bounded::<Vec<u8>>(5);
-
-    let title_running = is_running.clone();
-    thread::spawn(move || run_active_window_title_poll(title_running));
-
-    let encoder_settings = settings.clone();
-    let encoder_running = is_running.clone();
-    thread::spawn(move || {
-        run_encoder_loop(
-            work_rx,
-            recycle_tx,
-            tx_web,
-            encoder_settings,
-            encoder_running,
-            get_active_window_title,
-        );
-    });
 
     let mainloop = pw::main_loop::MainLoopBox::new(None)?;
     let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
@@ -378,8 +105,7 @@ fn run_pipewire_capture(
         native_size,
         main_loop: mainloop.as_raw_ptr(),
         settings,
-        last_arrival: Instant::now(),
-        accumulated: Duration::ZERO,
+        limiter: FrameRateLimiter::new(),
     };
 
     let stream = pw::stream::StreamBox::new(
@@ -428,18 +154,8 @@ fn run_pipewire_capture(
             };
 
             let target_fps = user_data.settings.lock().unwrap().target_fps;
-            let now = Instant::now();
-
-            if target_fps < 120 {
-                let interval = Duration::from_secs_f64(1.0 / target_fps as f64);
-                let elapsed = now.saturating_duration_since(user_data.last_arrival);
-                user_data.last_arrival = now;
-                user_data.accumulated += elapsed;
-
-                if user_data.accumulated < interval {
-                    return;
-                }
-                user_data.accumulated -= interval;
+            if !user_data.limiter.should_process(target_fps) {
+                return;
             }
 
             let datas = buffer.datas_mut();
@@ -546,8 +262,7 @@ fn normalize_to_bgra(
     let width = width as usize;
     let height = height as usize;
     let row_bytes = width * 4;
-    let required = row_bytes * height;
-    output.resize(required, 0);
+    output.resize(row_bytes * height, 0);
 
     for y in 0..height {
         let src_start = y * stride;
@@ -563,21 +278,21 @@ fn normalize_to_bgra(
         if format == spa::param::video::VideoFormat::BGRA {
             dst.copy_from_slice(src);
         } else if format == spa::param::video::VideoFormat::BGRx {
-            for (pixel_in, pixel_out) in src.chunks_exact(4).zip(dst.chunks_exact_mut(4)) {
-                pixel_out[0] = pixel_in[0];
-                pixel_out[1] = pixel_in[1];
-                pixel_out[2] = pixel_in[2];
-                pixel_out[3] = 255;
+            for (p_in, p_out) in src.chunks_exact(4).zip(dst.chunks_exact_mut(4)) {
+                p_out[0] = p_in[0];
+                p_out[1] = p_in[1];
+                p_out[2] = p_in[2];
+                p_out[3] = 255;
             }
         } else if format == spa::param::video::VideoFormat::RGBA
             || format == spa::param::video::VideoFormat::RGBx
         {
-            for (pixel_in, pixel_out) in src.chunks_exact(4).zip(dst.chunks_exact_mut(4)) {
-                pixel_out[0] = pixel_in[2];
-                pixel_out[1] = pixel_in[1];
-                pixel_out[2] = pixel_in[0];
-                pixel_out[3] = if format == spa::param::video::VideoFormat::RGBA {
-                    pixel_in[3]
+            for (p_in, p_out) in src.chunks_exact(4).zip(dst.chunks_exact_mut(4)) {
+                p_out[0] = p_in[2];
+                p_out[1] = p_in[1];
+                p_out[2] = p_in[0];
+                p_out[3] = if format == spa::param::video::VideoFormat::RGBA {
+                    p_in[3]
                 } else {
                     255
                 };
@@ -586,7 +301,6 @@ fn normalize_to_bgra(
             return Err(anyhow!("Unsupported PipeWire video format: {format:?}"));
         }
     }
-
     Ok(())
 }
 
@@ -600,28 +314,24 @@ fn stream_info(stream: &Stream) -> PortalStreamInfo {
 
 static ACTIVE_WINDOW_TITLE: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
 
-fn get_active_window_title() -> String {
+pub(crate) fn get_active_window_title() -> String {
     ACTIVE_WINDOW_TITLE.lock().unwrap().clone()
 }
 
 fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
-    const TITLE_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
-
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
     else {
         return;
     };
-
     while is_running.load(Ordering::SeqCst) {
         let title = runtime
             .block_on(query_active_window_title())
             .unwrap_or_default();
         *ACTIVE_WINDOW_TITLE.lock().unwrap() = title;
-        thread::sleep(TITLE_REFRESH_INTERVAL);
+        thread::sleep(Duration::from_millis(250));
     }
-
     ACTIVE_WINDOW_TITLE.lock().unwrap().clear();
 }
 
@@ -643,7 +353,6 @@ async fn query_active_window_title() -> Result<String> {
 
     let script_name = format!("remote-control-active-window-{}", unique_suffix());
     let script_path = std::env::temp_dir().join(format!("{script_name}.js"));
-    let script_path_text = script_path.to_string_lossy().into_owned();
     fs::write(&script_path, active_window_script(&unique_name))?;
 
     let scripting = Proxy::new(
@@ -653,11 +362,13 @@ async fn query_active_window_title() -> Result<String> {
         "org.kde.kwin.Scripting",
     )
     .await?;
-
     let script_id: i32 = scripting
         .call(
             "loadScript",
-            &(script_path_text.as_str(), script_name.as_str()),
+            &(
+                script_path.to_string_lossy().into_owned().as_str(),
+                script_name.as_str(),
+            ),
         )
         .await?;
 
@@ -673,12 +384,8 @@ async fn query_active_window_title() -> Result<String> {
         "org.kde.kwin.Script",
     )
     .await?;
-
     let _: () = script.call("run", &()).await?;
-
-    // Remove the file only after run() has loaded it
     let _ = fs::remove_file(&script_path);
-
     let _: () = script.call("stop", &()).await?;
 
     let title = tokio::time::timeout(Duration::from_secs(5), async {
@@ -687,36 +394,228 @@ async fn query_active_window_title() -> Result<String> {
             if message.header().member().map(|m| m.as_str()) != Some("result") {
                 continue;
             }
-            let title = message.body().deserialize::<String>()?;
-            return Ok(title);
+            return Ok(message.body().deserialize::<String>()?);
         }
-
         Ok::<_, anyhow::Error>(String::new())
     })
     .await
     .context("Timed out waiting for KWin active-window title")?;
 
     let _: Result<bool, _> = scripting.call("unloadScript", &script_name).await;
-
     title
 }
 
 fn active_window_script(dbus_name: &str) -> String {
     format!(
-        r#"
-let window = workspace.activeWindow;
-let title = window ? window.caption : "";
-callDBus("{dbus_name}", "/", "", "result", title.toString());
-"#
+        "let window = workspace.activeWindow;\nlet title = window ? window.caption : \"\";\ncallDBus(\"{dbus_name}\", \"/\", \"\", \"result\", title.toString());\n"
     )
 }
 
 fn unique_suffix() -> u128 {
-    let millis = SystemTime::now()
+    SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or_default();
-    millis ^ process::id() as u128
+        .map(|d| d.as_millis())
+        .unwrap_or_default()
+        ^ process::id() as u128
+}
+
+// ==========================================
+// PORTAL SESSION LOGIC
+// ==========================================
+
+#[derive(Clone, Copy)]
+struct PortalStreamInfo {
+    node_id: u32,
+    size: (i32, i32),
+}
+
+struct PortalSession {
+    remote_desktop: RemoteDesktop,
+    screencast: Screencast,
+    session: Session<RemoteDesktop>,
+    stream: PortalStreamInfo,
+}
+
+pub(crate) struct PortalSessionManager {
+    state: AsyncMutex<Option<PortalSession>>,
+}
+
+impl PortalSessionManager {
+    fn new() -> Self {
+        Self {
+            state: AsyncMutex::new(None),
+        }
+    }
+
+    async fn ensure_started(&self) -> Result<PortalStreamInfo> {
+        let mut state = self.state.lock().await;
+        if let Some(session) = state.as_ref() {
+            return Ok(session.stream);
+        }
+
+        let restore_token = read_restore_token();
+        let session = match create_portal_session(restore_token.as_deref()).await {
+            Ok(session) => session,
+            Err(err) if restore_token.is_some() => {
+                tracing::warn!("Portal restore token failed: {err:#}");
+                create_portal_session(None).await?
+            }
+            Err(err) => return Err(err),
+        };
+        let stream = session.stream;
+        *state = Some(session);
+        Ok(stream)
+    }
+
+    pub(crate) async fn open_pipewire_remote(&self) -> Result<(u32, (i32, i32), OwnedFd)> {
+        let info = self.ensure_started().await?;
+        let state = self.state.lock().await;
+        let session = state
+            .as_ref()
+            .ok_or_else(|| anyhow!("Portal session uninitialized"))?;
+        let fd = session
+            .screencast
+            .open_pipe_wire_remote(&session.session, Default::default())
+            .await?;
+        Ok((info.node_id, info.size, fd))
+    }
+
+    pub(crate) async fn notify_pointer_motion_absolute(&self, x: f64, y: f64) -> Result<()> {
+        self.ensure_started().await?;
+        let state = self.state.lock().await;
+        let session = state.as_ref().unwrap();
+        session
+            .remote_desktop
+            .notify_pointer_motion_absolute(
+                &session.session,
+                session.stream.node_id,
+                x,
+                y,
+                NotifyPointerMotionAbsoluteOptions::default(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn notify_pointer_button(&self, button: i32, state: KeyState) -> Result<()> {
+        self.ensure_started().await?;
+        let guard = self.state.lock().await;
+        let session = guard.as_ref().unwrap();
+        session
+            .remote_desktop
+            .notify_pointer_button(
+                &session.session,
+                button,
+                state,
+                NotifyPointerButtonOptions::default(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn notify_pointer_axis(&self, dx: i32, dy: i32) -> Result<()> {
+        self.ensure_started().await?;
+        let guard = self.state.lock().await;
+        let session = guard.as_ref().unwrap();
+
+        if dx != 0 {
+            session
+                .remote_desktop
+                .notify_pointer_axis_discrete(
+                    &session.session,
+                    Axis::Horizontal,
+                    dx,
+                    NotifyPointerAxisDiscreteOptions::default(),
+                )
+                .await?;
+        }
+        if dy != 0 {
+            session
+                .remote_desktop
+                .notify_pointer_axis_discrete(
+                    &session.session,
+                    Axis::Vertical,
+                    dy,
+                    NotifyPointerAxisDiscreteOptions::default(),
+                )
+                .await?;
+        }
+        session
+            .remote_desktop
+            .notify_pointer_axis(
+                &session.session,
+                dx as f64,
+                dy as f64,
+                NotifyPointerAxisOptions::default().set_finish(true),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn notify_keyboard_keysym(&self, keysym: i32, state: KeyState) -> Result<()> {
+        self.ensure_started().await?;
+        let guard = self.state.lock().await;
+        let session = guard.as_ref().unwrap();
+        session
+            .remote_desktop
+            .notify_keyboard_keysym(
+                &session.session,
+                keysym,
+                state,
+                NotifyKeyboardKeysymOptions::default(),
+            )
+            .await?;
+        Ok(())
+    }
+}
+
+async fn create_portal_session(restore_token: Option<&str>) -> Result<PortalSession> {
+    let remote_desktop = RemoteDesktop::new().await?;
+    let screencast = Screencast::new().await?;
+    let session = remote_desktop.create_session(Default::default()).await?;
+
+    remote_desktop
+        .select_devices(
+            &session,
+            SelectDevicesOptions::default()
+                .set_devices(DeviceType::Keyboard | DeviceType::Pointer)
+                .set_restore_token(restore_token),
+        )
+        .await?
+        .response()?;
+    screencast
+        .select_sources(
+            &session,
+            SelectSourcesOptions::default()
+                .set_sources(BitFlags::from_flag(SourceType::Monitor))
+                .set_multiple(false)
+                .set_cursor_mode(CursorMode::Embedded)
+                .set_restore_token(restore_token),
+        )
+        .await?
+        .response()?;
+
+    let selected = remote_desktop
+        .start(&session, None, Default::default())
+        .await?
+        .response()?;
+    if let Some(token) = selected.restore_token() {
+        write_restore_token(token);
+    }
+
+    let selected_stream = selected
+        .streams()
+        .first()
+        .cloned()
+        .ok_or_else(|| anyhow!("Portal session did not return a PipeWire stream"))?;
+    let stream = stream_info(&selected_stream);
+
+    Ok(PortalSession {
+        remote_desktop,
+        screencast,
+        session,
+        stream,
+    })
 }
 
 fn restore_token_path() -> Option<PathBuf> {
@@ -729,19 +628,17 @@ fn restore_token_path() -> Option<PathBuf> {
 }
 
 fn read_restore_token() -> Option<String> {
-    let path = restore_token_path()?;
-    fs::read_to_string(path)
+    fs::read_to_string(restore_token_path()?)
         .ok()
-        .map(|token| token.trim().to_string())
-        .filter(|token| !token.is_empty())
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
 }
 
 fn write_restore_token(token: &str) {
-    let Some(path) = restore_token_path() else {
-        return;
-    };
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
+    if let Some(path) = restore_token_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(path, token);
     }
-    let _ = fs::write(path, token);
 }
