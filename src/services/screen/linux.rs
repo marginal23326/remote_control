@@ -1,11 +1,13 @@
 use std::fs;
 use std::os::fd::OwnedFd;
 use std::path::PathBuf;
+use std::process;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, anyhow};
 use ashpd::desktop::{
@@ -19,10 +21,12 @@ use ashpd::desktop::{
 };
 use ashpd::enumflags2::BitFlags;
 use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
+use futures::StreamExt;
 use once_cell::sync::Lazy;
 use pipewire as pw;
 use pw::{properties::properties, spa};
 use tokio::sync::{Mutex as AsyncMutex, watch};
+use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
 use super::encoder::run_encoder_loop;
 use super::{RawFrame, StreamFrame, StreamSettings};
@@ -344,6 +348,9 @@ fn run_pipewire_capture(
     let (work_tx, work_rx) = bounded::<RawFrame>(3);
     let (recycle_tx, recycle_rx) = bounded::<Vec<u8>>(5);
 
+    let title_running = is_running.clone();
+    thread::spawn(move || run_active_window_title_poll(title_running));
+
     let encoder_running = is_running.clone();
     thread::spawn(move || {
         run_encoder_loop(
@@ -352,7 +359,7 @@ fn run_pipewire_capture(
             tx_web,
             settings,
             encoder_running,
-            String::new,
+            get_active_window_title,
         );
     });
 
@@ -565,6 +572,124 @@ fn stream_info(stream: &Stream) -> PortalStreamInfo {
         node_id: stream.pipe_wire_node_id(),
         size,
     }
+}
+
+static ACTIVE_WINDOW_TITLE: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
+
+fn get_active_window_title() -> String {
+    ACTIVE_WINDOW_TITLE.lock().unwrap().clone()
+}
+
+fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
+    const TITLE_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
+
+    let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return;
+    };
+
+    while is_running.load(Ordering::SeqCst) {
+        let title = runtime
+            .block_on(query_active_window_title())
+            .unwrap_or_default();
+        *ACTIVE_WINDOW_TITLE.lock().unwrap() = title;
+        thread::sleep(TITLE_REFRESH_INTERVAL);
+    }
+
+    ACTIVE_WINDOW_TITLE.lock().unwrap().clear();
+}
+
+async fn query_active_window_title() -> Result<String> {
+    let connection = Connection::session().await?;
+    let unique_name = connection
+        .unique_name()
+        .ok_or_else(|| anyhow!("DBus connection has no unique name"))?
+        .to_string();
+
+    let rule = MatchRule::builder()
+        .msg_type(DbusMessageType::MethodCall)
+        .destination(unique_name.as_str())?
+        .path("/")?
+        .build();
+    let mut stream = MessageStream::for_match_rule(rule, &connection, Some(4)).await?;
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let script_name = format!("remote-control-active-window-{}", unique_suffix());
+    let script_path = std::env::temp_dir().join(format!("{script_name}.js"));
+    let script_path_text = script_path.to_string_lossy().into_owned();
+    fs::write(&script_path, active_window_script(&unique_name))?;
+
+    let scripting = Proxy::new(
+        &connection,
+        "org.kde.KWin",
+        "/Scripting",
+        "org.kde.kwin.Scripting",
+    )
+    .await?;
+
+    let script_id: i32 = scripting
+        .call("loadScript", &(script_path_text.as_str(), script_name.as_str()))
+        .await?;
+
+    if script_id < 0 {
+        let _ = fs::remove_file(&script_path);
+        return Err(anyhow!("KWin refused to load active-window script"));
+    }
+
+    let script = Proxy::new(
+        &connection,
+        "org.kde.KWin",
+        format!("/Scripting/Script{script_id}"),
+        "org.kde.kwin.Script",
+    )
+    .await?;
+
+    let _: () = script.call("run", &()).await?;
+
+    // Remove the file only after run() has loaded it
+    let _ = fs::remove_file(&script_path);
+
+    let _: () = script.call("stop", &()).await?;
+
+    let title = tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(message) = stream.next().await {
+            let message = message?;
+            if message.header().member().map(|m| m.as_str()) != Some("result") {
+                continue;
+            }
+            let title = message.body().deserialize::<String>()?;
+            return Ok(title);
+        }
+
+        Ok::<_, anyhow::Error>(String::new())
+    })
+    .await
+    .context("Timed out waiting for KWin active-window title")?;
+
+    let _: Result<bool, _> = scripting.call("unloadScript", &script_name).await;
+
+    title
+}
+
+fn active_window_script(dbus_name: &str) -> String {
+    format!(
+        r#"
+let window = workspace.activeWindow;
+let title = window ? window.caption : "";
+callDBus("{dbus_name}", "/", "", "result", title.toString());
+"#
+    )
+}
+
+fn unique_suffix() -> u128 {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    millis ^ process::id() as u128
 }
 
 fn restore_token_path() -> Option<PathBuf> {

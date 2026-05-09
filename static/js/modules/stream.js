@@ -37,8 +37,8 @@ const streamUI = {
     
     updateMeta(data) {
         this.fpsCounter.textContent = data.fps;
-        if(data.win) {
-             this.activeWindowText.textContent = `Active Window: ${data.win}`;
+        if(Object.prototype.hasOwnProperty.call(data, 'win')) {
+             this.activeWindowText.textContent = `Active Window: ${data.win || 'Unknown'}`;
         }
     },
 
