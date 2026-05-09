@@ -251,7 +251,7 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
     })
     .await;
 
-    let _ = result.map_err(|e| anyhow!("Task failed: {}", e))??;
+    result.map_err(|e| anyhow!("Task failed: {}", e))??;
 
     let file = File::open(&zip_path).await?;
     let stream = ReaderStream::new(file);

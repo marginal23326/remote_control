@@ -121,14 +121,14 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState) {
         })
         .to_string();
 
-        if let Err(_) = socket.send(Message::Text(meta.into())).await {
+        if socket.send(Message::Text(meta.into())).await.is_err() {
             break;
         }
 
         // Convert Arc<Vec<u8>> to Bytes
         let image_bytes = Bytes::from(jpeg_data.to_vec());
 
-        if let Err(_) = socket.send(Message::Binary(image_bytes)).await {
+        if socket.send(Message::Binary(image_bytes)).await.is_err() {
             break;
         }
     }
@@ -143,7 +143,7 @@ pub async fn screenshot_handler(State(state): State<SharedState>) -> Json<serde_
         screen_manager.get_frame_receiver()
     };
 
-    if let Err(_) = rx.changed().await {
+    if rx.changed().await.is_err() {
         return Json(json!({"status": "error", "message": "Channel closed"}));
     }
 

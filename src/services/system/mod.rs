@@ -3,12 +3,11 @@ use std::sync::{Arc, Mutex};
 use sysinfo::{Networks, ProcessesToUpdate, System};
 
 fn get_local_ip() -> String {
-    if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0") {
-        if socket.connect("8.8.8.8:80").is_ok() {
-            if let Ok(addr) = socket.local_addr() {
-                return addr.ip().to_string();
-            }
-        }
+    if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0")
+        && socket.connect("8.8.8.8:80").is_ok()
+        && let Ok(addr) = socket.local_addr()
+    {
+        return addr.ip().to_string();
     }
     "127.0.0.1".to_string()
 }
@@ -130,7 +129,7 @@ fn na_wan_info() -> (String, String, String, String, String) {
 
 fn get_mac_address(net_lock: &Arc<Mutex<Networks>>) -> String {
     let networks = net_lock.lock().unwrap();
-    for (_, data) in networks.iter() {
+    for data in networks.values() {
         let mac = data.mac_address().to_string();
         if mac != "00:00:00:00:00:00" && mac != "00:00:00:00:00:00:00:00" {
             return mac.to_uppercase().replace(":", "-");

@@ -81,10 +81,10 @@ impl TaskManager {
 
     pub fn kill_process(&self, pid: u32) -> Result<()> {
         let sys = self.sys.lock().unwrap();
-        if let Some(proc) = sys.process(Pid::from_u32(pid)) {
-            if proc.kill() {
-                return Ok(());
-            }
+        if let Some(proc) = sys.process(Pid::from_u32(pid))
+            && proc.kill()
+        {
+            return Ok(());
         }
         Err(anyhow!("Failed to kill process or process not found"))
     }

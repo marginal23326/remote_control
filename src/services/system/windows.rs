@@ -157,10 +157,11 @@ fn get_battery_status() -> String {
 fn parse_wmic_cpu_speed(output: &str) -> String {
     for line in output.lines() {
         let trimmed = line.trim();
-        if trimmed.chars().all(char::is_numeric) && !trimmed.is_empty() {
-            if let Ok(mhz) = trimmed.parse::<f64>() {
-                return format!("{:.2} GHz", mhz / 1000.0);
-            }
+        if trimmed.chars().all(char::is_numeric)
+            && !trimmed.is_empty()
+            && let Ok(mhz) = trimmed.parse::<f64>()
+        {
+            return format!("{:.2} GHz", mhz / 1000.0);
         }
     }
     "N/A".to_string()
