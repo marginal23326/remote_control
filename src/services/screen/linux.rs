@@ -7,7 +7,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, anyhow};
 use ashpd::desktop::{
@@ -333,6 +333,9 @@ struct PipeWireUserData {
     is_running: Arc<AtomicBool>,
     native_size: Arc<Mutex<(i32, i32)>>,
     main_loop: *mut pw::sys::pw_main_loop,
+    settings: Arc<Mutex<StreamSettings>>,
+    last_arrival: Instant,
+    accumulated: Duration,
 }
 
 fn run_pipewire_capture(
@@ -351,13 +354,14 @@ fn run_pipewire_capture(
     let title_running = is_running.clone();
     thread::spawn(move || run_active_window_title_poll(title_running));
 
+    let encoder_settings = settings.clone();
     let encoder_running = is_running.clone();
     thread::spawn(move || {
         run_encoder_loop(
             work_rx,
             recycle_tx,
             tx_web,
-            settings,
+            encoder_settings,
             encoder_running,
             get_active_window_title,
         );
@@ -373,6 +377,9 @@ fn run_pipewire_capture(
         is_running,
         native_size,
         main_loop: mainloop.as_raw_ptr(),
+        settings,
+        last_arrival: Instant::now(),
+        accumulated: Duration::ZERO,
     };
 
     let stream = pw::stream::StreamBox::new(
@@ -419,6 +426,22 @@ fn run_pipewire_capture(
             let Some(mut buffer) = stream.dequeue_buffer() else {
                 return;
             };
+
+            let target_fps = user_data.settings.lock().unwrap().target_fps;
+            let now = Instant::now();
+
+            if target_fps < 120 {
+                let interval = Duration::from_secs_f64(1.0 / target_fps as f64);
+                let elapsed = now.saturating_duration_since(user_data.last_arrival);
+                user_data.last_arrival = now;
+                user_data.accumulated += elapsed;
+
+                if user_data.accumulated < interval {
+                    return;
+                }
+                user_data.accumulated -= interval;
+            }
+
             let datas = buffer.datas_mut();
             let Some(data) = datas.first_mut() else {
                 return;
