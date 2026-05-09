@@ -1,6 +1,0 @@
-{
-  "username": "admin",
-  "password_hash": "$2b$12$HHXVNx4yTydBKbsCcTGQMeot1gpWfNrffxvRBV3M31UhRuZf7FGB.",
-  "jwt_secret": "13138d99-7869-4146-8fd5-e16f56689138",
-  "port": 5000
-}

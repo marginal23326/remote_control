@@ -23,7 +23,7 @@ pub fn register(io: SocketIo) {
     io.ns("/", on_connect);
 }
 
-fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
+async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     // 1. Validate Authentication
     let headers = &socket.req_parts().headers;
     let cookie_str = headers.get("cookie")
