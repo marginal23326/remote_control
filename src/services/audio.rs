@@ -35,7 +35,6 @@ impl AudioManager {
             host.default_input_device().ok_or("No input device (mic)")?
         };
 
-        // FIX: Added 'mut' here
         let mut supported_configs_range = device
             .supported_input_configs()
             .map_err(|e| e.to_string())?;
@@ -93,7 +92,6 @@ impl AudioManager {
         let host = cpal::default_host();
         let device = host.default_output_device().ok_or("No output device")?;
 
-        // FIX: Added 'mut' here
         let mut supported_configs_range = device
             .supported_output_configs()
             .map_err(|e| e.to_string())?;

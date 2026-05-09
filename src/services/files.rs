@@ -68,41 +68,38 @@ impl FileManager {
         let mut entries = Vec::new();
         let read_dir = fs::read_dir(path).map_err(|e| anyhow!("Access denied: {}", e))?;
 
-        for entry in read_dir {
-            // Skip items we can't even read the entry for
-            if let Ok(entry) = entry {
-                let metadata_res = entry.metadata();
+        for entry in read_dir.flatten() {
+            let metadata_res = entry.metadata();
 
-                // If we can't get metadata, use defaults
-                let (is_dir, len, modified_str) = if let Ok(meta) = metadata_res {
-                    let date = meta
-                        .modified()
-                        .ok()
-                        .map(|t| Timestamp::try_from(t).unwrap().to_string());
-                    (meta.is_dir(), meta.len(), date)
-                } else {
-                    (false, 0, None)
-                };
+            // If we can't get metadata, use defaults
+            let (is_dir, len, modified_str) = if let Ok(meta) = metadata_res {
+                let date = meta
+                    .modified()
+                    .ok()
+                    .map(|t| Timestamp::try_from(t).unwrap().to_string());
+                (meta.is_dir(), meta.len(), date)
+            } else {
+                (false, 0, None)
+            };
 
-                let full_path_buf = entry.path();
-                let full_path = full_path_buf.to_string_lossy().to_string();
-                let file_name = entry.file_name().to_string_lossy().to_string();
+            let full_path_buf = entry.path();
+            let full_path = full_path_buf.to_string_lossy().to_string();
+            let file_name = entry.file_name().to_string_lossy().to_string();
 
-                // Check access for subdirectories
-                let mut no_access = false;
-                if is_dir {
-                    no_access = !self.check_dir_access(&full_path_buf);
-                }
-
-                entries.push(FileEntry {
-                    name: file_name,
-                    path: full_path,
-                    is_dir,
-                    size: len,
-                    last_modified: modified_str,
-                    no_access,
-                });
+            // Check access for subdirectories
+            let mut no_access = false;
+            if is_dir {
+                no_access = !self.check_dir_access(&full_path_buf);
             }
+
+            entries.push(FileEntry {
+                name: file_name,
+                path: full_path,
+                is_dir,
+                size: len,
+                last_modified: modified_str,
+                no_access,
+            });
         }
 
         // Sort: Directories first, then files (case-insensitive)
