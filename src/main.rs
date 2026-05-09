@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let host = "0.0.0.0";
     let listener = TcpListener::bind(format!("{}:{}", host, port)).await?;
     
-    tracing::info!("Server listening on http://{}:{}", host, port);
+    tracing::info!("Server listening on http://localhost:{}", port);
     
     axum::serve(listener, app).await?;
 
