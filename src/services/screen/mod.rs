@@ -96,8 +96,8 @@ impl ScreenManager {
 
     pub fn update_settings(&self, quality: u8, resolution: u8) {
         let mut s = self.settings.lock().unwrap();
-        s.quality = quality.clamp(10, 100);
-        s.resolution_percentage = resolution.clamp(10, 100);
+        s.quality = quality.clamp(1, 100);
+        s.resolution_percentage = resolution.clamp(5, 100);
     }
 
     pub fn set_target_fps(&self, fps: u64) {
