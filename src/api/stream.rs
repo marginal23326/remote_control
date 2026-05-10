@@ -49,7 +49,6 @@ pub async fn update_settings_handler(
 ) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
 
-    // Update settings in the manager
     screen.update_settings(
         payload.quality.unwrap_or(75),
         payload.resolution_percentage.unwrap_or(100),
@@ -59,17 +58,7 @@ pub async fn update_settings_handler(
         screen.set_target_fps(fps);
     }
 
-    // Drop the lock before calling get_settings_handler logic or just re-fetch
-    let s = screen.settings.lock().unwrap();
-    let (native_width, native_height) = screen.native_size();
-
-    Json(CurrentSettingsResponse {
-        quality: s.quality,
-        resolution_percentage: s.resolution_percentage,
-        target_fps: s.target_fps,
-        native_width,
-        native_height,
-    })
+    get_settings_handler(State(state)).await
 }
 
 pub async fn stop_stream_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {

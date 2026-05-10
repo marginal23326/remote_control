@@ -18,6 +18,34 @@ impl AudioManager {
         }
     }
 
+    fn find_config(
+        device: &cpal::Device,
+        rate: u32,
+        input: bool,
+    ) -> Result<(cpal::StreamConfig, usize), String> {
+        let supported_configs_range: Vec<cpal::SupportedStreamConfigRange> = if input {
+            device
+                .supported_input_configs()
+                .map_err(|e| e.to_string())?
+                .collect()
+        } else {
+            device
+                .supported_output_configs()
+                .map_err(|e| e.to_string())?
+                .collect()
+        };
+
+        let supported_config = supported_configs_range
+            .into_iter()
+            .find(|c| c.max_sample_rate() >= rate && c.min_sample_rate() <= rate)
+            .ok_or("Device does not support requested sample rate")?
+            .with_sample_rate(rate);
+
+        let config: cpal::StreamConfig = supported_config.into();
+        let channels = config.channels as usize;
+        Ok((config, channels))
+    }
+
     pub fn start_server_stream(
         &self,
         socket: SocketRef,
@@ -35,17 +63,7 @@ impl AudioManager {
             host.default_input_device().ok_or("No input device (mic)")?
         };
 
-        let mut supported_configs_range = device
-            .supported_input_configs()
-            .map_err(|e| e.to_string())?;
-
-        let supported_config = supported_configs_range
-            .find(|c| c.max_sample_rate() >= rate && c.min_sample_rate() <= rate)
-            .ok_or("Device does not support requested sample rate")?
-            .with_sample_rate(rate);
-
-        let config: cpal::StreamConfig = supported_config.into();
-        let channels = config.channels as usize;
+        let (config, channels) = Self::find_config(&device, rate, true)?;
 
         let socket_clone = socket.clone();
         let err_fn = move |err| tracing::error!("Audio input error: {}", err);
@@ -92,17 +110,7 @@ impl AudioManager {
         let host = cpal::default_host();
         let device = host.default_output_device().ok_or("No output device")?;
 
-        let mut supported_configs_range = device
-            .supported_output_configs()
-            .map_err(|e| e.to_string())?;
-
-        let supported_config = supported_configs_range
-            .find(|c| c.max_sample_rate() >= rate && c.min_sample_rate() <= rate)
-            .ok_or("Device does not support requested sample rate")?
-            .with_sample_rate(rate);
-
-        let config: cpal::StreamConfig = supported_config.into();
-        let channels = config.channels as usize;
+        let (config, channels) = Self::find_config(&device, rate, false)?;
         let queue_ref = self.client_audio_buffer.clone();
 
         let stream = device
