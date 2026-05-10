@@ -12,6 +12,8 @@ const streamUI = {
     nativeHeight: null,
 
     lastObjectUrl: null,
+    frameTimes: [],
+    _lastFpsUpdate: 0,
 
     show() {
         this.container.classList.remove('h-0');
@@ -34,9 +36,20 @@ const streamUI = {
         this.lastObjectUrl = URL.createObjectURL(blob);
         this.view.src = this.lastObjectUrl;
     },
+
+    updateFps() {
+        const now = performance.now();
+        this.frameTimes.push(now);
+        while (this.frameTimes.length > 0 && this.frameTimes[0] <= now - 1000) {
+            this.frameTimes.shift();
+        }
+        if (now - this._lastFpsUpdate >= 500) {
+            this.fpsCounter.textContent = this.frameTimes.length;
+            this._lastFpsUpdate = now;
+        }
+    },
     
     updateMeta(data) {
-        this.fpsCounter.textContent = data.fps;
         if(Object.prototype.hasOwnProperty.call(data, 'win')) {
              this.activeWindowText.textContent = `Active Window: ${data.win || 'Unknown'}`;
         }
@@ -50,6 +63,8 @@ const streamUI = {
         this.view.src = '';
         this.fpsCounter.textContent = '0';
         this.cursorOverlay.style.display = 'none';
+        this.frameTimes = [];
+        this._lastFpsUpdate = 0;
     }
 };
 
@@ -78,6 +93,7 @@ function initializeStream(sessionId, socket) {
                     } catch (e) { console.error("Meta parse error", e); }
                 } else {
                     // It's a binary JPEG blob
+                    streamUI.updateFps();
                     streamUI.updateImage(event.data);
                 }
             };
