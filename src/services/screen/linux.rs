@@ -37,53 +37,7 @@ pub(crate) fn portal_session() -> Arc<PortalSessionManager> {
     PORTAL_SESSION.clone()
 }
 
-pub(crate) async fn start_os_capture(
-    work_tx: Sender<RawFrame>,
-    recycle_rx: Receiver<Vec<u8>>,
-    settings: Arc<Mutex<StreamSettings>>,
-    is_running: Arc<AtomicBool>,
-    native_size: Arc<Mutex<(i32, i32)>>,
-) -> Result<()> {
-    let (node_id, size, fd) = portal_session().open_pipewire_remote().await?;
-    *native_size.lock().unwrap() = size;
-
-    let title_running = is_running.clone();
-    thread::spawn(move || run_active_window_title_poll(title_running));
-
-    thread::spawn(move || {
-        if let Err(err) = run_pipewire_capture(
-            node_id,
-            fd,
-            work_tx,
-            recycle_rx,
-            settings,
-            is_running.clone(),
-            native_size,
-        ) {
-            tracing::error!("PipeWire capture ended: {err:#}");
-        }
-        is_running.store(false, Ordering::SeqCst);
-    });
-
-    Ok(())
-}
-
-pub(crate) fn get_os_native_size(native_size: &Arc<Mutex<(i32, i32)>>) -> (i32, i32) {
-    *native_size.lock().unwrap()
-}
-
-struct PipeWireUserData {
-    format: spa::param::video::VideoInfoRaw,
-    work_tx: Sender<RawFrame>,
-    recycle_rx: Receiver<Vec<u8>>,
-    is_running: Arc<AtomicBool>,
-    native_size: Arc<Mutex<(i32, i32)>>,
-    main_loop: *mut pw::sys::pw_main_loop,
-    settings: Arc<Mutex<StreamSettings>>,
-    limiter: FrameRateLimiter,
-}
-
-fn run_pipewire_capture(
+pub(crate) fn run_pipewire_capture(
     node_id: u32,
     fd: OwnedFd,
     work_tx: Sender<RawFrame>,
@@ -97,6 +51,18 @@ fn run_pipewire_capture(
     let mainloop = pw::main_loop::MainLoopBox::new(None)?;
     let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
     let core = context.connect_fd(fd, None)?;
+
+    struct PipeWireUserData {
+        format: spa::param::video::VideoInfoRaw,
+        work_tx: Sender<RawFrame>,
+        recycle_rx: Receiver<Vec<u8>>,
+        is_running: Arc<AtomicBool>,
+        native_size: Arc<Mutex<(i32, i32)>>,
+        main_loop: *mut pw::sys::pw_main_loop,
+        settings: Arc<Mutex<StreamSettings>>,
+        limiter: FrameRateLimiter,
+    }
+
     let data = PipeWireUserData {
         format: Default::default(),
         work_tx,
@@ -139,6 +105,11 @@ fn run_pipewire_capture(
             if user_data.format.parse(param).is_ok() {
                 let size = user_data.format.size();
                 *user_data.native_size.lock().unwrap() = (size.width as i32, size.height as i32);
+
+                let fr = user_data.format.framerate();
+                if let Some(fps_val) = fr.num.checked_div(fr.denom).filter(|&v| v > 0) {
+                    user_data.settings.lock().unwrap().max_fps = fps_val as u64;
+                }
             }
         })
         .process(|stream, user_data| {
@@ -153,8 +124,11 @@ fn run_pipewire_capture(
                 return;
             };
 
-            let target_fps = user_data.settings.lock().unwrap().target_fps;
-            if !user_data.limiter.should_process(target_fps) {
+            let (target_fps, max_fps) = {
+                let s = user_data.settings.lock().unwrap();
+                (s.target_fps, s.max_fps)
+            };
+            if !user_data.limiter.should_process(target_fps, max_fps) {
                 return;
             }
 
@@ -314,11 +288,12 @@ fn stream_info(stream: &Stream) -> PortalStreamInfo {
 
 static ACTIVE_WINDOW_TITLE: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
 
+#[allow(dead_code)]
 pub(crate) fn get_active_window_title() -> String {
     ACTIVE_WINDOW_TITLE.lock().unwrap().clone()
 }
 
-fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
+pub(crate) fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -330,7 +305,7 @@ fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
             .block_on(query_active_window_title())
             .unwrap_or_default();
         *ACTIVE_WINDOW_TITLE.lock().unwrap() = title;
-        thread::sleep(Duration::from_millis(250));
+        thread::sleep(Duration::from_secs(1));
     }
     ACTIVE_WINDOW_TITLE.lock().unwrap().clear();
 }
@@ -418,10 +393,6 @@ fn unique_suffix() -> u128 {
         .unwrap_or_default()
         ^ process::id() as u128
 }
-
-// ==========================================
-// PORTAL SESSION LOGIC
-// ==========================================
 
 #[derive(Clone, Copy)]
 struct PortalStreamInfo {

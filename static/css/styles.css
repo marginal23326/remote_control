@@ -155,6 +155,7 @@ button.control-button:active {
     z-index: 0;
 }
 
+.stream-container video,
 .stream-container img {
     position: relative;
     z-index: 10;

@@ -5,10 +5,7 @@ use crate::api::{
         rename_handler, upload_handler,
     },
     middleware::auth_middleware,
-    stream::{
-        get_settings_handler, screenshot_handler, stop_stream_handler, stream_handler,
-        update_settings_handler,
-    },
+    stream::{get_settings_handler, stop_stream_handler, update_settings_handler},
     system::get_system_info_handler,
     tasks::kill_process_handler,
 };
@@ -69,13 +66,11 @@ pub fn create_router(state: SharedState) -> Router {
     // 2. Define Protected API Routes
     let api_routes = Router::new()
         .route("/system", get(get_system_info_handler))
-        .route("/stream", get(stream_handler))
         .route(
             "/stream/settings",
             get(get_settings_handler).post(update_settings_handler),
         )
         .route("/stream/stop", get(stop_stream_handler))
-        .route("/screenshot", get(screenshot_handler))
         .route("/files", get(list_files_handler))
         .route("/create_folder", post(create_folder_handler))
         .route("/delete", post(delete_handler))
