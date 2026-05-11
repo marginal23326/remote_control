@@ -17,18 +17,36 @@ use windows_capture::{
     },
 };
 
+use windows::Win32::Graphics::Gdi::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
 use super::{FrameRateLimiter, RawFrame, StreamSettings};
+
+pub(crate) fn get_max_fps() -> u64 {
+    unsafe {
+        let mut dev_mode: windows::Win32::Graphics::Gdi::DEVMODEW = std::mem::zeroed();
+        dev_mode.dmSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::DEVMODEW>() as u16;
+        if EnumDisplaySettingsW(None, ENUM_CURRENT_SETTINGS, &mut dev_mode).as_bool() {
+            dev_mode.dmDisplayFrequency as u64
+        } else {
+            60
+        }
+    }
+}
 
 pub(crate) async fn start_os_capture(
     work_tx: Sender<RawFrame>,
     recycle_rx: Receiver<Vec<u8>>,
     settings: Arc<Mutex<StreamSettings>>,
     is_running: Arc<AtomicBool>,
-    _native_size: Arc<Mutex<(i32, i32)>>,
+    native_size: Arc<Mutex<(i32, i32)>>,
 ) -> anyhow::Result<()> {
+    unsafe {
+        *native_size.lock().unwrap() =
+            (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+    }
+
     thread::spawn(move || {
         let monitor = Monitor::primary().expect("No primary monitor found");
         let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings);
@@ -54,8 +72,23 @@ pub(crate) async fn start_os_capture(
     Ok(())
 }
 
-pub(crate) fn get_os_native_size(_native_size: &Arc<Mutex<(i32, i32)>>) -> (i32, i32) {
+pub(crate) fn get_display_native_size() -> (i32, i32) {
     unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) }
+}
+
+pub(crate) fn get_active_window_title() -> String {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.0.is_null() {
+            return String::new();
+        }
+        let mut buf = [0u16; 512];
+        let len = GetWindowTextW(hwnd, &mut buf);
+        if len == 0 {
+            return String::new();
+        }
+        String::from_utf16_lossy(&buf[..len as usize])
+    }
 }
 
 struct CaptureContext {
@@ -105,9 +138,12 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             return Ok(());
         }
 
-        let target_fps = self.ctx.settings.lock().unwrap().target_fps;
+        let (target_fps, max_fps) = {
+            let s = self.ctx.settings.lock().unwrap();
+            (s.target_fps, s.max_fps)
+        };
 
-        if !self.ctx.limiter.should_process(target_fps) {
+        if !self.ctx.limiter.should_process(target_fps, max_fps) {
             return Ok(());
         }
 
@@ -133,20 +169,5 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         }
 
         Ok(())
-    }
-}
-
-pub(crate) fn get_active_window_title() -> String {
-    unsafe {
-        let hwnd = GetForegroundWindow();
-        if hwnd.0.is_null() {
-            return String::new();
-        }
-        let mut buf = [0u16; 512];
-        let len = GetWindowTextW(hwnd, &mut buf);
-        if len == 0 {
-            return String::new();
-        }
-        String::from_utf16_lossy(&buf[..len as usize])
     }
 }

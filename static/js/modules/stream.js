@@ -1,19 +1,14 @@
-// static/js/modules/stream.js
 import { apiCall } from './utils.js';
 
 const streamUI = {
     container: document.getElementById('streamContainer'),
     status: document.getElementById('streamStatus'),
     view: document.getElementById('streamView'),
-    fpsCounter: document.getElementById('currentFPS'),
-    activeWindowText: document.getElementById('activeWindow'),
-    cursorOverlay: document.getElementById('cursorOverlay'),
     nativeWidth: null,
     nativeHeight: null,
-
-    lastObjectUrl: null,
+    fpsCounter: document.getElementById('currentFPS'),
+    activeWindowText: document.getElementById('activeWindow'),
     frameTimes: [],
-    _lastFpsUpdate: 0,
 
     show() {
         this.container.classList.remove('h-0');
@@ -29,49 +24,56 @@ const streamUI = {
         this.status.classList.add('hidden');
     },
 
-    updateImage(blob) {
-        if (this.lastObjectUrl) {
-            URL.revokeObjectURL(this.lastObjectUrl);
+    startFpsCounter() {
+        const frameTimes = this.frameTimes;
+        const fpsCounter = this.fpsCounter;
+        const video = this.view;
+
+        let rafId;
+
+        function onFrame(now, _metadata) {
+            frameTimes.push(now);
+            while (frameTimes.length > 0 && frameTimes[0] <= now - 1000) {
+                frameTimes.shift();
+            }
+            fpsCounter.textContent = frameTimes.length;
+            rafId = video.requestVideoFrameCallback(onFrame);
         }
-        this.lastObjectUrl = URL.createObjectURL(blob);
-        this.view.src = this.lastObjectUrl;
+
+        rafId = video.requestVideoFrameCallback(onFrame);
+        this._stopFpsCounter = () => video.cancelVideoFrameCallback(rafId);
     },
 
-    updateFps() {
-        const now = performance.now();
-        this.frameTimes.push(now);
-        while (this.frameTimes.length > 0 && this.frameTimes[0] <= now - 1000) {
-            this.frameTimes.shift();
-        }
-        if (now - this._lastFpsUpdate >= 500) {
-            this.fpsCounter.textContent = this.frameTimes.length;
-            this._lastFpsUpdate = now;
+    stopFpsCounter() {
+        if (this._stopFpsCounter) {
+            this._stopFpsCounter();
+            this._stopFpsCounter = null;
         }
     },
-    
+
     updateMeta(data) {
-        if(Object.prototype.hasOwnProperty.call(data, 'win')) {
-             this.activeWindowText.textContent = `Active Window: ${data.win || 'Unknown'}`;
+        if (Object.prototype.hasOwnProperty.call(data, 'win')) {
+            this.activeWindowText.textContent = `Active Window: ${data.win || 'Unknown'}`;
         }
     },
 
     clear() {
-        if (this.lastObjectUrl) {
-            URL.revokeObjectURL(this.lastObjectUrl);
-            this.lastObjectUrl = null;
-        }
-        this.view.src = '';
+        this.stopFpsCounter();
         this.fpsCounter.textContent = '0';
-        this.cursorOverlay.style.display = 'none';
         this.frameTimes = [];
-        this._lastFpsUpdate = 0;
+        if (this.view.srcObject) {
+            this.view.srcObject.getTracks().forEach(t => t.stop());
+            this.view.srcObject = null;
+        }
     }
 };
 
 let streamActive = false;
-let ws = null;
-let nativeWidth, nativeHeight;
+let peerConnection = null;
 let isFullscreen = false;
+let nativeWidth = null;
+let nativeHeight = null;
+let maxFps = 60;
 
 function initializeStream(sessionId, socket) {
     document.getElementById('startStream').addEventListener('click', () => {
@@ -79,40 +81,60 @@ function initializeStream(sessionId, socket) {
             streamActive = true;
             streamUI.show();
 
-            // Establish WebSocket Connection
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/api/stream?sid=${sessionId}`);
-            ws.binaryType = "blob"; // Important: Receive data as Blob directly
+            socket.emit('start_stream', { sessionId });
 
-            ws.onmessage = (event) => {
-                if (typeof event.data === "string") {
-                    // It's a JSON metadata packet
+            socket.on('webrtc_offer', async (sdpText) => {
+                if (!peerConnection) {
+                    peerConnection = new RTCPeerConnection({
+                        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    });
+
+                    peerConnection.ontrack = (event) => {
+                        if (streamUI.view.srcObject !== event.streams[0]) {
+                            streamUI.view.srcObject = event.streams[0];
+                        }
+                    };
+
+                    peerConnection.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            socket.emit('webrtc_ice_candidate', {
+                                sdp_mline_index: event.candidate.sdpMLineIndex,
+                                candidate: event.candidate.candidate
+                            });
+                        }
+                    };
+
+                    peerConnection.onconnectionstatechange = () => {
+                        if (peerConnection.connectionState === 'connected') {
+                            streamUI.startFpsCounter();
+                        }
+                    };
+
+                }
+
+                await peerConnection.setRemoteDescription({ type: 'offer', sdp: sdpText });
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('webrtc_answer', answer.sdp);
+            });
+
+            socket.on('webrtc_remote_ice', async (data) => {
+                if (peerConnection) {
                     try {
-                        const meta = JSON.parse(event.data);
-                        streamUI.updateMeta(meta);
-                    } catch (e) { console.error("Meta parse error", e); }
-                } else {
-                    // It's a binary JPEG blob
-                    streamUI.updateFps();
-                    streamUI.updateImage(event.data);
+                        await peerConnection.addIceCandidate({
+                            sdpMLineIndex: data.sdp_mline_index,
+                            candidate: data.candidate
+                        });
+                    } catch (e) {
+                        console.warn('ICE add error:', e);
+                    }
                 }
-            };
+            });
 
-            ws.onclose = () => {
-                if(streamActive) {
-                    console.log("Stream socket closed unexpectedly");
-                    // Optional: Auto-reconnect logic here
-                }
-            };
-
-            // ... Mouse position logic (same as before) ...
-            socket.on('mouse_position', (data) => {
-                const dimensions = calculateStreamDimensions();
-                const adjustedX = (data.x / dimensions.scaleX) + dimensions.offsetX;
-                const adjustedY = (data.y / dimensions.scaleY) + dimensions.offsetY;
-                streamUI.cursorOverlay.style.display = 'block';
-                streamUI.cursorOverlay.style.left = `${adjustedX}px`;
-                streamUI.cursorOverlay.style.top = `${adjustedY}px`;
+            socket.on('stream_error', (data) => {
+                console.error('Stream error:', data.message);
+                streamActive = false;
+                streamUI.hide();
             });
         }
     });
@@ -121,92 +143,130 @@ function initializeStream(sessionId, socket) {
         if (streamActive) {
             streamActive = false;
             streamUI.hide();
-
-            if (ws) {
-                ws.close();
-                ws = null;
-            }
+            cleanupPeerConnection();
             await apiCall('/api/stream/stop');
             streamUI.clear();
-            socket.off('mouse_position');
+            socket.off('webrtc_offer');
+            socket.off('webrtc_remote_ice');
+            socket.off('stream_error');
         }
     });
 
-    document.getElementById('screenshot').addEventListener('click', async () => {
-        streamUI.show();
-
-        const response = await apiCall('/api/screenshot');
-        if (response.status === 'success') {
-            streamUI.view.src = `data:image/jpeg;base64,${response.image}`;
-        }
-    });
-
-    document.getElementById('streamQuality').addEventListener('input', updateStreamSettings);
-    document.getElementById('streamResolution').addEventListener('input', updateStreamSettings);
+    document.getElementById('streamBitrate').addEventListener('input', updateStreamSettings);
+    document.getElementById('streamResolution').addEventListener('input', updateResolutionLabel);
+    document.getElementById('streamResolution').addEventListener('change', updateStreamSettings);
     document.getElementById('streamFPS').addEventListener('input', updateStreamSettings);
     document.getElementById('autoFpsButton').addEventListener('click', setAutoFPS);
 
-    // Fullscreen handling
     const fullscreenBtn = document.getElementById('fullscreenBtn');
-    
+
     function handleFullscreen() {
         if (!isFullscreen) {
             if (streamUI.container.requestFullscreen) {
                 streamUI.container.requestFullscreen();
-            } else if (streamUI.container.mozRequestFullScreen) {
-                streamUI.container.mozRequestFullScreen();
             } else if (streamUI.container.webkitRequestFullscreen) {
                 streamUI.container.webkitRequestFullscreen();
-            } else if (streamUI.container.msRequestFullscreen) {
-                streamUI.container.msRequestFullscreen();
             }
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
             } else if (document.webkitExitFullscreen) {
                 document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
             }
         }
     }
 
-    function adjustStreamSize() {
-        if (isFullscreen) {
-            streamUI.container.classList.add('fullscreen');
-            streamUI.container.style.display = 'none';
-            void streamUI.container.offsetHeight;
-            streamUI.container.style.display = 'flex';
-        } else {
-            streamUI.container.classList.remove('fullscreen');
-            streamUI.view.style.width = '';
-            streamUI.view.style.height = '';
-        }
-    }
-
-    function onFullscreenChange() {
-        isFullscreen = !isFullscreen;
-        if (isFullscreen) {
-            streamUI.view.classList.add('fullscreen');
-        } else {
-            streamUI.view.classList.remove('fullscreen');
-        }
-        adjustStreamSize();
-    }
-
     fullscreenBtn.addEventListener('click', handleFullscreen);
 
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
-    document.addEventListener('mozfullscreenchange', onFullscreenChange);
-    document.addEventListener('MSFullscreenChange', onFullscreenChange);
-    window.addEventListener('load', adjustStreamSize);
-    window.addEventListener('resize', adjustStreamSize);
+    document.addEventListener('fullscreenchange', () => {
+        isFullscreen = !!document.fullscreenElement;
+    });
+    document.addEventListener('webkitfullscreenchange', () => {
+        isFullscreen = !!document.webkitFullscreenElement;
+    });
+
+    socket.on('active_window', (data) => {
+        streamUI.updateMeta({ win: data.title });
+    });
+}
+
+function cleanupPeerConnection() {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+}
+
+function updateSettingsDisplay(settings) {
+    if (!settings) return;
+
+    if (settings.native_width !== undefined) {
+        nativeWidth = settings.native_width;
+        nativeHeight = settings.native_height;
+        streamUI.nativeWidth = settings.native_width;
+        streamUI.nativeHeight = settings.native_height;
+    }
+
+    document.getElementById('streamBitrate').value = settings.bitrate;
+    document.getElementById('streamResolution').value = settings.resolution_percentage;
+    if (settings.max_fps) {
+        maxFps = settings.max_fps;
+        document.getElementById('streamFPS').max = maxFps;
+    }
+    document.getElementById('streamFPS').value = settings.target_fps;
+
+    const bitrateVal = settings.bitrate;
+    document.getElementById('bitrateValue').textContent = bitrateVal >= 1000
+        ? (bitrateVal / 1000).toFixed(1) + ' mbps'
+        : bitrateVal + ' kbps';
+
+    const resPct = settings.resolution_percentage;
+    const w = nativeWidth || 1920;
+    const h = nativeHeight || 1080;
+    const resText = resPct == 100
+        ? "100% (Native)"
+        : `${resPct}% (${Math.round(w * resPct / 100)} x ${Math.round(h * resPct / 100)})`;
+    document.getElementById('resolutionValue').textContent = resText;
+
+    document.getElementById('fpsValue').textContent = `(Target: ${settings.target_fps} FPS)`;
+}
+
+function updateResolutionLabel() {
+    const pct = parseInt(document.getElementById('streamResolution').value);
+    document.getElementById('resolutionValue').textContent = pct + '%';
+}
+
+async function updateStreamSettings() {
+    const bitrate = parseInt(document.getElementById('streamBitrate').value);
+    const resolutionPercentage = parseInt(document.getElementById('streamResolution').value);
+    const fps = parseInt(document.getElementById('streamFPS').value);
+
+    document.getElementById('bitrateValue').textContent = bitrate >= 1000
+        ? (bitrate / 1000).toFixed(1) + ' mbps'
+        : bitrate + ' kbps';
+    document.getElementById('resolutionValue').textContent = resolutionPercentage + '%';
+    document.getElementById('fpsValue').textContent = `(Target: ${fps} FPS)`;
+
+    const response = await apiCall('/api/stream/settings', 'POST', {
+        bitrate,
+        resolution_percentage: resolutionPercentage,
+        target_fps: fps
+    });
+
+    if (response) {
+        updateSettingsDisplay(response);
+    }
+}
+
+function setAutoFPS() {
+    document.getElementById('streamFPS').value = maxFps;
+    document.getElementById('fpsValue').textContent = `${maxFps} FPS`;
+    updateStreamSettings();
 }
 
 function calculateStreamDimensions() {
+    const w = nativeWidth || streamUI.view.videoWidth || 1920;
+    const h = nativeHeight || streamUI.view.videoHeight || 1080;
     const rect = streamUI.view.getBoundingClientRect();
     const container = streamUI.container.getBoundingClientRect();
 
@@ -215,7 +275,7 @@ function calculateStreamDimensions() {
 
     if (isFullscreen) {
         const containerAspect = container.width / container.height;
-        const streamAspect = nativeWidth / nativeHeight;
+        const streamAspect = w / h;
 
         if (containerAspect > streamAspect) {
             streamWidth = container.height * streamAspect;
@@ -242,65 +302,6 @@ function calculateStreamDimensions() {
     };
 }
 
-function updateSettingsDisplay(settings) {
-    if (!settings || settings.native_width === undefined) return;
-
-    nativeWidth = settings.native_width;
-    nativeHeight = settings.native_height;
-    streamUI.nativeWidth = settings.native_width;
-    streamUI.nativeHeight = settings.native_height;
-
-    // Sync Slider Values
-    document.getElementById('streamQuality').value = settings.quality;
-    document.getElementById('streamResolution').value = settings.resolution_percentage;
-    document.getElementById('streamFPS').value = settings.target_fps;
-
-    // Update Labels
-    document.getElementById('qualityValue').textContent = settings.quality + '%';
-    
-    const resPct = settings.resolution_percentage;
-    const resText = resPct == 100 ? 
-        "100% (Native)" : 
-        `${resPct}% (${Math.round(nativeWidth * resPct / 100)} x ${Math.round(nativeHeight * resPct / 100)})`;
-    document.getElementById('resolutionValue').textContent = resText;
-
-    const fpsValue = document.getElementById('fpsValue');
-    fpsValue.textContent = settings.target_fps ? 
-        `(Target: ${settings.target_fps} FPS)` : 
-        '(Unlimited FPS)';
-}
-
-async function updateStreamSettings() {
-    const quality = document.getElementById('streamQuality').value;
-    const resolutionPercentage = document.getElementById('streamResolution').value;
-    const fps = document.getElementById('streamFPS').value;
-
-    // Immediate UI feedback for labels (so it feels snappy)
-    document.getElementById('qualityValue').textContent = quality + '%';
-    const resText = resolutionPercentage == 100 ? 
-        "100% (Native)" : 
-        `${resolutionPercentage}% (${Math.round(nativeWidth * resolutionPercentage / 100)} x ${Math.round(nativeHeight * resolutionPercentage / 100)})`;
-    document.getElementById('resolutionValue').textContent = resText;
-    document.getElementById('fpsValue').textContent = `(Target: ${fps} FPS)`;
-
-    // Send to server
-    const response = await apiCall('/api/stream/settings', 'POST', {
-        quality: parseInt(quality),
-        resolution_percentage: parseInt(resolutionPercentage),
-        target_fps: parseInt(fps)
-    });
-
-    if (response) {
-        updateSettingsDisplay(response);
-    }
-}
-
-function setAutoFPS() {
-    document.getElementById('streamFPS').value = 60;
-    document.getElementById('fpsValue').textContent = "60 FPS";
-    updateStreamSettings();
-}
-
 export {
     initializeStream,
     streamUI,
@@ -309,5 +310,5 @@ export {
     setAutoFPS,
     streamActive,
     isFullscreen,
-    calculateStreamDimensions
+    calculateStreamDimensions,
 };

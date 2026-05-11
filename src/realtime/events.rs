@@ -1,8 +1,9 @@
 use crate::realtime::handlers::{
     handle_client_audio_data, handle_disconnect, handle_keyboard_event, handle_mouse_event,
     handle_shell_create, handle_shell_input, handle_shell_resize, handle_start_client_audio,
-    handle_start_server_audio, handle_stop_client_audio, handle_stop_server_audio,
-    handle_task_poll_start, handle_task_poll_stop,
+    handle_start_server_audio, handle_start_stream, handle_stop_client_audio,
+    handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop, handle_webrtc_answer,
+    handle_webrtc_ice,
 };
 use crate::state::SharedState;
 use crate::utils::auth::{extract_token_from_cookie, verify_jwt};
@@ -18,7 +19,6 @@ pub fn register(io: SocketIo) {
 }
 
 async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
-    // 1. Validate Authentication
     let headers = &socket.req_parts().headers;
     let cookie_str = headers
         .get("cookie")
@@ -58,6 +58,10 @@ async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     socket.on("stop_client_audio", handle_stop_client_audio);
     socket.on("client_audio_data", handle_client_audio_data);
 
-    // Cleanup
+    socket.on("start_stream", handle_start_stream);
+
+    socket.on("webrtc_answer", handle_webrtc_answer);
+    socket.on("webrtc_ice_candidate", handle_webrtc_ice);
+
     socket.on_disconnect(handle_disconnect);
 }

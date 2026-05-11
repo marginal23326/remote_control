@@ -175,6 +175,8 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
 
     let mut shell_manager = state.shell.lock().unwrap();
     shell_manager.close_session(&socket.id.to_string());
+
+    state.screen.stop_stream();
 }
 
 pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {
@@ -271,12 +273,62 @@ pub async fn handle_stop_client_audio(State(state): State<SharedState>) {
 }
 
 pub async fn handle_client_audio_data(
-    Data(data): Data<Vec<u8>>, // Receive raw binary data
+    Data(data): Data<Vec<u8>>,
     State(state): State<SharedState>,
     ack: socketioxide::extract::AckSender,
 ) {
     let audio = state.audio.lock().unwrap();
     audio.process_client_audio(data);
-    // Acknowledge receipt so client sends next chunk
     let _ = ack.send(&json!({"status": "ok"}));
+}
+
+pub async fn handle_start_stream(socket: SocketRef, State(state): State<SharedState>) {
+    let screen = state.screen.clone();
+    if let Err(e) = screen.start_stream(socket.clone(), state).await {
+        tracing::error!("Failed to start stream: {e:#}");
+        let _ = socket.emit("stream_error", &json!({ "message": e.to_string() }));
+    }
+}
+
+pub async fn handle_webrtc_answer(
+    Data(data): Data<serde_json::Value>,
+    State(state): State<SharedState>,
+) {
+    let sdp_str = if let Some(s) = data.as_str() {
+        s.to_string()
+    } else if let Some(s) = data
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_str())
+    {
+        s.to_string()
+    } else {
+        return;
+    };
+
+    if let Some(inner) = state.screen.inner.lock().unwrap().as_ref() {
+        let _ = inner
+            .cmd_tx
+            .send(crate::services::screen::GstCommand::SetRemoteDescription(
+                sdp_str,
+            ));
+    }
+}
+
+pub async fn handle_webrtc_ice(
+    Data(data): Data<serde_json::Value>,
+    State(state): State<SharedState>,
+) {
+    if let (Some(idx), Some(candidate)) = (
+        data.get("sdp_mline_index").and_then(|v| v.as_u64()),
+        data.get("candidate").and_then(|v| v.as_str()),
+    ) && let Some(inner) = state.screen.inner.lock().unwrap().as_ref()
+    {
+        let _ = inner
+            .cmd_tx
+            .send(crate::services::screen::GstCommand::AddIceCandidate {
+                sdp_mline_index: idx as u32,
+                candidate: candidate.to_string(),
+            });
+    }
 }
