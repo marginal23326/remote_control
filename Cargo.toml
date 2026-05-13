@@ -32,8 +32,8 @@ serde_qs = "1.1"
 ureq = { version = "3", features = ["json"] }
 
 # --- Security (Auth) ---
-hmac = "0.12"
-sha2 = "0.10"
+hmac = "0.13"
+sha2 = "0.11"
 bcrypt = "0.19"
 
 # --- Utilities ---
