@@ -74,6 +74,10 @@ let isFullscreen = false;
 let nativeWidth = null;
 let nativeHeight = null;
 let maxFps = 60;
+let mouseMoveChannel = null;
+let mouseControlChannel = null;
+let pendingMouseMove = null;
+let mouseInputSeq = 0;
 
 function initializeStream(sessionId, socket) {
     document.getElementById('startStream').addEventListener('click', () => {
@@ -104,12 +108,24 @@ function initializeStream(sessionId, socket) {
                         }
                     };
 
+                    peerConnection.ondatachannel = (event) => {
+                        registerInputDataChannel(event.channel);
+                    };
+
                     peerConnection.onconnectionstatechange = () => {
                         if (peerConnection.connectionState === 'connected') {
                             streamUI.startFpsCounter();
                         }
                     };
 
+                    const moveChannel = peerConnection.createDataChannel('mouse-move', {
+                        ordered: false,
+                        maxRetransmits: 0,
+                    });
+                    moveChannel.bufferedAmountLowThreshold = 1024;
+                    registerInputDataChannel(moveChannel);
+                    const controlChannel = peerConnection.createDataChannel('mouse-control');
+                    registerInputDataChannel(controlChannel);
                 }
 
                 await peerConnection.setRemoteDescription({ type: 'offer', sdp: sdpText });
@@ -134,6 +150,7 @@ function initializeStream(sessionId, socket) {
             socket.on('stream_error', (data) => {
                 console.error('Stream error:', data.message);
                 streamActive = false;
+                cleanupPeerConnection();
                 streamUI.hide();
             });
         }
@@ -191,10 +208,83 @@ function initializeStream(sessionId, socket) {
 }
 
 function cleanupPeerConnection() {
+    mouseMoveChannel = null;
+    mouseControlChannel = null;
+    pendingMouseMove = null;
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
+}
+
+function registerInputDataChannel(channel) {
+    if (channel.label === 'mouse-move') {
+        mouseMoveChannel = channel;
+        mouseMoveChannel.bufferedAmountLowThreshold = 1024;
+        channel.onbufferedamountlow = () => flushPendingMouseMove();
+        channel.onclose = () => {
+            if (mouseMoveChannel === channel) {
+                mouseMoveChannel = null;
+                pendingMouseMove = null;
+            }
+        };
+        channel.onerror = () => {
+            if (mouseMoveChannel === channel) {
+                mouseMoveChannel = null;
+                pendingMouseMove = null;
+            }
+        };
+    } else if (channel.label === 'mouse-control') {
+        mouseControlChannel = channel;
+        channel.onclose = () => {
+            if (mouseControlChannel === channel) mouseControlChannel = null;
+        };
+        channel.onerror = () => {
+            if (mouseControlChannel === channel) mouseControlChannel = null;
+        };
+    }
+}
+
+function sendMouseEventOverDataChannel(data) {
+    const lowLatency = data.type === 'move';
+    const channel = lowLatency ? mouseMoveChannel : mouseControlChannel;
+    if (!channel || channel.readyState !== 'open') {
+        return false;
+    }
+
+    const payload = {
+        ...data,
+        seq: ++mouseInputSeq,
+    };
+
+    if (lowLatency && channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
+        pendingMouseMove = payload;
+        return true;
+    }
+
+    return sendRawMousePayload(channel, payload);
+}
+
+function sendRawMousePayload(channel, payload) {
+    try {
+        channel.send(JSON.stringify(payload));
+        return true;
+    } catch (_error) {
+        return false;
+    }
+}
+
+function flushPendingMouseMove() {
+    if (!pendingMouseMove || !mouseMoveChannel || mouseMoveChannel.readyState !== 'open') {
+        return;
+    }
+    if (mouseMoveChannel.bufferedAmount > mouseMoveChannel.bufferedAmountLowThreshold) {
+        return;
+    }
+
+    const payload = pendingMouseMove;
+    pendingMouseMove = null;
+    sendRawMousePayload(mouseMoveChannel, payload);
 }
 
 function updateSettingsDisplay(settings) {
@@ -311,4 +401,5 @@ export {
     streamActive,
     isFullscreen,
     calculateStreamDimensions,
+    sendMouseEventOverDataChannel,
 };

@@ -68,7 +68,7 @@ fast_image_resize = "6"
 # --- GStreamer ---
 gstreamer = "0.25"
 gstreamer-app = "0.25"
-gstreamer-webrtc = "0.25"
+gstreamer-webrtc = { version = "0.25", features = ["v1_18"] }
 gstreamer-sdp = "0.25"
 
 # --- Windows System API ---

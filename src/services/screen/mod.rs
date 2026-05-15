@@ -13,6 +13,7 @@ use gstreamer_app as gst_app;
 use gstreamer_sdp as gst_sdp;
 use gstreamer_webrtc as gst_webrtc;
 
+
 #[derive(Clone, Copy, Debug)]
 pub struct StreamSettings {
     pub bitrate: u32,
@@ -129,6 +130,7 @@ pub(crate) struct InnerState {
     pub(crate) pipeline: gst::Pipeline,
     pub(crate) encoder: gst::Element,
     pub(crate) cmd_tx: crossbeam_channel::Sender<GstCommand>,
+    input_handle: Option<tokio::task::JoinHandle<()>>,
     pw_handle: Option<thread::JoinHandle<()>>,
     title_handle: Option<thread::JoinHandle<()>>,
     emit_handle: Option<thread::JoinHandle<()>>,
@@ -152,7 +154,7 @@ impl ScreenManager {
     pub async fn start_stream(
         &self,
         socket: socketioxide::extract::SocketRef,
-        _state: crate::state::SharedState,
+        state: crate::state::SharedState,
     ) -> anyhow::Result<()> {
         if self.is_running.load(Ordering::SeqCst) {
             tracing::warn!("start_stream: already running");
@@ -190,7 +192,7 @@ impl ScreenManager {
              rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
              webrtcbin name=webrtc \
                 bundle-policy=max-bundle \
-                latency=0", 
+                latency=0",
             encoder_str
         );
 
@@ -222,7 +224,13 @@ impl ScreenManager {
         let (recycle_tx, recycle_rx): (Sender<Vec<u8>>, _) = bounded(5);
 
         let socket_signal = socket.clone();
-        Self::setup_webrtc_signals(&webrtcbin, &cmd_rx, socket_signal);
+        let input_handle = Self::setup_webrtc_signals(
+            &webrtcbin,
+            &cmd_rx,
+            socket_signal,
+            state.input.clone(),
+            tokio::runtime::Handle::current(),
+        );
 
         self.is_running.store(true, Ordering::SeqCst);
         let is_running = self.is_running.clone();
@@ -303,6 +311,7 @@ impl ScreenManager {
                 pipeline,
                 encoder,
                 cmd_tx,
+                input_handle: Some(input_handle),
                 pw_handle: Some(pw_handle),
                 title_handle: Some(title_handle),
                 emit_handle: None,
@@ -324,6 +333,7 @@ impl ScreenManager {
                 pipeline,
                 encoder,
                 cmd_tx,
+                input_handle: Some(input_handle),
                 pw_handle: None,
                 title_handle: None,
                 emit_handle: None,
@@ -416,7 +426,9 @@ impl ScreenManager {
         webrtcbin: &gst::Element,
         cmd_rx: &crossbeam_channel::Receiver<GstCommand>,
         socket: socketioxide::extract::SocketRef,
-    ) {
+        input: Arc<crate::services::input::InputManager>,
+        runtime: tokio::runtime::Handle,
+    ) -> tokio::task::JoinHandle<()> {
         let wtc = webrtcbin.clone();
 
         webrtcbin.set_property_from_str("stun-server", "stun://stun.l.google.com:19302");
@@ -462,6 +474,8 @@ impl ScreenManager {
             });
         }
 
+        let input_handle = Self::setup_input_data_channels(webrtcbin, input, runtime);
+
         let cmd_rx_clone = cmd_rx.clone();
         let webrtc = wtc.clone();
         thread::spawn(move || {
@@ -496,6 +510,125 @@ impl ScreenManager {
                 }
             }
         });
+
+        input_handle
+    }
+
+    fn setup_input_data_channels(
+        webrtcbin: &gst::Element,
+        input: Arc<crate::services::input::InputManager>,
+        runtime: tokio::runtime::Handle,
+    ) -> tokio::task::JoinHandle<()> {
+        let (move_tx, mut move_rx) =
+            tokio::sync::watch::channel::<Option<crate::services::input::MouseEvent>>(None);
+        let (control_tx, mut control_rx) =
+            tokio::sync::mpsc::unbounded_channel::<crate::services::input::MouseEvent>();
+
+        let input_handle = runtime.spawn({
+            let input = input.clone();
+            async move {
+                let mut move_open = true;
+                let mut control_open = true;
+                let mut last_low_latency_seq = 0u64;
+
+                loop {
+                    if !move_open && !control_open {
+                        break;
+                    }
+
+                    tokio::select! {
+                        biased;
+
+                        event = control_rx.recv(), if control_open => {
+                            if let Some(event) = event {
+                                if let Err(err) =
+                                    crate::services::input::apply_mouse_event(input.as_ref(), event).await
+                                {
+                                    tracing::error!("Input data channel control event failed: {err:#}");
+                                }
+                            } else {
+                                control_open = false;
+                            }
+                        }
+
+                        changed = move_rx.changed(), if move_open => {
+                            if changed.is_err() {
+                                move_open = false;
+                                continue;
+                            }
+                            let event = move_rx.borrow_and_update().clone();
+                            if let Some(event) = event {
+                                if let Some(seq) = event.seq {
+                                    if seq <= last_low_latency_seq {
+                                        continue;
+                                    }
+                                    last_low_latency_seq = seq;
+                                }
+                                if let Err(err) =
+                                    crate::services::input::apply_mouse_event(input.as_ref(), event).await
+                                {
+                                    tracing::error!("Input data channel low-latency event failed: {err:#}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        webrtcbin.connect_local("on-data-channel", false, move |values| {
+            let channel: gst_webrtc::WebRTCDataChannel = values[0].get().expect("on-data-channel param");
+            match channel.label().as_deref() {
+                Some("mouse-move") => Self::attach_move_data_channel(&channel, move_tx.clone()),
+                Some("mouse-control") => Self::attach_control_data_channel(&channel, control_tx.clone()),
+                _ => {}
+            }
+            None
+        });
+
+        input_handle
+    }
+
+    fn attach_move_data_channel(
+        channel: &gst_webrtc::WebRTCDataChannel,
+        move_tx: tokio::sync::watch::Sender<Option<crate::services::input::MouseEvent>>,
+    ) {
+        channel.connect_on_message_string(move |_, message| {
+            let Some(message) = message else {
+                return;
+            };
+
+            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message)
+            else {
+                tracing::debug!("Ignoring malformed mouse data-channel message");
+                return;
+            };
+
+            if event.r#type == "move" {
+                let _ = move_tx.send(Some(event));
+            }
+        });
+    }
+
+    fn attach_control_data_channel(
+        channel: &gst_webrtc::WebRTCDataChannel,
+        control_tx: tokio::sync::mpsc::UnboundedSender<crate::services::input::MouseEvent>,
+    ) {
+        channel.connect_on_message_string(move |_, message| {
+            let Some(message) = message else {
+                return;
+            };
+
+            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message)
+            else {
+                tracing::debug!("Ignoring malformed mouse data-channel message");
+                return;
+            };
+
+            if event.r#type != "move" {
+                let _ = control_tx.send(event);
+            }
+        });
     }
 
     pub fn stop_stream(&self) {
@@ -512,6 +645,9 @@ impl ScreenManager {
             drop(state.pw_handle);
             drop(state.title_handle);
             drop(state.emit_handle);
+            if let Some(handle) = state.input_handle {
+                handle.abort();
+            }
         }
     }
 
