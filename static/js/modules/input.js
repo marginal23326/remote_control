@@ -1,5 +1,10 @@
 // static/js/modules/input.js
-import { streamUI, streamActive, calculateStreamDimensions } from './stream.js';
+import {
+    streamUI,
+    streamActive,
+    calculateStreamDimensions,
+    sendMouseEventOverDataChannel,
+} from './stream.js';
 
 // Mapping for abstract action names to actual keys
 const SHORTCUT_MAP = {
@@ -278,7 +283,9 @@ function initializeInputHandlers(socket) {
         const y = Math.max(0, Math.min(dimensions.nativeHeight, relativeY * dimensions.scaleY));
         
         const data = { type, x, y, ...options };
-        socket.emit('mouse_event', data);
+        if (!sendMouseEventOverDataChannel(data)) {
+            socket.emit('mouse_event', data);
+        }
     }
 }
 
