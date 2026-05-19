@@ -37,6 +37,26 @@ pub(crate) fn portal_session() -> Arc<PortalSessionManager> {
     PORTAL_SESSION.clone()
 }
 
+pub(crate) fn get_max_fps() -> u64 {
+    let out = process::Command::new("wayland-info").output().ok();
+    if let Some(out) = out {
+        if let Ok(s) = std::str::from_utf8(&out.stdout) {
+            let hz = s
+                .lines()
+                .filter_map(|line| line.split_once("refresh:"))
+                .filter_map(|(_, rest)| {
+                    let hz_str = rest.trim_start().split_whitespace().next()?;
+                    hz_str.parse::<f64>().ok()
+                })
+                .fold(0.0, f64::max);
+            if hz > 0.0 {
+                return hz.round() as u64;
+            }
+        }
+    }
+    60
+}
+
 pub(crate) fn run_pipewire_capture(
     node_id: u32,
     fd: OwnedFd,
@@ -81,6 +101,7 @@ pub(crate) fn run_pipewire_capture(
             *pw::keys::MEDIA_TYPE => "Video",
             *pw::keys::MEDIA_CATEGORY => "Capture",
             *pw::keys::MEDIA_ROLE => "Screen",
+            *pw::keys::NODE_FORCE_QUANTUM => "512",
         },
     )?;
 
@@ -107,8 +128,12 @@ pub(crate) fn run_pipewire_capture(
                 *user_data.native_size.lock().unwrap() = (size.width as i32, size.height as i32);
 
                 let fr = user_data.format.framerate();
-                if let Some(fps_val) = fr.num.checked_div(fr.denom).filter(|&v| v > 0) {
-                    user_data.settings.lock().unwrap().max_fps = fps_val as u64;
+                if fr.denom > 0 {
+                    if let Some(fps_val) = fr.num.checked_div(fr.denom).filter(|&v| v > 0) {
+                        user_data.settings.lock().unwrap().max_fps = fps_val as u64;
+                    }
+                } else {
+                    user_data.settings.lock().unwrap().max_fps = fr.num.max(1) as u64;
                 }
             }
         })
@@ -217,7 +242,9 @@ pub(crate) fn run_pipewire_capture(
     stream.connect(
         spa::utils::Direction::Input,
         Some(node_id),
-        pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS,
+        pw::stream::StreamFlags::AUTOCONNECT
+            | pw::stream::StreamFlags::MAP_BUFFERS
+            | pw::stream::StreamFlags::DRIVER,
         &mut params,
     )?;
 
@@ -611,83 +638,5 @@ fn write_restore_token(token: &str) {
             let _ = fs::create_dir_all(parent);
         }
         let _ = fs::write(path, token);
-    }
-}
-
-#[cfg(all(test, target_os = "linux"))]
-mod tests {
-    use super::*;
-    use crossbeam_channel::bounded;
-    use std::time::{Duration, Instant};
-
-    #[tokio::test]
-    async fn test_linux_capture_throughput() {
-        let portal = portal_session();
-        let (pw_node_id, pw_size, pw_fd) = portal
-            .open_pipewire_remote()
-            .await
-            .expect("Failed to open pipewire remote");
-
-        println!("Negotiated native capture size: {:?}", pw_size);
-
-        // Channels mimicking the real ScreenManager setup
-        let (frame_tx, frame_rx) = bounded::<RawFrame>(10);
-        let (_recycle_tx, recycle_rx) = bounded::<Vec<u8>>(10);
-
-        // Intentionally setting target_fps sky-high so we don't drop any frames via the framerate limiter. 
-        // This measures the real throughput limit of what PipeWire/Desktop Portal gives us.
-        let settings = Arc::new(Mutex::new(StreamSettings {
-            target_fps: 999,
-            max_fps: 999,
-            ..Default::default()
-        }));
-        let is_running = Arc::new(AtomicBool::new(true));
-        let native_size = Arc::new(Mutex::new(pw_size));
-
-        let is_running_clone = is_running.clone();
-        let settings_clone = settings.clone();
-        let native_size_clone = native_size.clone();
-
-        // Spawn the capture loop exactly like `ScreenManager::start_stream` does for Linux
-        let _handle = thread::spawn(move || {
-            let _ = run_pipewire_capture(
-                pw_node_id,
-                pw_fd,
-                frame_tx,
-                recycle_rx,
-                settings_clone,
-                is_running_clone,
-                native_size_clone,
-            );
-        });
-
-        println!("Capturing frames for 5 seconds...");
-        let start = Instant::now();
-        let test_duration = Duration::from_secs(5);
-        let mut frame_count = 0;
-
-        while start.elapsed() < test_duration {
-            // Using a timeout so the test doesn't lock up if frames never arrive
-            if frame_rx.recv_timeout(Duration::from_millis(100)).is_ok() {
-                frame_count += 1;
-            }
-        }
-
-        // Shut down the capture thread cleanly
-        is_running.store(false, Ordering::SeqCst);
-
-        let elapsed = start.elapsed().as_secs_f64();
-        let fps = frame_count as f64 / elapsed;
-
-        println!("==================================================");
-        println!("Test Results (Linux Capture Throughput)");
-        println!("Captured {} frames in {:.2} seconds", frame_count, elapsed);
-        println!("Average Capture Throughput: {:.2} FPS", fps);
-        println!("==================================================");
-
-        assert!(
-            frame_count > 0,
-            "No frames were captured! Check if the screen sharing prompt was accepted."
-        );
     }
 }

@@ -28,7 +28,7 @@ impl Default for StreamSettings {
             bitrate: 5000,
             resolution_percentage: 100,
             target_fps: 60,
-            max_fps: 60,
+            max_fps: detect_max_fps(),
         }
     }
 }
@@ -692,10 +692,15 @@ fn detect_max_fps() -> u64 {
     {
         windows::get_max_fps()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        linux::get_max_fps()
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         60
     }
+
 }
 
 fn detect_native_size() -> (i32, i32) {
