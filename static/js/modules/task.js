@@ -1,17 +1,17 @@
 // static/js/modules/task.js
-import { apiCall, SVG_TEMPLATES, BaseTaskManager } from './utils.js';
+import { apiCall, SVG_TEMPLATES, BaseTaskManager } from "./utils.js";
 
 function initializeTaskManager(socket) {
     const taskManager = new BaseTaskManager();
     let _selectedProcess = null;
-    let currentSort = { column: 'name', order: 'asc' };
+    let currentSort = { column: "name", order: "asc" };
     let processes = [];
     let expandedGroups = new Set();
 
-    const taskList = document.getElementById('taskList');
+    const taskList = document.getElementById("taskList");
 
     function renderTaskList(newProcesses) {
-        newProcesses.forEach(process => {
+        newProcesses.forEach((process) => {
             if (process.is_group) {
                 process.expanded = expandedGroups.has(process.pid);
             }
@@ -21,13 +21,13 @@ function initializeTaskManager(socket) {
         sortProcesses(processes, currentSort.column, currentSort.order);
 
         const fragment = document.createDocumentFragment();
-        processes.forEach(process => {
-            const row = document.createElement('tr');
-            row.classList.add('cursor-pointer');
+        processes.forEach((process) => {
+            const row = document.createElement("tr");
+            row.classList.add("cursor-pointer");
             row.dataset.pid = process.pid;
 
-            const expandArrow = process.is_group 
-                ? `<span class="inline-block w-4 mr-2 cursor-pointer expand-arrow">${process.expanded ? '▼' : '▶'}</span>`
+            const expandArrow = process.is_group
+                ? `<span class="inline-block w-4 mr-2 cursor-pointer expand-arrow">${process.expanded ? "▼" : "▶"}</span>`
                 : '<span class="inline-block w-4 mr-2"></span>';
 
             row.innerHTML = `
@@ -42,9 +42,9 @@ function initializeTaskManager(socket) {
             fragment.appendChild(row);
 
             if (process.is_group && process.expanded && process.children) {
-                process.children.forEach(childProcess => {
-                    const childRow = document.createElement('tr');
-                    childRow.classList.add('cursor-pointer', 'child-process');
+                process.children.forEach((childProcess) => {
+                    const childRow = document.createElement("tr");
+                    childRow.classList.add("cursor-pointer", "child-process");
                     childRow.dataset.pid = childProcess.pid;
                     childRow.dataset.parentPid = process.pid;
 
@@ -62,21 +62,21 @@ function initializeTaskManager(socket) {
             }
         });
 
-        taskList.innerHTML = '';
+        taskList.innerHTML = "";
         taskList.appendChild(fragment);
 
         // Update sort indicators
-        document.querySelectorAll('#processSection thead th').forEach(header => {
+        document.querySelectorAll("#processSection thead th").forEach((header) => {
             const column = header.dataset.column;
-            const icon = header.querySelector('.sort-icon');
+            const icon = header.querySelector(".sort-icon");
             if (icon) {
                 if (column === currentSort.column) {
-                    icon.textContent = currentSort.order === 'asc' ? '▲' : '▼';
-                    icon.classList.remove('opacity-0');
-                    icon.classList.add('opacity-100', 'text-blue-400');
+                    icon.textContent = currentSort.order === "asc" ? "▲" : "▼";
+                    icon.classList.remove("opacity-0");
+                    icon.classList.add("opacity-100", "text-blue-400");
                 } else {
-                    icon.classList.remove('opacity-100', 'text-blue-400');
-                    icon.classList.add('opacity-0');
+                    icon.classList.remove("opacity-100", "text-blue-400");
+                    icon.classList.add("opacity-0");
                 }
             }
         });
@@ -84,7 +84,7 @@ function initializeTaskManager(socket) {
         taskManager.selectionManager.notifyItemsUpdate();
         taskManager.config.onSelectionChange(taskManager.getSelectedItems());
 
-        const endTaskButton = document.getElementById('endTaskButton');
+        const endTaskButton = document.getElementById("endTaskButton");
         if (!endTaskButton.hasListener) {
             endTaskButton.innerHTML = `
                 <span class="flex items-center gap-2">
@@ -92,13 +92,13 @@ function initializeTaskManager(socket) {
                     <span>KILL PROCESS</span>
                 </span>
             `;
-            endTaskButton.addEventListener('click', () => {
+            endTaskButton.addEventListener("click", () => {
                 const selectedItems = taskManager.getSelectedItems();
                 if (selectedItems.length > 0) {
-                    selectedItems.forEach(item => {
+                    selectedItems.forEach((item) => {
                         killProcess(parseInt(item.dataset.pid));
                     });
-                    document.getElementById('endTaskContainer').classList.add('hidden');
+                    document.getElementById("endTaskContainer").classList.add("hidden");
                 }
             });
             endTaskButton.hasListener = true;
@@ -109,34 +109,32 @@ function initializeTaskManager(socket) {
         return processes.sort((a, b) => {
             const valueA = a[column];
             const valueB = b[column];
-            const modifier = order === 'asc' ? 1 : -1;
-            return typeof valueA === 'number'
-                ? (valueA - valueB) * modifier
-                : valueA.localeCompare(valueB) * modifier;
+            const modifier = order === "asc" ? 1 : -1;
+            return typeof valueA === "number" ? (valueA - valueB) * modifier : valueA.localeCompare(valueB) * modifier;
         });
     }
 
     async function killProcess(pid) {
         try {
-            const response = await apiCall('/api/tasks/kill', 'POST', { pid });
-            if (response.status === 'success') {
+            const response = await apiCall("/api/tasks/kill", "POST", { pid });
+            if (response.status === "success") {
                 console.log(response.message);
-                socket.emit('task_poll');
+                socket.emit("task_poll");
             } else {
                 console.error(response.message);
             }
         } catch (error) {
-            console.error('Error killing process:', error);
+            console.error("Error killing process:", error);
         }
     }
 
-    taskList.addEventListener('click', (event) => {
-        const expandArrow = event.target.closest('.expand-arrow');
+    taskList.addEventListener("click", (event) => {
+        const expandArrow = event.target.closest(".expand-arrow");
         if (expandArrow) {
-            const row = expandArrow.closest('tr');
+            const row = expandArrow.closest("tr");
             const pid = parseInt(row.dataset.pid);
-            const process = processes.find(p => p.pid === pid);
-            
+            const process = processes.find((p) => p.pid === pid);
+
             if (process && process.is_group) {
                 process.expanded = !process.expanded;
                 if (process.expanded) {
@@ -152,11 +150,11 @@ function initializeTaskManager(socket) {
     });
 
     // Handle sorting
-    document.querySelectorAll('#processSection thead th').forEach(header => {
-        header.addEventListener('click', () => {
+    document.querySelectorAll("#processSection thead th").forEach((header) => {
+        header.addEventListener("click", () => {
             const column = header.dataset.column;
             if (column) {
-                currentSort.order = currentSort.column === column && currentSort.order === 'asc' ? 'desc' : 'asc';
+                currentSort.order = currentSort.column === column && currentSort.order === "asc" ? "desc" : "asc";
                 currentSort.column = column;
                 renderTaskList(processes);
             }
@@ -164,14 +162,14 @@ function initializeTaskManager(socket) {
     });
 
     // Socket events
-    socket.on('task_list', (data) => {
+    socket.on("task_list", (data) => {
         const totalCpuUsage = document.querySelector('#processSection th[data-column="cpu_percent"] .total-usage');
         const totalMemoryUsage = document.querySelector('#processSection th[data-column="memory_usage"] .total-usage');
 
         if (totalCpuUsage) {
             totalCpuUsage.textContent = `(${data.total_cpu_usage.toFixed(1)}%)`;
         }
-        
+
         if (totalMemoryUsage) {
             totalMemoryUsage.textContent = `(${data.total_memory_percentage.toFixed(1)}%)`;
         }
@@ -180,16 +178,16 @@ function initializeTaskManager(socket) {
         renderTaskList(data.processes);
     });
 
-    document.addEventListener('click', (event) => {
-        const link = event.target.closest('.nav-link');
+    document.addEventListener("click", (event) => {
+        const link = event.target.closest(".nav-link");
         if (!link) return;
 
-        const targetSection = link.getAttribute('href').substring(1);
-        socket.emit(targetSection === 'processSection' ? 'task_poll_start' : 'task_poll_stop');
+        const targetSection = link.getAttribute("href").substring(1);
+        socket.emit(targetSection === "processSection" ? "task_poll_start" : "task_poll_stop");
     });
 
-    if (!document.getElementById('processSection')?.classList.contains('hidden')) {
-        socket.emit('task_poll_start');
+    if (!document.getElementById("processSection")?.classList.contains("hidden")) {
+        socket.emit("task_poll_start");
     }
 
     taskManager.initialize();

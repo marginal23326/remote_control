@@ -1,35 +1,37 @@
 // static/js/modules/dom.js
-import { SVG_TEMPLATES } from './utils.js';
+import { SVG_TEMPLATES } from "./utils.js";
 
-const connectionOverlay = document.getElementById('connectionOverlay');
-const connectionMessage = document.getElementById('connectionMessage');
-const allInteractiveElements = document.querySelectorAll('button, input, select, textarea, a[href], [onclick], [tabindex]');
+const connectionOverlay = document.getElementById("connectionOverlay");
+const connectionMessage = document.getElementById("connectionMessage");
+const allInteractiveElements = document.querySelectorAll(
+    "button, input, select, textarea, a[href], [onclick], [tabindex]",
+);
 
 function disableInteractiveElements() {
-    allInteractiveElements.forEach(element => {
+    allInteractiveElements.forEach((element) => {
         element.disabled = true;
     });
 }
 
 function enableInteractiveElements() {
-    allInteractiveElements.forEach(element => {
+    allInteractiveElements.forEach((element) => {
         element.disabled = false;
     });
 }
 
 function showConnectionOverlay(message) {
     connectionMessage.textContent = message;
-    connectionOverlay.classList.remove('hidden');
+    connectionOverlay.classList.remove("hidden");
     disableInteractiveElements();
 }
 
 function hideConnectionOverlay() {
-    connectionOverlay.classList.add('hidden');
+    connectionOverlay.classList.add("hidden");
     enableInteractiveElements();
 }
 
 class LoadingButton {
-    constructor(buttonElement, loadingText = 'Loading...') {
+    constructor(buttonElement, loadingText = "Loading...") {
         this.button = buttonElement;
         this.originalHtml = this.button.innerHTML;
         this.loadingText = loadingText;
@@ -57,10 +59,10 @@ class LoadingButton {
     }
 }
 
-export { 
+export {
     disableInteractiveElements,
     enableInteractiveElements,
-    showConnectionOverlay, 
+    showConnectionOverlay,
     hideConnectionOverlay,
-    LoadingButton
-}; 
+    LoadingButton,
+};

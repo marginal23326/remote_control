@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
 
 :root {
     --bg-deep: #030712;
@@ -13,26 +13,37 @@
 body {
     background-color: var(--bg-deep);
     /* Sci-fi Grid Background */
-    background-image: 
+    background-image:
         radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
         linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 100% 100%, 40px 40px, 40px 40px;
+    background-size:
+        100% 100%,
+        40px 40px,
+        40px 40px;
     background-attachment: fixed;
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
     overflow-x: hidden;
 }
 
 /* Headings */
-h1, h2, h3, .brand-font {
-    font-family: 'Space Grotesk', sans-serif;
+h1,
+h2,
+h3,
+.brand-font {
+    font-family: "Space Grotesk", sans-serif;
     letter-spacing: -0.02em;
 }
 
 /* Code & Data */
-code, pre, .font-mono, input, textarea, .data-cell {
-    font-family: 'JetBrains Mono', monospace;
+code,
+pre,
+.font-mono,
+input,
+textarea,
+.data-cell {
+    font-family: "JetBrains Mono", monospace;
 }
 
 /* Custom Scrollbar */
@@ -57,19 +68,25 @@ code, pre, .font-mono, input, textarea, .data-cell {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow:
+        0 4px 30px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     position: relative;
     overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
 }
 
 /* Subtle shine effect on cards */
 .glass-card::before {
-    content: '';
+    content: "";
     position: absolute;
-    top: 0; left: 0; right: 0;
+    top: 0;
+    left: 0;
+    right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
     opacity: 0.5;
 }
 
@@ -79,7 +96,7 @@ code, pre, .font-mono, input, textarea, .data-cell {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
     border-radius: 8px;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 500;
 }
 
@@ -95,7 +112,9 @@ code, pre, .font-mono, input, textarea, .data-cell {
 }
 
 /* Input Fields - HUD Style */
-input, select, textarea {
+input,
+select,
+textarea {
     background: rgba(0, 0, 0, 0.3) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #e2e8f0 !important;
@@ -103,17 +122,22 @@ input, select, textarea {
     border-radius: 6px;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
     border-color: var(--accent-primary) !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 0 15px rgba(59, 130, 246, 0.2) !important;
+    box-shadow:
+        0 0 0 2px rgba(59, 130, 246, 0.2),
+        0 0 15px rgba(59, 130, 246, 0.2) !important;
     outline: none;
 }
 
 /* Buttons - Cyberpunk Style */
-button.control-button, .action-btn {
+button.control-button,
+.action-btn {
     position: relative;
     overflow: hidden;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 600;
     letter-spacing: 0.02em;
     transition: all 0.2s;
@@ -127,8 +151,8 @@ button.control-button:active {
 #terminalContainer {
     background: #0a0a0a;
     border: 1px solid #333;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-    font-family: 'JetBrains Mono', monospace;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    font-family: "JetBrains Mono", monospace;
 }
 
 /* Stream Viewport */
@@ -138,7 +162,7 @@ button.control-button:active {
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid #333;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
 }
 
 .stream-container::after {
@@ -148,7 +172,7 @@ button.control-button:active {
     left: 50%;
     transform: translate(-50%, -50%);
     color: #333;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
     font-size: 2rem;
     letter-spacing: 0.2em;
@@ -170,7 +194,7 @@ table {
 
 thead th {
     background: rgba(0, 0, 0, 0.4);
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.05em;
@@ -206,7 +230,14 @@ td {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
 
 /* Utilities */
 .text-glow {
@@ -243,18 +274,32 @@ td {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideInBottom {
-    from { transform: translateY(var(--tw-enter-translate-y, 1rem)); }
-    to { transform: translateY(0); }
+    from {
+        transform: translateY(var(--tw-enter-translate-y, 1rem));
+    }
+    to {
+        transform: translateY(0);
+    }
 }
 
 @keyframes zoomIn {
-    from { opacity: 0; transform: scale(var(--tw-enter-scale, 0.95)); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(var(--tw-enter-scale, 0.95));
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 /* --- Login Specific Effects --- */
@@ -272,10 +317,20 @@ td {
 }
 
 @keyframes scan {
-    0% { top: 0%; opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { top: 100%; opacity: 0; }
+    0% {
+        top: 0%;
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        top: 100%;
+        opacity: 0;
+    }
 }
 
 .login-input-group:focus-within label {
@@ -291,12 +346,25 @@ td {
 .auth-fail {
     box-shadow: 0 0 50px rgba(239, 68, 68, 0.3) !important;
     border-color: rgba(239, 68, 68, 0.5) !important;
-    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
 @keyframes shake {
-    10%, 90% { transform: translate3d(-1px, 0, 0); }
-    20%, 80% { transform: translate3d(2px, 0, 0); }
-    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-    40%, 60% { transform: translate3d(4px, 0, 0); }
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+    20%,
+    80% {
+        transform: translate3d(2px, 0, 0);
+    }
+    30%,
+    50%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+    40%,
+    60% {
+        transform: translate3d(4px, 0, 0);
+    }
 }

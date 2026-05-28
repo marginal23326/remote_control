@@ -1,28 +1,28 @@
 // static/js/modules/utils.js
-async function apiCall(endpoint, method = 'GET', data = null) {
+async function apiCall(endpoint, method = "GET", data = null) {
     const options = {
         method,
-        headers: {}
+        headers: {},
     };
     if (data) {
         if (data instanceof FormData) {
             options.body = data;
         } else {
-            options.headers['Content-Type'] = 'application/json';
+            options.headers["Content-Type"] = "application/json";
             options.body = JSON.stringify(data);
         }
     }
-    
+
     const response = await fetch(endpoint, options);
     return response.json();
 }
 
 function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 function formatDate(timestamp) {
@@ -35,7 +35,7 @@ const SVG_TEMPLATES = {
         <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M12 19V9m0 0-4 4m4-4 4 4"/>
         </svg>`,
-    folder: (colorClass = 'text-blue-400') => `
+    folder: (colorClass = "text-blue-400") => `
         <svg class="w-5 h-5 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
         </svg>`,
@@ -48,22 +48,22 @@ const SVG_TEMPLATES = {
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5 0 0 5 0 12zm2 5a8 8 0 0 1-2-5H0c0 3 1 6 3 8z"/>
         </svg>`,
-    upload: (size = 10, colorClass = 'text-blue-500/70') => `
+    upload: (size = 10, colorClass = "text-blue-500/70") => `
         <svg class="w-${size} h-${size} mx-auto mb-2 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8-4-4m0 0L8 8m4-4v12"/>
         </svg>`,
     cross: () => `
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>`
+        </svg>`,
 };
 
 const CLASSES = {
-    row: ['cursor-pointer'],
-    cell: ['px-2', 'whitespace-nowrap'],
-    noAccess: ['opacity-50', 'cursor-not-allowed'],
-    highlight: 'bg-yellow-400/30',
-    defaultHover: 'hover:bg-gray-700/50'
+    row: ["cursor-pointer"],
+    cell: ["px-2", "whitespace-nowrap"],
+    noAccess: ["opacity-50", "cursor-not-allowed"],
+    highlight: "bg-yellow-400/30",
+    defaultHover: "hover:bg-gray-700/50",
 };
 
 class SelectionManager {
@@ -76,16 +76,16 @@ class SelectionManager {
         this.scrollAnimationFrame = null;
         this.currentScrollSpeed = 0;
         this.config = {
-            containerSelector: '',
-            itemSelector: 'tr',
-            selectedClass: 'bg-blue-500/50',
-            defaultHoverClass: 'hover:bg-gray-700/50',
-            selectedHoverClass: 'hover:!bg-blue-600/20',
-            disabledClass: 'cursor-not-allowed opacity-50',
+            containerSelector: "",
+            itemSelector: "tr",
+            selectedClass: "bg-blue-500/50",
+            defaultHoverClass: "hover:bg-gray-700/50",
+            selectedHoverClass: "hover:!bg-blue-600/20",
+            disabledClass: "cursor-not-allowed opacity-50",
             getItemId: (element) => element.dataset.id,
-            isItemSelectable: (element) => !element.classList.contains('cursor-not-allowed'),
+            isItemSelectable: (element) => !element.classList.contains("cursor-not-allowed"),
             onSelectionChange: () => {},
-            ...config
+            ...config,
         };
     }
 
@@ -93,10 +93,11 @@ class SelectionManager {
         const container = document.querySelector(this.config.containerSelector);
         if (!container) return;
 
-        container.addEventListener('mousedown', (e) => {
+        container.addEventListener("mousedown", (e) => {
             const item = e.target.closest(this.config.itemSelector);
             if (item && this.config.getItemId(item)) {
-                if (e.button === 0) { // Left click
+                if (e.button === 0) {
+                    // Left click
                     this.handleItemSelection(item, e);
                     this.handleDragStart(e, item);
                 }
@@ -107,64 +108,67 @@ class SelectionManager {
         });
 
         // Deselect when clicking outside the container
-        document.addEventListener('mousedown', (e) => {
+        document.addEventListener("mousedown", (e) => {
             const container = document.querySelector(this.config.containerSelector);
             if (container && !container.contains(e.target)) {
                 // Check if we're clicking on something that shouldn't clear selection
                 // (like context menus or operation buttons)
-                if (e.target.closest('.context-menu') ||
-                    e.target.closest('#fileOperations') ||
-                    e.target.closest('#endTaskContainer') ||
-                    e.target.closest('nav')) {
+                if (
+                    e.target.closest(".context-menu") ||
+                    e.target.closest("#fileOperations") ||
+                    e.target.closest("#endTaskContainer") ||
+                    e.target.closest("nav")
+                ) {
                     return;
                 }
                 this.clearSelection();
             }
         });
 
-        document.addEventListener('mousemove', (e) => {
+        document.addEventListener("mousemove", (e) => {
             if (this.isDragging) {
                 this.handleDragMove(e);
             }
         });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener("mouseup", () => {
             if (this.isDragging) {
                 this.handleDragEnd();
             }
         });
 
         // Add mouseenter and mouseleave listeners to update hover state
-        container.addEventListener('mouseover', (e) => {
+        container.addEventListener("mouseover", (e) => {
             const item = e.target.closest(this.config.itemSelector);
             if (item && this.config.getItemId(item)) {
-                item.dataset.hovered = 'true';
+                item.dataset.hovered = "true";
                 this.updateItemHover(item);
             }
         });
 
-        container.addEventListener('mouseout', (e) => {
+        container.addEventListener("mouseout", (e) => {
             const item = e.target.closest(this.config.itemSelector);
             if (item && this.config.getItemId(item)) {
-                item.dataset.hovered = 'false';
+                item.dataset.hovered = "false";
                 this.updateItemHover(item);
             }
         });
 
         // Global keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        document.addEventListener("keydown", (e) => {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
 
-            if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+            if ((e.ctrlKey || e.metaKey) && e.key === "a") {
                 e.preventDefault();
                 const container = document.querySelector(this.config.containerSelector);
                 if (!container) return;
 
-                const selectableItems = Array.from(container.querySelectorAll(this.config.itemSelector))
-                    .filter(item => this.config.isItemSelectable(item));
-                
+                const selectableItems = Array.from(container.querySelectorAll(this.config.itemSelector)).filter(
+                    (item) => this.config.isItemSelectable(item),
+                );
+
                 this.clearSelection();
-                selectableItems.forEach(item => this.toggleItemSelection(item, true));
+                selectableItems.forEach((item) => this.toggleItemSelection(item, true));
             }
         });
     }
@@ -195,8 +199,8 @@ class SelectionManager {
     }
 
     notifyItemsUpdate() {
-        const currentSelectionIds = Array.from(this.selectedItems).map(item => this.config.getItemId(item));
-        
+        const currentSelectionIds = Array.from(this.selectedItems).map((item) => this.config.getItemId(item));
+
         const currentAnchorItemId = this.selectionAnchor ? this.config.getItemId(this.selectionAnchor) : null;
 
         this.clearSelection();
@@ -205,15 +209,15 @@ class SelectionManager {
 
         const items = Array.from(container.querySelectorAll(this.config.itemSelector));
 
-        currentSelectionIds.forEach(id => {
-            const item = items.find(item => this.config.getItemId(item) === id);
+        currentSelectionIds.forEach((id) => {
+            const item = items.find((item) => this.config.getItemId(item) === id);
             if (item) {
                 this.toggleItemSelection(item, true);
             }
         });
 
         if (currentAnchorItemId) {
-            this.selectionAnchor = items.find(item => this.config.getItemId(item) === currentAnchorItemId);
+            this.selectionAnchor = items.find((item) => this.config.getItemId(item) === currentAnchorItemId);
         }
     }
 
@@ -239,8 +243,9 @@ class SelectionManager {
         const container = document.querySelector(this.config.containerSelector);
         const mouseY = event.clientY;
 
-        const items = Array.from(container.querySelectorAll(this.config.itemSelector))
-            .filter(item => this.config.isItemSelectable(item));
+        const items = Array.from(container.querySelectorAll(this.config.itemSelector)).filter((item) =>
+            this.config.isItemSelectable(item),
+        );
 
         let targetItem = null;
         for (const item of items) {
@@ -258,7 +263,7 @@ class SelectionManager {
 
         const scrollThreshold = 60;
         const maxScrollSpeed = 15;
-        const scrollContainer = container.closest('.overflow-auto');
+        const scrollContainer = container.closest(".overflow-auto");
 
         if (scrollContainer) {
             const containerRect = scrollContainer.getBoundingClientRect();
@@ -308,8 +313,9 @@ class SelectionManager {
 
     handleRangeSelection(item, anchorItem) {
         const container = document.querySelector(this.config.containerSelector);
-        const items = Array.from(container.querySelectorAll(this.config.itemSelector))
-            .filter(item => this.config.isItemSelectable(item));
+        const items = Array.from(container.querySelectorAll(this.config.itemSelector)).filter((item) =>
+            this.config.isItemSelectable(item),
+        );
 
         const currentIndex = items.indexOf(item);
         const anchorIndex = items.indexOf(anchorItem);
@@ -321,11 +327,11 @@ class SelectionManager {
         const start = Math.min(currentIndex, anchorIndex);
         const end = Math.max(currentIndex, anchorIndex);
 
-        items.slice(start, end + 1).forEach(item => this.toggleItemSelection(item, true));
+        items.slice(start, end + 1).forEach((item) => this.toggleItemSelection(item, true));
     }
 
     clearSelection() {
-        this.selectedItems.forEach(item => this.toggleItemSelection(item, false));
+        this.selectedItems.forEach((item) => this.toggleItemSelection(item, false));
         this.selectedItems.clear();
         this.lastSelectedItem = null;
         this.config.onSelectionChange(this.getSelectedItems());
@@ -348,7 +354,7 @@ class SelectionManager {
 
     updateItemHover(item) {
         const isSelected = this.selectedItems.has(item);
-        const isHovered = item.dataset.hovered === 'true';
+        const isHovered = item.dataset.hovered === "true";
         item.classList.toggle(this.config.selectedHoverClass, isSelected && isHovered);
     }
 }
@@ -358,10 +364,10 @@ class ContextMenuManager {
     constructor(config) {
         this.menuElement = null;
         this.config = {
-            menuClass: 'context-menu',
-            menuItemClass: 'px-4 py-2 text-white hover:bg-gray-600 cursor-pointer',
+            menuClass: "context-menu",
+            menuItemClass: "px-4 py-2 text-white hover:bg-gray-600 cursor-pointer",
             getMenuItems: () => [],
-            ...config
+            ...config,
         };
     }
 
@@ -374,24 +380,24 @@ class ContextMenuManager {
 
     show(x, y, context) {
         this.hide();
-        
+
         const items = this.config.getMenuItems(context);
         if (!items.length) return;
 
-        this.menuElement = document.createElement('div');
+        this.menuElement = document.createElement("div");
         this.menuElement.classList.add(this.config.menuClass);
-        this.menuElement.style.position = 'fixed';
+        this.menuElement.style.position = "fixed";
         this.menuElement.style.left = `${x}px`;
         this.menuElement.style.top = `${y}px`;
-        
-        const ul = document.createElement('ul');
-        ul.className = 'bg-gray-700 border border-gray-600 rounded-lg py-2';
-        
-        items.forEach(item => {
-            const li = document.createElement('li');
+
+        const ul = document.createElement("ul");
+        ul.className = "bg-gray-700 border border-gray-600 rounded-lg py-2";
+
+        items.forEach((item) => {
+            const li = document.createElement("li");
             li.className = this.config.menuItemClass;
             li.textContent = item.label;
-            li.addEventListener('click', () => {
+            li.addEventListener("click", () => {
                 item.action();
                 this.hide();
             });
@@ -406,30 +412,34 @@ class ContextMenuManager {
 class UIManager {
     constructor(config) {
         this.config = {
-            containerSelector: '',
+            containerSelector: "",
             isDraggingEnabled: true,
             isContextMenuEnabled: true,
             isSelectionEnabled: true,
             getContextMenuItems: () => [],
             onSelectionChange: () => {},
-            ...config
+            ...config,
         };
-        
-        this.isDragging = false;
-        this.selectionManager = this.config.isSelectionEnabled ? new SelectionManager({
-            containerSelector: this.config.containerSelector,
-            itemSelector: this.config.itemSelector || 'tr',
-            getItemId: this.config.getItemId,
-            isItemSelectable: this.config.isItemSelectable,
-            onSelectionChange: (items) => {
-                this.isDragging = false;
-                this.config.onSelectionChange(items);
-            }
-        }) : null;
 
-        this.contextMenu = this.config.isContextMenuEnabled ? new ContextMenuManager({
-            getMenuItems: this.config.getContextMenuItems
-        }) : null;
+        this.isDragging = false;
+        this.selectionManager = this.config.isSelectionEnabled
+            ? new SelectionManager({
+                  containerSelector: this.config.containerSelector,
+                  itemSelector: this.config.itemSelector || "tr",
+                  getItemId: this.config.getItemId,
+                  isItemSelectable: this.config.isItemSelectable,
+                  onSelectionChange: (items) => {
+                      this.isDragging = false;
+                      this.config.onSelectionChange(items);
+                  },
+              })
+            : null;
+
+        this.contextMenu = this.config.isContextMenuEnabled
+            ? new ContextMenuManager({
+                  getMenuItems: this.config.getContextMenuItems,
+              })
+            : null;
     }
 
     initialize() {
@@ -448,28 +458,28 @@ class UIManager {
         const container = document.querySelector(this.config.containerSelector);
         if (!container) return;
 
-        container.addEventListener('mousedown', (e) => {
-            const row = e.target.closest(this.config.itemSelector || 'tr');
-            if (row?.dataset?.[this.config.itemDataAttribute || 'path']) {
+        container.addEventListener("mousedown", (e) => {
+            const row = e.target.closest(this.config.itemSelector || "tr");
+            if (row?.dataset?.[this.config.itemDataAttribute || "path"]) {
                 this.isDragging = true;
                 this.selectionManager?.handleDragStart(e, row);
             }
         });
 
-        document.addEventListener('mousemove', (e) => {
+        document.addEventListener("mousemove", (e) => {
             if (this.selectionManager?.isDragging) {
                 this.selectionManager.handleDragMove(e);
             }
         });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener("mouseup", () => {
             if (this.isDragging || this.selectionManager?.isDragging) {
                 this.isDragging = false;
                 this.selectionManager?.handleDragEnd();
             }
         });
 
-        container.addEventListener('dragstart', (e) => {
+        container.addEventListener("dragstart", (e) => {
             if (this.selectionManager?.isDragging) {
                 e.preventDefault();
             }
@@ -482,10 +492,10 @@ class UIManager {
         const container = document.querySelector(this.config.containerSelector);
         if (!container) return;
 
-        container.addEventListener('contextmenu', (event) => {
+        container.addEventListener("contextmenu", (event) => {
             event.preventDefault();
-            const row = event.target.closest(this.config.itemSelector || 'tr');
-            if (!row || !row.dataset?.[this.config.itemDataAttribute || 'path']) return;
+            const row = event.target.closest(this.config.itemSelector || "tr");
+            if (!row || !row.dataset?.[this.config.itemDataAttribute || "path"]) return;
 
             if (!this.selectionManager?.selectedItems.has(row)) {
                 this.selectionManager?.clearSelection();
@@ -496,8 +506,8 @@ class UIManager {
             this.contextMenu.show(event.clientX, event.clientY);
         });
 
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('.context-menu')) {
+        document.addEventListener("click", (event) => {
+            if (!event.target.closest(".context-menu")) {
                 this.contextMenu.hide();
             }
         });
@@ -507,11 +517,11 @@ class UIManager {
         const container = document.querySelector(this.config.containerSelector);
         if (!container) return;
 
-        container.addEventListener('mousedown', (event) => {
+        container.addEventListener("mousedown", (event) => {
             event.preventDefault();
         });
 
-        container.addEventListener('selectstart', (event) => {
+        container.addEventListener("selectstart", (event) => {
             event.preventDefault();
         });
     }
@@ -528,8 +538,8 @@ class UIManager {
 class BaseFileManager extends UIManager {
     constructor() {
         super({
-            containerSelector: '#fileList',
-            itemDataAttribute: 'path',
+            containerSelector: "#fileList",
+            itemDataAttribute: "path",
             getItemId: (element) => element.dataset.path,
             isItemSelectable: (element) => !element.classList.contains(...CLASSES.noAccess),
             getContextMenuItems: (context) => {
@@ -537,33 +547,33 @@ class BaseFileManager extends UIManager {
                 if (!selectedItems.length) return [];
 
                 const items = [];
-                const hasDirectories = selectedItems.some(item => item.dataset.isDir === 'true');
+                const hasDirectories = selectedItems.some((item) => item.dataset.isDir === "true");
                 const singleItem = selectedItems.length === 1;
 
                 if (!hasDirectories) {
                     items.push({
-                        label: 'Download',
-                        action: () => this.handleDownload(selectedItems)
+                        label: "Download",
+                        action: () => this.handleDownload(selectedItems),
                     });
                 }
 
                 if (singleItem) {
                     items.push({
-                        label: 'Rename',
+                        label: "Rename",
                         action: () => {
-                            document.getElementById('renameInput').focus();
-                        }
+                            document.getElementById("renameInput").focus();
+                        },
                     });
                 }
 
                 items.push({
-                    label: 'Delete',
-                    action: () => this.handleDelete(selectedItems)
+                    label: "Delete",
+                    action: () => this.handleDelete(selectedItems),
                 });
 
                 return items;
             },
-            onSelectionChange: () => this.updateFileOperationsUI()
+            onSelectionChange: () => this.updateFileOperationsUI(),
         });
     }
 }
@@ -571,24 +581,26 @@ class BaseFileManager extends UIManager {
 class BaseTaskManager extends UIManager {
     constructor() {
         super({
-            containerSelector: '#taskList',
-            itemDataAttribute: 'pid',
+            containerSelector: "#taskList",
+            itemDataAttribute: "pid",
             getItemId: (element) => element.dataset.pid,
             isItemSelectable: (_element) => true,
-            getContextMenuItems: () => [{
-                label: 'End Task',
-                action: () => {
-                    this.getSelectedItems().forEach(item => {
-                        this.killProcess(parseInt(item.dataset.pid));
-                    });
-                }
-            }],
+            getContextMenuItems: () => [
+                {
+                    label: "End Task",
+                    action: () => {
+                        this.getSelectedItems().forEach((item) => {
+                            this.killProcess(parseInt(item.dataset.pid));
+                        });
+                    },
+                },
+            ],
             onSelectionChange: (selectedItems) => {
-                const endTaskContainer = document.getElementById('endTaskContainer');
+                const endTaskContainer = document.getElementById("endTaskContainer");
                 if (!this.isDragging) {
-                    endTaskContainer.classList.toggle('hidden', selectedItems.length === 0);
+                    endTaskContainer.classList.toggle("hidden", selectedItems.length === 0);
                 }
-            }
+            },
         });
     }
 }

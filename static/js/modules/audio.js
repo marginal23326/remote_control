@@ -9,17 +9,17 @@ class AudioManager {
         this.isProcessingAudio = false;
         this.currentSettings = {
             server: { rate: 48000, chunk: 4096 },
-            client: { rate: 48000, chunk: 512 }
+            client: { rate: 48000, chunk: 512 },
         };
         this.streamActive = {
             server: false,
-            client: false
+            client: false,
         };
 
         this.handleServerAudioData = this.handleServerAudioData.bind(this);
         this.initializeEventListeners();
     }
-    
+
     validateSampleRate(rate) {
         const MIN_RATE = 3000;
         const MAX_RATE = 768000;
@@ -29,27 +29,27 @@ class AudioManager {
         }
         return true;
     }
-    
+
     async ensureAudioContext(sampleRate) {
         if (!this.validateSampleRate(sampleRate)) {
             return false;
         }
-        
+
         if (this.audioContext) {
             if (this.audioContext.sampleRate !== sampleRate) {
                 await this.audioContext.close();
                 this.audioContext = null;
             }
         }
-        
+
         if (!this.audioContext) {
             this.audioContext = new AudioContext({ sampleRate });
         }
-        
-        if (this.audioContext.state === 'suspended') {
+
+        if (this.audioContext.state === "suspended") {
             await this.audioContext.resume();
         }
-        
+
         return true;
     }
 
@@ -59,9 +59,9 @@ class AudioManager {
             if (this.workletNode) {
                 this.cleanupWorklet();
             }
-            await this.audioContext.audioWorklet.addModule('/static/js/modules/audio-worklet-processor.js');
+            await this.audioContext.audioWorklet.addModule("/static/js/modules/audio-worklet-processor.js");
         } catch (e) {
-            console.error('Failed to add audio worklet module:', e);
+            console.error("Failed to add audio worklet module:", e);
             throw e;
         }
     }
@@ -69,20 +69,20 @@ class AudioManager {
     async getMicrophoneStream(settings) {
         try {
             if (this.currentStream) {
-                this.currentStream.getTracks().forEach(track => track.stop());
+                this.currentStream.getTracks().forEach((track) => track.stop());
                 this.currentStream = null;
             }
-            
-            return await navigator.mediaDevices.getUserMedia({ 
+
+            return await navigator.mediaDevices.getUserMedia({
                 audio: {
                     sampleRate: settings.rate,
                     channelCount: 1,
                     echoCancellation: true,
-                    noiseSuppression: true
-                }
+                    noiseSuppression: true,
+                },
             });
         } catch (error) {
-            console.error('Error accessing microphone:', error);
+            console.error("Error accessing microphone:", error);
             return null;
         }
     }
@@ -90,65 +90,64 @@ class AudioManager {
     async updateSettings(settings) {
         const type = settings.type;
         const needsReset = JSON.stringify(this.currentSettings[type]) !== JSON.stringify(settings);
-        
+
         if (needsReset) {
             // Stop current stream before applying new settings
             await this.stopAudioStream(type, true);
             this.currentSettings[type] = { ...settings };
         }
 
-        await fetch('/api/stream/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ audio_settings: settings })
+        await fetch("/api/stream/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio_settings: settings }),
         });
-        
+
         return needsReset;
     }
 
     async startAudioStream(type, settings = {}) {
         try {
             // Check if stream is active
-            if (this.streamActive[type] && !await this.updateSettings({ ...settings, type })) {
+            if (this.streamActive[type] && !(await this.updateSettings({ ...settings, type }))) {
                 return;
             }
 
             await this.stopAudioStream(type, true);
-            
+
             // IMPORTANT: If user didn't specify a rate, default to 48000
             const targetRate = settings.rate || 48000;
             await this.ensureAudioContext(targetRate);
 
-            if (type === 'client') {
+            if (type === "client") {
                 // Get Mic
-                this.currentStream = await navigator.mediaDevices.getUserMedia({ 
+                this.currentStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         sampleRate: targetRate,
                         channelCount: 1, // FORCE MONO
                         echoCancellation: true,
                         noiseSuppression: true,
-                        autoGainControl: true
-                    }
+                        autoGainControl: true,
+                    },
                 });
 
-                if (!this.currentStream) throw new Error('Microphone access denied');
+                if (!this.currentStream) throw new Error("Microphone access denied");
 
                 await this.initializeAudioWorklet();
                 // Use a larger buffer chunk (e.g. 2048 or 4096) to prevent network crackling
-                this.setupWorkletNode(settings.chunk || 4096); 
+                this.setupWorkletNode(settings.chunk || 4096);
 
                 const source = this.audioContext.createMediaStreamSource(this.currentStream);
                 source.connect(this.workletNode);
             }
 
-            if (type === 'server') {
-                this.socket.off('server_audio_data', this.handleServerAudioData);
-                this.socket.on('server_audio_data', this.handleServerAudioData);
+            if (type === "server") {
+                this.socket.off("server_audio_data", this.handleServerAudioData);
+                this.socket.on("server_audio_data", this.handleServerAudioData);
             }
 
             this.socket.emit(`start_${type}_audio`, settings);
             this.streamActive[type] = true;
-
         } catch (error) {
             console.error(`Error starting ${type} audio:`, error);
             await this.stopAudioStream(type);
@@ -157,12 +156,12 @@ class AudioManager {
     }
 
     setupWorkletNode(bufferSize) {
-        this.workletNode = new AudioWorkletNode(this.audioContext, 'client-audio-processor', {
-            processorOptions: { bufferSize }
+        this.workletNode = new AudioWorkletNode(this.audioContext, "client-audio-processor", {
+            processorOptions: { bufferSize },
         });
 
         this.workletNode.port.onmessage = (event) => {
-            if (event.data.type === 'pcmData') {
+            if (event.data.type === "pcmData") {
                 this.audioQueue.push(event.data.pcmData);
                 if (!this.isProcessingAudio) {
                     this.processAudioQueue();
@@ -180,7 +179,7 @@ class AudioManager {
         this.isProcessingAudio = true;
         const audioData = this.audioQueue.shift();
 
-        this.socket.emit('client_audio_data', audioData, () => {
+        this.socket.emit("client_audio_data", audioData, () => {
             this.processAudioQueue();
         });
     }
@@ -214,11 +213,11 @@ class AudioManager {
         }
 
         this.socket.emit(`stop_${type}_audio`);
-        
-        if (type === 'client') {
+
+        if (type === "client") {
             this.cleanupWorklet();
-        } else if (type === 'server') {
-            this.socket.off('server_audio_data', this.handleServerAudioData);
+        } else if (type === "server") {
+            this.socket.off("server_audio_data", this.handleServerAudioData);
         }
 
         // Only close AudioContext if we're not resetting
@@ -232,7 +231,7 @@ class AudioManager {
 
     cleanupWorklet() {
         if (this.currentStream) {
-            this.currentStream.getTracks().forEach(track => track.stop());
+            this.currentStream.getTracks().forEach((track) => track.stop());
             this.currentStream = null;
         }
         if (this.workletNode) {
@@ -250,32 +249,32 @@ class AudioManager {
 
     initializeEventListeners() {
         // Server Audio Controls
-        document.getElementById('startServerAudio').addEventListener('click', async () => {
+        document.getElementById("startServerAudio").addEventListener("click", async () => {
             const settings = {
-                source: document.getElementById('audioSourceSelect').value,
-                rate: parseInt(document.getElementById('serverAudioRate').value),
-                chunk: parseInt(document.getElementById('serverAudioChunk').value)
+                source: document.getElementById("audioSourceSelect").value,
+                rate: parseInt(document.getElementById("serverAudioRate").value),
+                chunk: parseInt(document.getElementById("serverAudioChunk").value),
             };
-            await this.startAudioStream('server', settings);
+            await this.startAudioStream("server", settings);
         });
 
-        document.getElementById('stopServerAudio').addEventListener('click', () => {
-            this.stopAudioStream('server');
+        document.getElementById("stopServerAudio").addEventListener("click", () => {
+            this.stopAudioStream("server");
         });
 
         // Client Audio Controls
-        document.getElementById('startClientAudio').addEventListener('click', async () => {
+        document.getElementById("startClientAudio").addEventListener("click", async () => {
             const settings = {
-                rate: parseInt(document.getElementById('clientAudioRate').value),
-                chunk: parseInt(document.getElementById('clientAudioChunk').value)
+                rate: parseInt(document.getElementById("clientAudioRate").value),
+                chunk: parseInt(document.getElementById("clientAudioChunk").value),
             };
-            await this.startAudioStream('client', settings);
+            await this.startAudioStream("client", settings);
         });
 
-        document.getElementById('stopClientAudio').addEventListener('click', () => {
-            this.stopAudioStream('client');
+        document.getElementById("stopClientAudio").addEventListener("click", () => {
+            this.stopAudioStream("client");
         });
     }
 }
 
-export { AudioManager }; 
+export { AudioManager };

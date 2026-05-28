@@ -1,6 +1,6 @@
 // static/js/modules/connection.js
-import { io } from 'socket.io-client';
-import { showConnectionOverlay, hideConnectionOverlay } from './dom.js';
+import { io } from "socket.io-client";
+import { showConnectionOverlay, hideConnectionOverlay } from "./dom.js";
 
 function initializeSocketIO(authCallback) {
     const socket = io({ reconnection: false });
@@ -13,40 +13,40 @@ function initializeSocketIO(authCallback) {
             reconnectionAttempts++;
             showConnectionOverlay(`Reconnecting... Attempt ${reconnectionAttempts}`);
             setTimeout(() => {
-                console.log('Attempting to reconnect...');
+                console.log("Attempting to reconnect...");
                 socket.connect();
             }, reconnectionDelay);
             reconnectionDelay *= 2;
         } else {
-            showConnectionOverlay('Connection failed after multiple attempts.');
+            showConnectionOverlay("Connection failed after multiple attempts.");
         }
     };
 
     const onConnect = () => {
-        console.log('Socket connected!');
+        console.log("Socket connected!");
         hideConnectionOverlay();
         reconnectionAttempts = 0;
         reconnectionDelay = 1000;
 
         // Request authentication status on every connect/reconnect
-        socket.emit('check_auth');
+        socket.emit("check_auth");
     };
 
-    socket.on('connect', onConnect);
+    socket.on("connect", onConnect);
 
-    socket.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
-        if (reason !== 'io client disconnect') {
+    socket.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
+        if (reason !== "io client disconnect") {
             attemptReconnection();
         }
     });
 
-    socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+    socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
         attemptReconnection();
     });
 
-    socket.on('auth_status', (data) => {
+    socket.on("auth_status", (data) => {
         authCallback(data.authenticated);
     });
 

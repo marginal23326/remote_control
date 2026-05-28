@@ -7,6 +7,7 @@ A Rust-based remote desktop application with screen streaming, remote input, she
 **Rust:** https://rustup.rs
 
 **Linux (Fedora):**
+
 ```bash
 sudo dnf install pipewire wireplumber xdg-desktop-portal xdg-desktop-portal-kde pipewire-devel pkgconf alsa-lib-devel clang cmake nasm
 ```
@@ -24,11 +25,13 @@ On first run, you'll be prompted to create admin credentials.
 ## Access
 
 Local:
+
 ```
 http://localhost:5000
 ```
 
 From another device on the network:
+
 ```
 http://<server-ip>:5000
 ```
