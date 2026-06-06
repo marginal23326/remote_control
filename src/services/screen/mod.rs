@@ -1,9 +1,12 @@
+use std::collections::HashMap;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
 use std::time::{Duration, Instant};
+
+use serde::Serialize;
 
 use crossbeam_channel::{Sender, bounded};
 
@@ -14,12 +17,13 @@ use gstreamer_sdp as gst_sdp;
 use gstreamer_webrtc as gst_webrtc;
 
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct StreamSettings {
     pub bitrate: u32,
     pub resolution_percentage: u8,
     pub target_fps: u64,
     pub max_fps: u64,
+    pub encoder_properties: HashMap<String, String>,
 }
 
 impl Default for StreamSettings {
@@ -29,6 +33,7 @@ impl Default for StreamSettings {
             resolution_percentage: 100,
             target_fps: 60,
             max_fps: detect_max_fps(),
+            encoder_properties: HashMap::new(),
         }
     }
 }
@@ -80,8 +85,22 @@ pub(crate) enum GstCommand {
     Stop,
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct EncoderPropertyConstraint {
+    pub value_type: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enum_values: Option<&'static [&'static str]>,
+}
+
 struct EncoderInfo {
+    name: &'static str,
     pipeline_str: &'static str,
+    default_properties: &'static [(&'static str, &'static str)],
+    property_constraints: &'static [(&'static str, EncoderPropertyConstraint)],
     min_dim: u32,
 }
 
@@ -93,7 +112,20 @@ fn detect_encoder() -> EncoderInfo {
             .is_some()
         {
             return EncoderInfo {
+                name: "mfh264enc",
                 pipeline_str: "mfh264enc name=enc low-latency=true rc-mode=0 gop-size=30 ref=1",
+                default_properties: &[
+                    ("low-latency", "true"),
+                    ("rc-mode", "0"),
+                    ("gop-size", "30"),
+                    ("ref", "1"),
+                ],
+                property_constraints: &[
+                    ("low-latency", EncoderPropertyConstraint { value_type: "bool", min: None, max: None, enum_values: None }),
+                    ("rc-mode", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(3), enum_values: None }),
+                    ("gop-size", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(1000), enum_values: None }),
+                    ("ref", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(16), enum_values: None }),
+                ],
                 min_dim: 64,
             };
         }
@@ -106,7 +138,22 @@ fn detect_encoder() -> EncoderInfo {
             .is_some()
         {
             return EncoderInfo {
+                name: "vah264enc",
                 pipeline_str: "vah264enc name=enc target-usage=7 rate-control=cbr key-int-max=30 ref-frames=1 cpb-size=100",
+                default_properties: &[
+                    ("target-usage", "7"),
+                    ("rate-control", "cbr"),
+                    ("key-int-max", "30"),
+                    ("ref-frames", "1"),
+                    ("cpb-size", "100"),
+                ],
+                property_constraints: &[
+                    ("target-usage", EncoderPropertyConstraint { value_type: "int", min: Some(1), max: Some(7), enum_values: None }),
+                    ("rate-control", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["cbr", "vbr", "cqp"]) }),
+                    ("key-int-max", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(1024), enum_values: None }),
+                    ("ref-frames", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(16), enum_values: None }),
+                    ("cpb-size", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(2048000), enum_values: None }),
+                ],
                 min_dim: 128,
             };
         }
@@ -114,7 +161,16 @@ fn detect_encoder() -> EncoderInfo {
 
     tracing::warn!("No hardware encoder found. Falling back to CPU (x264enc)");
     EncoderInfo {
+        name: "x264enc",
         pipeline_str: "x264enc name=enc tune=zerolatency speed-preset=ultrafast",
+        default_properties: &[
+            ("tune", "zerolatency"),
+            ("speed-preset", "ultrafast"),
+        ],
+        property_constraints: &[
+            ("tune", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["stillimage", "fastdecode", "zerolatency"]) }),
+            ("speed-preset", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"]) }),
+        ],
         min_dim: 2,
     }
 }
@@ -122,6 +178,8 @@ fn detect_encoder() -> EncoderInfo {
 pub struct ScreenManager {
     pub settings: Arc<Mutex<StreamSettings>>,
     pub native_size: Arc<Mutex<(i32, i32)>>,
+    pub encoder_type: Arc<Mutex<String>>,
+    pub encoder_property_constraints: Arc<Mutex<HashMap<String, EncoderPropertyConstraint>>>,
     pub(crate) inner: Mutex<Option<InnerState>>,
     is_running: Arc<AtomicBool>,
 }
@@ -146,6 +204,8 @@ impl ScreenManager {
                 ..Default::default()
             })),
             native_size: Arc::new(Mutex::new(native_size)),
+            encoder_type: Arc::new(Mutex::new(String::new())),
+            encoder_property_constraints: Arc::new(Mutex::new(HashMap::new())),
             is_running: Arc::new(AtomicBool::new(false)),
             inner: Mutex::new(None),
         }
@@ -166,6 +226,23 @@ impl ScreenManager {
         let encoder_info = detect_encoder();
         let encoder_str = encoder_info.pipeline_str;
         let min_dim = encoder_info.min_dim;
+        *self.encoder_type.lock().unwrap() = encoder_info.name.to_string();
+        *self.encoder_property_constraints.lock().unwrap() = encoder_info
+            .property_constraints
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect();
+
+        {
+            let mut s = self.settings.lock().unwrap();
+            if s.encoder_properties.is_empty() {
+                s.encoder_properties = encoder_info
+                    .default_properties
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect();
+            }
+        }
 
         let pipeline_str = format!(
             "appsrc name=src \
@@ -217,6 +294,12 @@ impl ScreenManager {
 
         let default_bitrate = self.settings.lock().unwrap().bitrate;
         encoder.set_property_from_str("bitrate", &default_bitrate.to_string());
+
+        let encoder_properties = self.settings.lock().unwrap().encoder_properties.clone();
+        for (key, value) in &encoder_properties {
+            tracing::debug!("Setting encoder property {key}={value}");
+            encoder.set_property_from_str(key, value);
+        }
 
         let (cmd_tx, cmd_rx) = bounded::<GstCommand>(32);
 
@@ -671,6 +754,19 @@ impl ScreenManager {
     pub fn set_target_fps(&self, fps: u64) {
         let mut s = self.settings.lock().unwrap();
         s.target_fps = fps.clamp(1, s.max_fps);
+    }
+
+    pub fn set_encoder_properties(&self, properties: HashMap<String, String>) {
+        {
+            let mut s = self.settings.lock().unwrap();
+            s.encoder_properties = properties.clone();
+        }
+        if let Some(state) = self.inner.lock().unwrap().as_ref() {
+            for (key, value) in &properties {
+                tracing::debug!("Setting encoder property {key}={value}");
+                state.encoder.set_property_from_str(key, value);
+            }
+        }
     }
 }
 
