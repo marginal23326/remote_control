@@ -31,7 +31,7 @@ async fn index_handler(State(state): State<SharedState>, req: Request) -> Respon
 
     let is_authed = if let Some(cookie_str) = cookie_header {
         if let Some(token) = extract_token_from_cookie(cookie_str) {
-            let config = state.config.lock().unwrap();
+            let config = &state.config;
             verify_jwt(token, &config.jwt_secret)
         } else {
             false

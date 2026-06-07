@@ -76,7 +76,7 @@ pub async fn list_files_handler(
     State(state): State<SharedState>,
     Query(q): Query<ListQuery>,
 ) -> Response {
-    let files = state.files.lock().unwrap();
+    let files = &state.files;
 
     let result = if let Some(path) = q.path {
         if path == "/" || path.is_empty() {
@@ -106,7 +106,7 @@ pub async fn create_folder_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    let files = state.files.lock().unwrap();
+    let files = &state.files;
     if let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) {
         files.create_folder(&parent, &name)?;
     }
@@ -117,7 +117,7 @@ pub async fn delete_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    let files = state.files.lock().unwrap();
+    let files = &state.files;
     if let Some(paths) = payload.paths {
         files.delete_items(paths)?;
     }
@@ -128,7 +128,7 @@ pub async fn rename_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    let files = state.files.lock().unwrap();
+    let files = &state.files;
     if let (Some(old), Some(new)) = (payload.old_path, payload.new_name) {
         files.rename_item(&old, &new)?;
     }

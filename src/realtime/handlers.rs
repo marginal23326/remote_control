@@ -154,10 +154,9 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
             interval.tick().await;
 
             let data = {
-                let tasks = state.tasks.lock().unwrap();
-                let processes = tasks.get_processes();
+                let processes = state.tasks.get_processes();
 
-                let sys = state.sys.lock().unwrap();
+                let sys = state.sys.read().unwrap();
                 let total_mem = sys.total_memory() as f64;
                 let used_mem = sys.used_memory() as f64;
                 let mem_pct = if total_mem > 0.0 {
@@ -200,7 +199,7 @@ pub async fn handle_start_server_audio(
     Data(data): Data<AudioConfig>,
     State(state): State<SharedState>,
 ) {
-    let audio = state.audio.lock().unwrap();
+    let audio = &state.audio;
     let source = data.source.unwrap_or("mic".to_string());
     let rate = data.rate.unwrap_or(48000);
 
@@ -210,7 +209,7 @@ pub async fn handle_start_server_audio(
 }
 
 pub async fn handle_stop_server_audio(State(state): State<SharedState>) {
-    let audio = state.audio.lock().unwrap();
+    let audio = &state.audio;
     audio.stop_server_stream();
 }
 
@@ -218,7 +217,7 @@ pub async fn handle_start_client_audio(
     Data(data): Data<AudioConfig>,
     State(state): State<SharedState>,
 ) {
-    let audio = state.audio.lock().unwrap();
+    let audio = &state.audio;
     let rate = data.rate.unwrap_or(48000);
 
     if let Err(e) = audio.start_client_playback(rate) {
@@ -227,7 +226,7 @@ pub async fn handle_start_client_audio(
 }
 
 pub async fn handle_stop_client_audio(State(state): State<SharedState>) {
-    let audio = state.audio.lock().unwrap();
+    let audio = &state.audio;
     audio.stop_client_playback();
 }
 
@@ -236,7 +235,7 @@ pub async fn handle_client_audio_data(
     State(state): State<SharedState>,
     ack: socketioxide::extract::AckSender,
 ) {
-    let audio = state.audio.lock().unwrap();
+    let audio = &state.audio;
     audio.process_client_audio(data);
     let _ = ack.send(&json!({"status": "ok"}));
 }

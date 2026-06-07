@@ -5,20 +5,20 @@ use crate::services::input::InputManager;
 use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
 use crate::services::tasks::TaskManager;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use sysinfo::{Networks, System};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub config: Arc<Mutex<AppConfig>>,
-    pub sys: Arc<Mutex<System>>,
-    pub networks: Arc<Mutex<Networks>>,
+    pub config: Arc<AppConfig>,
+    pub sys: Arc<RwLock<System>>,
+    pub networks: Arc<RwLock<Networks>>,
     pub input: Arc<InputManager>,
     pub shell: Arc<Mutex<ShellManager>>,
     pub screen: Arc<ScreenManager>,
-    pub files: Arc<Mutex<FileManager>>,
-    pub tasks: Arc<Mutex<TaskManager>>,
-    pub audio: Arc<Mutex<AudioManager>>,
+    pub files: Arc<FileManager>,
+    pub tasks: Arc<TaskManager>,
+    pub audio: Arc<AudioManager>,
 }
 
 impl AppState {
@@ -26,7 +26,7 @@ impl AppState {
         let mut sys = System::new_all();
         sys.refresh_all();
 
-        let sys_shared = Arc::new(Mutex::new(sys));
+        let sys_shared = Arc::new(RwLock::new(sys));
 
         let networks = Networks::new_with_refreshed_list();
         let input = InputManager::new();
@@ -37,15 +37,15 @@ impl AppState {
         let audio = AudioManager::new();
 
         Self {
-            config: Arc::new(Mutex::new(config)),
+            config: Arc::new(config),
             sys: sys_shared,
-            networks: Arc::new(Mutex::new(networks)),
+            networks: Arc::new(RwLock::new(networks)),
             input: Arc::new(input),
             shell: Arc::new(Mutex::new(shell)),
             screen: Arc::new(screen),
-            files: Arc::new(Mutex::new(files)),
-            tasks: Arc::new(Mutex::new(tasks)),
-            audio: Arc::new(Mutex::new(audio)),
+            files: Arc::new(files),
+            tasks: Arc::new(tasks),
+            audio: Arc::new(audio),
         }
     }
 }

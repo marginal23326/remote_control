@@ -17,7 +17,7 @@ pub async fn kill_process_handler(
         .pid
         .ok_or(AppError::BadRequest("PID required".to_string()))?;
 
-    let tasks = state.tasks.lock().unwrap();
+    let tasks = &state.tasks;
     tasks.kill_process(pid)?;
 
     Ok(Json(
