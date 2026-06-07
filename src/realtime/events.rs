@@ -26,7 +26,7 @@ async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
         .unwrap_or("");
 
     let is_authenticated = if let Some(token) = extract_token_from_cookie(cookie_str) {
-        let config = state.config.lock().unwrap();
+        let config = &state.config;
         verify_jwt(token, &config.jwt_secret)
     } else {
         false

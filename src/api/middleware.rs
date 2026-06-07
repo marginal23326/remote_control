@@ -33,7 +33,7 @@ pub async fn auth_middleware(
 
     // 3. Verify JWT
     let is_valid = {
-        let config = state.config.lock().unwrap();
+        let config = &state.config;
         verify_jwt(token, &config.jwt_secret)
     };
 

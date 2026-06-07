@@ -21,7 +21,7 @@ pub async fn login_handler(
     State(state): State<SharedState>,
     Json(payload): Json<LoginRequest>,
 ) -> AppResult<Response> {
-    let config = state.config.lock().unwrap();
+    let config = &state.config;
 
     let password_valid = verify(&payload.password, &config.password_hash).unwrap_or(false);
     let username_valid = payload.username == config.username;

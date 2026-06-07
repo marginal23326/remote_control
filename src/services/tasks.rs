@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use sysinfo::{Pid, ProcessesToUpdate, System};
 
 #[derive(Serialize, Clone)]
@@ -16,16 +16,16 @@ pub struct ProcessDTO {
 }
 
 pub struct TaskManager {
-    sys: Arc<Mutex<System>>,
+    sys: Arc<RwLock<System>>,
 }
 
 impl TaskManager {
-    pub fn new(sys: Arc<Mutex<System>>) -> Self {
+    pub fn new(sys: Arc<RwLock<System>>) -> Self {
         Self { sys }
     }
 
     pub fn get_processes(&self) -> Vec<ProcessDTO> {
-        let mut sys = self.sys.lock().unwrap();
+        let mut sys = self.sys.write().unwrap();
 
         sys.refresh_processes(ProcessesToUpdate::All, true);
 
@@ -80,7 +80,7 @@ impl TaskManager {
     }
 
     pub fn kill_process(&self, pid: u32) -> Result<()> {
-        let sys = self.sys.lock().unwrap();
+        let sys = self.sys.read().unwrap();
         if let Some(proc) = sys.process(Pid::from_u32(pid))
             && proc.kill()
         {

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use sysinfo::{Networks, ProcessesToUpdate, System};
 
 fn get_local_ip() -> String {
@@ -127,8 +127,8 @@ fn na_wan_info() -> (String, String, String, String, String) {
     )
 }
 
-fn get_mac_address(net_lock: &Arc<Mutex<Networks>>) -> String {
-    let networks = net_lock.lock().unwrap();
+fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> String {
+    let networks = net_lock.read().unwrap();
     for data in networks.values() {
         let mac = data.mac_address().to_string();
         if mac != "00:00:00:00:00:00" && mac != "00:00:00:00:00:00:00:00" {
@@ -183,20 +183,23 @@ pub(crate) struct OsSpecificInfo {
 }
 
 pub(crate) fn refresh_system_info(
-    sys_lock: &Arc<Mutex<System>>,
-    net_lock: &Arc<Mutex<Networks>>,
+    sys_lock: &Arc<RwLock<System>>,
+    net_lock: &Arc<RwLock<Networks>>,
 ) -> SystemBaseInfo {
     {
-        let mut sys = sys_lock.lock().unwrap();
-        let mut networks = net_lock.lock().unwrap();
+        let mut sys = sys_lock.write().unwrap();
         sys.refresh_cpu_all();
         sys.refresh_memory();
         sys.refresh_processes(ProcessesToUpdate::All, true);
+    }
+
+    {
+        let mut networks = net_lock.write().unwrap();
         networks.refresh(true);
     }
 
     let (memory_total_mb, active_processes, cpu_threads, cpu_brand, cpu_frequency) = {
-        let sys = sys_lock.lock().unwrap();
+        let sys = sys_lock.read().unwrap();
         (
             sys.total_memory() / 1024 / 1024,
             sys.processes().len(),
@@ -222,8 +225,8 @@ pub(crate) fn refresh_system_info(
 }
 
 pub async fn get_system_info(
-    sys_lock: &Arc<Mutex<System>>,
-    net_lock: &Arc<Mutex<Networks>>,
+    sys_lock: &Arc<RwLock<System>>,
+    net_lock: &Arc<RwLock<Networks>>,
 ) -> SystemInfoDTO {
     let base = refresh_system_info(sys_lock, net_lock);
     let wan_info = fetch_wan_info().await;
