@@ -143,7 +143,7 @@ pub async fn upload_handler(
     let mut temp_files: Vec<(String, std::path::PathBuf)> = Vec::new();
     let mut uploaded_count = 0;
 
-    while let Ok(Some(field)) = multipart.next_field().await {
+    while let Ok(Some(mut field)) = multipart.next_field().await {
         let name = field.name().unwrap_or("").to_string();
 
         if name == "path" {
@@ -155,10 +155,21 @@ pub async fn upload_handler(
             let temp_uuid = Uuid::new_v4();
             let temp_path = std::env::temp_dir().join(format!("upload_{}", temp_uuid));
 
-            if let Ok(data) = field.bytes().await {
-                let mut file = File::create(&temp_path).await?;
-                file.write_all(&data).await?;
-                temp_files.push((file_name, temp_path));
+            if let Ok(mut file) = File::create(&temp_path).await {
+                let mut success = true;
+
+                while let Ok(Some(chunk)) = field.chunk().await {
+                    if file.write_all(&chunk).await.is_err() {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if success {
+                    temp_files.push((file_name, temp_path));
+                } else {
+                    let _ = tokio::fs::remove_file(&temp_path).await;
+                }
             }
         }
     }

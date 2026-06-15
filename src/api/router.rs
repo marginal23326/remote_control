@@ -13,7 +13,7 @@ use crate::state::SharedState;
 use crate::utils::auth::{extract_token_from_cookie, verify_jwt};
 use axum::{
     Router,
-    extract::{Request, State},
+    extract::{DefaultBodyLimit, Request, State},
     http::header,
     middleware,
     response::{IntoResponse, Redirect, Response},
@@ -75,7 +75,10 @@ pub fn create_router(state: SharedState) -> Router {
         .route("/create_folder", post(create_folder_handler))
         .route("/delete", post(delete_handler))
         .route("/rename", post(rename_handler))
-        .route("/upload", post(upload_handler))
+        .route(
+            "/upload",
+            post(upload_handler).layer(DefaultBodyLimit::disable()),
+        )
         .route("/download", get(download_handler))
         .route("/tasks/kill", post(kill_process_handler))
         .layer(middleware::from_fn_with_state(
