@@ -22,7 +22,7 @@ use ashpd::desktop::{
 use ashpd::enumflags2::BitFlags;
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use futures_util::StreamExt;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use pipewire as pw;
 use pw::{properties::properties, spa};
 use tokio::sync::Mutex as AsyncMutex;
@@ -30,8 +30,8 @@ use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMes
 
 use super::{FrameRateLimiter, RawFrame, StreamSettings};
 
-static PORTAL_SESSION: Lazy<Arc<PortalSessionManager>> =
-    Lazy::new(|| Arc::new(PortalSessionManager::new()));
+static PORTAL_SESSION: LazyLock<Arc<PortalSessionManager>> =
+    LazyLock::new(|| Arc::new(PortalSessionManager::new()));
 
 pub(crate) fn portal_session() -> Arc<PortalSessionManager> {
     PORTAL_SESSION.clone()
@@ -313,7 +313,7 @@ fn stream_info(stream: &Stream) -> PortalStreamInfo {
     }
 }
 
-static ACTIVE_WINDOW_TITLE: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
+static ACTIVE_WINDOW_TITLE: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
 
 #[allow(dead_code)]
 pub(crate) fn get_active_window_title() -> String {

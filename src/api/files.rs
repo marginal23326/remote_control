@@ -8,7 +8,7 @@ use axum::{
     http::{HeaderMap, Uri, header},
     response::{IntoResponse, Response},
 };
-use futures_core::Stream;
+use futures_util::Stream;
 use mime_guess::from_path;
 use serde::Deserialize;
 use serde_json::{Value, json};
