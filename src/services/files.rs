@@ -60,11 +60,6 @@ impl FileManager {
             return Err(anyhow!("Path does not exist"));
         }
 
-        // Check root access first
-        if !self.check_dir_access(path) {
-            return Err(anyhow!("Access is denied"));
-        }
-
         let mut entries = Vec::new();
         let read_dir = fs::read_dir(path).map_err(|e| anyhow!("Access denied: {}", e))?;
 
