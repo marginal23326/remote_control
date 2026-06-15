@@ -76,14 +76,10 @@ fn get_cpu_base_speed(brand: &str) -> String {
 
 async fn fetch_wan_info() -> (String, String, String, String, String) {
     let result = tokio::task::spawn_blocking(|| {
-        let agent: ureq::Agent = ureq::Agent::config_builder()
-            .timeout_global(Some(std::time::Duration::from_secs(3)))
-            .build()
-            .into();
-        agent
-            .get("https://api.ipapi.is/")
-            .call()
-            .and_then(|mut resp| resp.body_mut().read_json::<IpApiConnect>())
+        minreq::get("https://api.ipapi.is/")
+            .with_timeout(3)
+            .send()
+            .and_then(|resp| resp.json::<IpApiConnect>())
     })
     .await;
 
