@@ -84,14 +84,24 @@ pub fn create_router(state: SharedState) -> Router {
         ));
 
     // Serve assets at /assets path (Vite builds with /assets/* references)
+    // Vite hashes filenames, so these can be cached indefinitely
     let serve_assets = ServeDir::new("static/dist/assets");
+    let assets_routes = Router::new()
+        .fallback_service(serve_assets)
+        .layer(middleware::map_response(|mut res: Response| async move {
+            res.headers_mut().insert(
+                header::CACHE_CONTROL,
+                "public, max-age=2592000, immutable".parse().unwrap(),
+            );
+            res
+        }));
 
     // 3. Assemble
     Router::new()
         .route("/", get(index_handler))
         .merge(auth_routes)
         .nest("/api", api_routes)
-        .nest_service("/assets", serve_assets)
+        .nest("/assets", assets_routes)
         .nest_service("/static", serve_static)
         .with_state(state)
 }
