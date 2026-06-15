@@ -3,18 +3,21 @@ import { SVG_TEMPLATES } from "./utils.js";
 
 const connectionOverlay = document.getElementById("connectionOverlay");
 const connectionMessage = document.getElementById("connectionMessage");
-const allInteractiveElements = document.querySelectorAll(
-    "button, input, select, textarea, a[href], [onclick], [tabindex]",
-);
+
+function getInteractiveElements() {
+    return document.querySelectorAll(
+        "button, input, select, textarea, a[href], [onclick], [tabindex]",
+    );
+}
 
 function disableInteractiveElements() {
-    allInteractiveElements.forEach((element) => {
+    getInteractiveElements().forEach((element) => {
         element.disabled = true;
     });
 }
 
 function enableInteractiveElements() {
-    allInteractiveElements.forEach((element) => {
+    getInteractiveElements().forEach((element) => {
         element.disabled = false;
     });
 }
