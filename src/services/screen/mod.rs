@@ -44,6 +44,31 @@ pub(crate) struct RawFrame {
     pub height: u32,
 }
 
+struct RecycleBin {
+    buffer: Option<Vec<u8>>,
+    tx: crossbeam_channel::Sender<Vec<u8>>,
+}
+
+impl AsRef<[u8]> for RecycleBin {
+    fn as_ref(&self) -> &[u8] {
+        self.buffer.as_ref().unwrap()
+    }
+}
+
+impl AsMut<[u8]> for RecycleBin {
+    fn as_mut(&mut self) -> &mut [u8] {
+        self.buffer.as_mut().unwrap()
+    }
+}
+
+impl Drop for RecycleBin {
+    fn drop(&mut self) {
+        if let Some(buf) = self.buffer.take() {
+            let _ = self.tx.try_send(buf);
+        }
+    }
+}
+
 pub(crate) struct FrameRateLimiter {
     last_arrival: Instant,
     accumulated: Duration,
@@ -444,6 +469,9 @@ impl ScreenManager {
         let settings_enc = settings.clone();
         let frame_rx_enc = frame_rx;
 
+        let (scaler_recycle_tx, scaler_recycle_rx): (Sender<Vec<u8>>, _) = bounded(3);
+        let capture_recycle_tx = recycle_tx.clone();
+
         thread::spawn(move || {
             use fast_image_resize::{
                 PixelType, ResizeAlg, ResizeOptions, Resizer,
@@ -463,26 +491,32 @@ impl ScreenManager {
 
                 let scale_pct = settings_enc.lock().unwrap().resolution_percentage;
 
-                if scale_pct < 100 {
+                let (push_buf, push_tx) = if scale_pct < 100 {
                     let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
                     let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
                     let required = (new_w * new_h * 4) as usize;
 
-                    let mut final_buf = vec![0u8; required];
+                    let mut final_buf = scaler_recycle_rx.try_recv().unwrap_or_else(|_| vec![0u8; required]);
+                    if final_buf.len() != required {
+                        final_buf.resize(required, 0);
+                    }
 
-                    let src =
-                        ImageRef::new(raw.width, raw.height, &raw.buffer, PixelType::U8x4).unwrap();
-                    let mut dst =
-                        Image::from_slice_u8(new_w, new_h, &mut final_buf, PixelType::U8x4)
-                            .unwrap();
+                    let src = ImageRef::new(raw.width, raw.height, &raw.buffer, PixelType::U8x4).unwrap();
+                    let mut dst = Image::from_slice_u8(new_w, new_h, &mut final_buf, PixelType::U8x4).unwrap();
                     let opts = ResizeOptions::new().resize_alg(ResizeAlg::Nearest);
+
                     if resizer.resize(&src, &mut dst, &opts).is_ok() {
-                        let old_buf = std::mem::replace(&mut raw.buffer, final_buf);
-                        let _ = recycle_tx.try_send(old_buf);
+                        let _ = capture_recycle_tx.try_send(raw.buffer);
+
                         raw.width = new_w;
                         raw.height = new_h;
+                        (final_buf, scaler_recycle_tx.clone())
+                    } else {
+                        (raw.buffer, capture_recycle_tx.clone())
                     }
-                }
+                } else {
+                    (raw.buffer, capture_recycle_tx.clone())
+                };
 
                 let caps = gst::Caps::builder("video/x-raw")
                     .field("format", "BGRA")
@@ -491,7 +525,12 @@ impl ScreenManager {
                     .build();
                 appsrc.set_caps(Some(&caps));
 
-                let buffer = gst::Buffer::from_mut_slice(raw.buffer);
+                let recycled = RecycleBin {
+                    buffer: Some(push_buf),
+                    tx: push_tx,
+                };
+
+                let buffer = gst::Buffer::from_mut_slice(recycled);
                 if appsrc.push_buffer(buffer).is_err() {
                     tracing::debug!("Appsrc: push_buffer failed (shutting down?)");
                     break;
