@@ -27,9 +27,6 @@ function initializeSocketIO(authCallback) {
         hideConnectionOverlay();
         reconnectionAttempts = 0;
         reconnectionDelay = 1000;
-
-        // Request authentication status on every connect/reconnect
-        socket.emit("check_auth");
     };
 
     socket.on("connect", onConnect);
