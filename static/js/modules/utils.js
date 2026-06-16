@@ -58,8 +58,8 @@ const SVG_TEMPLATES = {
             <path stroke-linecap="round" stroke-width="2" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8-4-4m0 0L8 8m4-4v12"/>
         </svg>`;
     },
-    cross: () => `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    cross: (sizeClass = "w-5 h-5") => `
+        <svg class="${sizeClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>`,
 };
