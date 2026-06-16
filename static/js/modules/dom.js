@@ -5,9 +5,7 @@ const connectionOverlay = document.getElementById("connectionOverlay");
 const connectionMessage = document.getElementById("connectionMessage");
 
 function getInteractiveElements() {
-    return document.querySelectorAll(
-        "button, input, select, textarea, a[href], [onclick], [tabindex]",
-    );
+    return document.querySelectorAll("button, input, select, textarea, a[href], [onclick], [tabindex]");
 }
 
 function disableInteractiveElements() {

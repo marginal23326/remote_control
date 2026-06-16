@@ -117,7 +117,7 @@ function initializeStream(sessionId, socket) {
                     peerConnection.onconnectionstatechange = () => {
                         if (peerConnection.connectionState === "connected") {
                             streamUI.startFpsCounter();
-                            apiCall('/api/stream/settings', 'GET').then(s => {
+                            apiCall("/api/stream/settings", "GET").then((s) => {
                                 if (s) updateSettingsDisplay(s);
                             });
                         }
@@ -326,7 +326,7 @@ function updateSettingsDisplay(settings) {
     document.getElementById("fpsValue").textContent = `(Target: ${settings.target_fps} FPS)`;
 
     if (settings.encoder_type) {
-        document.getElementById('encoderTypeLabel').textContent = settings.encoder_type;
+        document.getElementById("encoderTypeLabel").textContent = settings.encoder_type;
     }
     if (settings.encoder_property_constraints) {
         encoderPropertyConstraints = { ...settings.encoder_property_constraints };
@@ -376,24 +376,24 @@ function setAutoFPS() {
 }
 
 function renderEncoderProperties() {
-    const tbody = document.getElementById('encoderPropsList');
+    const tbody = document.getElementById("encoderPropsList");
     if (!tbody) return;
-    tbody.innerHTML = '';
+    tbody.innerHTML = "";
     for (const [key, value] of Object.entries(encoderProperties)) {
-        const row = document.createElement('tr');
-        row.className = 'group';
+        const row = document.createElement("tr");
+        row.className = "group";
         const constraint = encoderPropertyConstraints[key];
         let valHtml;
         if (constraint) {
-            if (constraint.value_type === 'enum') {
-                const options = (constraint.enum_values || []).map(v =>
-                    `<option value="${v}" ${v === value ? 'selected' : ''}>${v}</option>`
-                ).join('');
+            if (constraint.value_type === "enum") {
+                const options = (constraint.enum_values || [])
+                    .map((v) => `<option value="${v}" ${v === value ? "selected" : ""}>${v}</option>`)
+                    .join("");
                 valHtml = `<select class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200">${options}</select>`;
-            } else if (constraint.value_type === 'int') {
-                valHtml = `<input type="number" class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200" value="${escHtml(value)}"${constraint.min != null ? ' min="' + constraint.min + '"' : ''}${constraint.max != null ? ' max="' + constraint.max + '"' : ''}>`;
-            } else if (constraint.value_type === 'bool') {
-                const checked = value === 'true' ? 'checked' : '';
+            } else if (constraint.value_type === "int") {
+                valHtml = `<input type="number" class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200" value="${escHtml(value)}"${constraint.min != null ? ' min="' + constraint.min + '"' : ""}${constraint.max != null ? ' max="' + constraint.max + '"' : ""}>`;
+            } else if (constraint.value_type === "bool") {
+                const checked = value === "true" ? "checked" : "";
                 valHtml = `<input type="checkbox" class="prop-val w-4 h-4 accent-blue-500 mt-1" ${checked}>`;
             } else {
                 valHtml = `<input type="text" class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200" value="${escHtml(value)}">`;
@@ -406,11 +406,11 @@ function renderEncoderProperties() {
             <td class="pr-2">${valHtml}</td>
             <td><button class="prop-remove px-2 py-1 text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove property">&times;</button></td>
         `;
-        row.querySelector('.prop-remove').addEventListener('click', () => {
+        row.querySelector(".prop-remove").addEventListener("click", () => {
             delete encoderProperties[key];
             renderEncoderProperties();
         });
-        row.querySelector('.prop-key').addEventListener('change', (e) => {
+        row.querySelector(".prop-key").addEventListener("change", (e) => {
             const newKey = e.target.value.trim();
             if (newKey && newKey !== key) {
                 delete encoderProperties[key];
@@ -418,13 +418,13 @@ function renderEncoderProperties() {
                 renderEncoderProperties();
             }
         });
-        const valInput = row.querySelector('.prop-val');
-        if (valInput && valInput.tagName === 'INPUT' && valInput.type !== 'checkbox') {
-            valInput.addEventListener('change', () => {
+        const valInput = row.querySelector(".prop-val");
+        if (valInput && valInput.tagName === "INPUT" && valInput.type !== "checkbox") {
+            valInput.addEventListener("change", () => {
                 encoderProperties[key] = getValFromInput(valInput);
             });
-        } else if (valInput && valInput.tagName === 'SELECT') {
-            valInput.addEventListener('change', () => {
+        } else if (valInput && valInput.tagName === "SELECT") {
+            valInput.addEventListener("change", () => {
                 encoderProperties[key] = valInput.value;
             });
         }
@@ -433,34 +433,34 @@ function renderEncoderProperties() {
 }
 
 function getValFromInput(input) {
-    if (input.tagName === 'SELECT') return input.value;
-    if (input.type === 'checkbox') return input.checked ? 'true' : 'false';
-    if (input.type === 'number' || input.type === 'range') return String(input.value);
+    if (input.tagName === "SELECT") return input.value;
+    if (input.type === "checkbox") return input.checked ? "true" : "false";
+    if (input.type === "number" || input.type === "range") return String(input.value);
     return input.value.trim();
 }
 
 function getRowValue(row) {
-    const input = row.querySelector('.prop-val');
-    return input ? getValFromInput(input) : '';
+    const input = row.querySelector(".prop-val");
+    return input ? getValFromInput(input) : "";
 }
 
 function escHtml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function readEncoderPropsFromDOM() {
     const props = {};
     const warnings = [];
-    document.querySelectorAll('#encoderPropsList tr').forEach(row => {
-        const key = row.querySelector('.prop-key')?.value?.trim();
+    document.querySelectorAll("#encoderPropsList tr").forEach((row) => {
+        const key = row.querySelector(".prop-key")?.value?.trim();
         if (!key) return;
-        const valInput = row.querySelector('.prop-val');
+        const valInput = row.querySelector(".prop-val");
         if (!valInput) return;
         let val = getValFromInput(valInput);
-        if (!val && valInput.type !== 'checkbox') return;
+        if (!val && valInput.type !== "checkbox") return;
         const constraint = encoderPropertyConstraints[key];
         if (constraint) {
-            if (constraint.value_type === 'int') {
+            if (constraint.value_type === "int") {
                 const num = parseInt(val, 10);
                 if (isNaN(num)) {
                     warnings.push(`"${key}": not a valid integer`);
@@ -475,76 +475,76 @@ function readEncoderPropsFromDOM() {
                     return;
                 }
                 val = String(num);
-            } else if (constraint.value_type === 'enum') {
+            } else if (constraint.value_type === "enum") {
                 if (!constraint.enum_values || !constraint.enum_values.includes(val)) {
                     warnings.push(`"${key}": "${val}" is not a valid option`);
                     return;
                 }
-            } else if (constraint.value_type === 'bool') {
-                val = val === 'true' ? 'true' : 'false';
+            } else if (constraint.value_type === "bool") {
+                val = val === "true" ? "true" : "false";
             }
         }
         props[key] = val;
     });
     encoderProperties = props;
     if (warnings.length) {
-        console.warn('Encoder property validation warnings:', warnings);
+        console.warn("Encoder property validation warnings:", warnings);
     }
     return props;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const toggle = document.getElementById('advancedToggle');
-    const panel = document.getElementById('advancedSettingsPanel');
-    const icon = document.getElementById('advancedToggleIcon');
+document.addEventListener("DOMContentLoaded", () => {
+    const toggle = document.getElementById("advancedToggle");
+    const panel = document.getElementById("advancedSettingsPanel");
+    const icon = document.getElementById("advancedToggleIcon");
     if (toggle && panel) {
-        toggle.addEventListener('click', () => {
-            panel.classList.toggle('hidden');
-            icon.classList.toggle('-rotate-180');
+        toggle.addEventListener("click", () => {
+            panel.classList.toggle("hidden");
+            icon.classList.toggle("-rotate-180");
         });
     }
 
-    const addBtn = document.getElementById('addEncoderProp');
+    const addBtn = document.getElementById("addEncoderProp");
     if (addBtn) {
-        addBtn.addEventListener('click', () => {
+        addBtn.addEventListener("click", () => {
             const knownKeys = Object.keys(encoderPropertyConstraints);
             const addedKeys = Object.keys(encoderProperties);
-            const available = knownKeys.filter(k => !addedKeys.includes(k));
+            const available = knownKeys.filter((k) => !addedKeys.includes(k));
             if (available.length === 0) {
-                const key = prompt('Enter property name:');
+                const key = prompt("Enter property name:");
                 if (key && key.trim()) {
-                    encoderProperties[key.trim()] = '';
+                    encoderProperties[key.trim()] = "";
                     renderEncoderProperties();
                 }
                 return;
             }
             const container = addBtn.parentElement;
-            const existing = document.getElementById('addPropRow');
+            const existing = document.getElementById("addPropRow");
             if (existing) existing.remove();
-            const row = document.createElement('div');
-            row.id = 'addPropRow';
-            row.className = 'flex gap-2 items-center mt-2 pt-2 border-t border-white/5';
+            const row = document.createElement("div");
+            row.id = "addPropRow";
+            row.className = "flex gap-2 items-center mt-2 pt-2 border-t border-white/5";
             row.innerHTML = `
                 <select id="addPropSelect" class="flex-1 px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200">
-                    ${available.map(k => `<option value="${k}">${k}</option>`).join('')}
+                    ${available.map((k) => `<option value="${k}">${k}</option>`).join("")}
                 </select>
                 <button id="confirmAddProp" class="px-2 py-1 text-xs rounded bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 transition-all">Add</button>
                 <button id="cancelAddProp" class="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/40 text-gray-300 border border-gray-500/30 transition-all">Cancel</button>
             `;
             container.appendChild(row);
-            document.getElementById('confirmAddProp').addEventListener('click', () => {
-                const k = document.getElementById('addPropSelect').value;
-                encoderProperties[k] = encoderPropertyConstraints[k]?.value_type === 'bool' ? 'false' : '';
+            document.getElementById("confirmAddProp").addEventListener("click", () => {
+                const k = document.getElementById("addPropSelect").value;
+                encoderProperties[k] = encoderPropertyConstraints[k]?.value_type === "bool" ? "false" : "";
                 renderEncoderProperties();
                 row.remove();
             });
-            document.getElementById('cancelAddProp').addEventListener('click', () => row.remove());
+            document.getElementById("cancelAddProp").addEventListener("click", () => row.remove());
         });
     }
 
-    const applyBtn = document.getElementById('applyEncoderProps');
+    const applyBtn = document.getElementById("applyEncoderProps");
     if (applyBtn) {
-        applyBtn.addEventListener('click', () => {
+        applyBtn.addEventListener("click", () => {
             readEncoderPropsFromDOM();
             updateStreamSettings(true);
         });
