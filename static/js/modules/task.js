@@ -117,10 +117,7 @@ function initializeTaskManager(socket) {
     async function killProcess(pid) {
         try {
             const response = await apiCall("/api/tasks/kill", "POST", { pid });
-            if (response.status === "success") {
-                console.log(response.message);
-                socket.emit("task_poll");
-            } else {
+            if (response.status !== "success") {
                 console.error(response.message);
             }
         } catch (error) {
