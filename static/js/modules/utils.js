@@ -547,7 +547,7 @@ class BaseFileManager extends UIManager {
             containerSelector: "#fileList",
             itemDataAttribute: "path",
             getItemId: (element) => element.dataset.path,
-            isItemSelectable: (element) => !element.classList.contains(...CLASSES.noAccess),
+            isItemSelectable: (element) => !CLASSES.noAccess.every(cls => element.classList.contains(cls)),
             getContextMenuItems: (context) => {
                 const selectedItems = context?.selectedItems || this.getSelectedItems();
                 if (!selectedItems.length) return [];
