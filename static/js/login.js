@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     window.location.href = "/";
                 }, 500);
             } else {
-                throw new Error(data.error || "Access Denied");
+                throw new Error(data.message || "Access Denied");
             }
         } catch (err) {
             // Error Handling
