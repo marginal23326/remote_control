@@ -2,13 +2,25 @@
 import { apiCall, SVG_TEMPLATES, BaseTaskManager } from "./utils.js";
 
 function initializeTaskManager(socket) {
-    const taskManager = new BaseTaskManager();
     let _selectedProcess = null;
     let currentSort = { column: "name", order: "asc" };
     let processes = [];
     let expandedGroups = new Set();
 
     const taskList = document.getElementById("taskList");
+
+    async function killProcess(pid) {
+        try {
+            const response = await apiCall("/api/tasks/kill", "POST", { pid });
+            if (response.status !== "success") {
+                console.error(response.message);
+            }
+        } catch (error) {
+            console.error("Error killing process:", error);
+        }
+    }
+
+    const taskManager = new BaseTaskManager({ onKillProcess: killProcess });
 
     function renderTaskList(newProcesses) {
         newProcesses.forEach((process) => {
@@ -112,17 +124,6 @@ function initializeTaskManager(socket) {
             const modifier = order === "asc" ? 1 : -1;
             return typeof valueA === "number" ? (valueA - valueB) * modifier : valueA.localeCompare(valueB) * modifier;
         });
-    }
-
-    async function killProcess(pid) {
-        try {
-            const response = await apiCall("/api/tasks/kill", "POST", { pid });
-            if (response.status !== "success") {
-                console.error(response.message);
-            }
-        } catch (error) {
-            console.error("Error killing process:", error);
-        }
     }
 
     taskList.addEventListener("click", (event) => {

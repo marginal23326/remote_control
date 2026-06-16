@@ -585,7 +585,8 @@ class BaseFileManager extends UIManager {
 }
 
 class BaseTaskManager extends UIManager {
-    constructor() {
+    constructor(config = {}) {
+        const onKillProcess = config.onKillProcess || (() => {});
         super({
             containerSelector: "#taskList",
             itemDataAttribute: "pid",
@@ -596,7 +597,7 @@ class BaseTaskManager extends UIManager {
                     label: "End Task",
                     action: () => {
                         this.getSelectedItems().forEach((item) => {
-                            this.killProcess(parseInt(item.dataset.pid));
+                            onKillProcess(parseInt(item.dataset.pid));
                         });
                     },
                 },
