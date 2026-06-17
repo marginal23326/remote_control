@@ -79,12 +79,6 @@ class AudioManager {
             this.currentSettings[type] = { ...settings };
         }
 
-        await fetch("/api/stream/settings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audio_settings: settings }),
-        });
-
         return needsReset;
     }
 
