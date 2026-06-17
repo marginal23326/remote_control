@@ -44,3 +44,56 @@ class ClientAudioProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor("client-audio-processor", ClientAudioProcessor);
+
+class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.chunks = [];
+        this.chunkIndex = 0;
+        this.sampleIndex = 0;
+
+        this.port.onmessage = (event) => {
+            if (event.data.type === "pcm") {
+                this.chunks.push(event.data.samples);
+            }
+        };
+    }
+
+    process(_inputs, outputs, _parameters) {
+        const output = outputs[0];
+        if (!output || output.length === 0) return true;
+
+        const channelData = output[0];
+        const length = channelData.length;
+
+        for (let i = 0; i < length; i++) {
+            if (this.chunkIndex < this.chunks.length) {
+                const chunk = this.chunks[this.chunkIndex];
+                channelData[i] = chunk[this.sampleIndex];
+                this.sampleIndex++;
+
+                if (this.sampleIndex >= chunk.length) {
+                    this.sampleIndex = 0;
+                    this.chunkIndex++;
+                }
+            } else {
+                channelData[i] = 0.0;
+            }
+        }
+
+        const maxPendingChunks = 30;
+        if (this.chunks.length - this.chunkIndex > maxPendingChunks) {
+            this.chunkIndex = this.chunks.length - 10;
+            this.sampleIndex = 0;
+        }
+
+        if (this.chunkIndex > 64) {
+            this.chunks.splice(0, this.chunkIndex);
+            this.chunkIndex = 0;
+        }
+
+        return true;
+    }
+}
+
+registerProcessor("server-audio-playback-processor", ServerAudioPlaybackProcessor);

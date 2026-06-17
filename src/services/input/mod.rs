@@ -57,5 +57,3 @@ pub async fn apply_mouse_event(input: &InputManager, data: MouseEvent) -> anyhow
     }
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
-compile_error!("remote-control input is only implemented for Windows and Linux.");

@@ -7,6 +7,11 @@ class AudioManager {
         this.workletNode = null;
         this.audioQueue = [];
         this.isProcessingAudio = false;
+        
+        // Default format mapping until Rust handshakes
+        this.audioFormat = { rate: 48000, channels: 1, format: "int16" };
+        this.playbackNode = null;
+
         this.currentSettings = {
             server: { rate: 48000, chunk: 4096 },
             client: { rate: 48000, chunk: 512 },
@@ -55,7 +60,6 @@ class AudioManager {
 
     async initializeAudioWorklet() {
         try {
-            // Remove any existing worklet before adding new one
             if (this.workletNode) {
                 this.cleanupWorklet();
             }
@@ -66,33 +70,11 @@ class AudioManager {
         }
     }
 
-    async getMicrophoneStream(settings) {
-        try {
-            if (this.currentStream) {
-                this.currentStream.getTracks().forEach((track) => track.stop());
-                this.currentStream = null;
-            }
-
-            return await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    sampleRate: settings.rate,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                },
-            });
-        } catch (error) {
-            console.error("Error accessing microphone:", error);
-            return null;
-        }
-    }
-
     async updateSettings(settings) {
         const type = settings.type;
         const needsReset = JSON.stringify(this.currentSettings[type]) !== JSON.stringify(settings);
 
         if (needsReset) {
-            // Stop current stream before applying new settings
             await this.stopAudioStream(type, true);
             this.currentSettings[type] = { ...settings };
         }
@@ -108,23 +90,20 @@ class AudioManager {
 
     async startAudioStream(type, settings = {}) {
         try {
-            // Check if stream is active
             if (this.streamActive[type] && !(await this.updateSettings({ ...settings, type }))) {
                 return;
             }
 
             await this.stopAudioStream(type, true);
 
-            // IMPORTANT: If user didn't specify a rate, default to 48000
             const targetRate = settings.rate || 48000;
-            await this.ensureAudioContext(targetRate);
 
             if (type === "client") {
-                // Get Mic
+                await this.ensureAudioContext(targetRate);
                 this.currentStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         sampleRate: targetRate,
-                        channelCount: 1, // FORCE MONO
+                        channelCount: 1,
                         echoCancellation: true,
                         noiseSuppression: true,
                         autoGainControl: true,
@@ -134,7 +113,6 @@ class AudioManager {
                 if (!this.currentStream) throw new Error("Microphone access denied");
 
                 await this.initializeAudioWorklet();
-                // Use a larger buffer chunk (e.g. 2048 or 4096) to prevent network crackling
                 this.setupWorkletNode(settings.chunk || 4096);
 
                 const source = this.audioContext.createMediaStreamSource(this.currentStream);
@@ -143,6 +121,38 @@ class AudioManager {
 
             if (type === "server") {
                 this.socket.off("server_audio_data", this.handleServerAudioData);
+                this.socket.off("server_audio_format");
+
+                this.socket.on("server_audio_format", async (info) => {
+                    this.audioFormat = {
+                        rate: info.rate,
+                        channels: info.channels,
+                        format: info.format
+                    };
+
+                    const rateInput = document.getElementById("serverAudioRate");
+                    if (rateInput) rateInput.value = info.rate;
+
+                    if (this.audioContext && this.audioContext.sampleRate !== info.rate) {
+                        await this.audioContext.close();
+                        this.audioContext = null;
+                    }
+                    await this.ensureAudioContext(info.rate);
+
+                    if (this.playbackNode) {
+                        try {
+                            this.playbackNode.disconnect();
+                        } catch (e) {
+                            console.warn("Error disconnecting old playback node:", e);
+                        }
+                        this.playbackNode = null;
+                    }
+
+                    await this.audioContext.audioWorklet.addModule("/static/js/modules/audio-worklet-processor.js");
+                    this.playbackNode = new AudioWorkletNode(this.audioContext, "server-audio-playback-processor");
+                    this.playbackNode.connect(this.audioContext.destination);
+                });
+
                 this.socket.on("server_audio_data", this.handleServerAudioData);
             }
 
@@ -185,26 +195,47 @@ class AudioManager {
     }
 
     handleServerAudioData(data) {
-        // Convert raw ArrayBuffer to Int16
-        const int16Array = new Int16Array(data);
-        if (int16Array.length === 0) return;
+        if (!this.playbackNode) return;
 
-        // Create buffer
-        const audioBuffer = this.audioContext.createBuffer(1, int16Array.length, this.audioContext.sampleRate);
-        const audioData = audioBuffer.getChannelData(0);
-
-        // Convert Int16 back to Float32
-        for (let i = 0; i < int16Array.length; i++) {
-            audioData[i] = int16Array[i] / 32768.0;
+        let buffer;
+        if (data instanceof ArrayBuffer) {
+            buffer = data;
+        } else if (data && data.buffer instanceof ArrayBuffer) {
+            buffer = data.buffer;
+        } else if (Array.isArray(data)) {
+            buffer = new Uint8Array(data).buffer;
+        } else {
+            return;
         }
 
-        // Play immediately
-        const source = this.audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(this.audioContext.destination);
-        source.start();
-        // Garbage collection helper
-        source.onended = () => source.disconnect();
+        const view = new DataView(buffer);
+        const format = this.audioFormat.format;
+        const channels = this.audioFormat.channels;
+
+        let bytesPerSample = format === "float32" ? 4 : 2;
+        let frameSize = bytesPerSample * channels;
+        let frameCount = Math.floor(buffer.byteLength / frameSize);
+
+        if (frameCount === 0) return;
+
+        const float32Samples = new Float32Array(frameCount);
+
+        for (let i = 0; i < frameCount; i++) {
+            let sum = 0;
+            for (let c = 0; c < channels; c++) {
+                const offset = (i * frameSize) + (c * bytesPerSample);
+                let val = format === "float32"
+                    ? view.getFloat32(offset, true)
+                    : view.getInt16(offset, true) / 32768.0;
+                sum += val;
+            }
+            float32Samples[i] = sum / channels;
+        }
+
+        this.playbackNode.port.postMessage(
+            { type: "pcm", samples: float32Samples },
+            [float32Samples.buffer]
+        );
     }
 
     async stopAudioStream(type, isResetting = false) {
@@ -218,9 +249,13 @@ class AudioManager {
             this.cleanupWorklet();
         } else if (type === "server") {
             this.socket.off("server_audio_data", this.handleServerAudioData);
+            this.socket.off("server_audio_format");
+            if (this.playbackNode) {
+                this.playbackNode.disconnect();
+                this.playbackNode = null;
+            }
         }
 
-        // Only close AudioContext if we're not resetting
         if (!isResetting && this.audioContext) {
             await this.audioContext.close();
             this.audioContext = null;
@@ -248,7 +283,6 @@ class AudioManager {
     }
 
     initializeEventListeners() {
-        // Server Audio Controls
         document.getElementById("startServerAudio").addEventListener("click", async () => {
             const settings = {
                 source: document.getElementById("audioSourceSelect").value,
@@ -262,7 +296,6 @@ class AudioManager {
             this.stopAudioStream("server");
         });
 
-        // Client Audio Controls
         document.getElementById("startClientAudio").addEventListener("click", async () => {
             const settings = {
                 rate: parseInt(document.getElementById("clientAudioRate").value),

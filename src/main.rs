@@ -1,3 +1,6 @@
+#[cfg(not(any(windows, target_os = "linux")))]
+compile_error!("The Remote Control system is only supported on Windows and Linux.");
+
 use socketioxide::SocketIo;
 use std::sync::Arc;
 use tokio::net::TcpListener;

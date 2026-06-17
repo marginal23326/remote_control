@@ -758,10 +758,10 @@ impl ScreenManager {
         if let Some(state) = self.inner.lock().unwrap().take() {
             let _ = state.cmd_tx.send(GstCommand::Stop);
 
-            if let Some(src) = state.pipeline.by_name("src") {
-                if let Ok(appsrc) = src.dynamic_cast::<gst_app::AppSrc>() {
-                    let _ = appsrc.end_of_stream();
-                }
+            if let Some(src) = state.pipeline.by_name("src")
+                && let Ok(appsrc) = src.dynamic_cast::<gst_app::AppSrc>()
+            {
+                let _ = appsrc.end_of_stream();
             }
 
             drop(state.pw_handle);
@@ -849,5 +849,3 @@ fn detect_native_size() -> (i32, i32) {
     }
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
-compile_error!("remote-control screen capture is only implemented for Windows and Linux.");

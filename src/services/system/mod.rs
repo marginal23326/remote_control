@@ -283,5 +283,3 @@ mod linux;
 #[cfg(target_os = "linux")]
 use linux::get_os_specific_info;
 
-#[cfg(not(any(windows, target_os = "linux")))]
-compile_error!("remote-control system info is only implemented for Windows and Linux.");
