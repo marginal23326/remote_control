@@ -81,6 +81,12 @@ let mouseInputSeq = 0;
 let encoderProperties = {};
 let encoderPropertyConstraints = {};
 
+function removeWebRTCListeners(socket) {
+    socket.off("webrtc_offer");
+    socket.off("webrtc_remote_ice");
+    socket.off("stream_error");
+}
+
 function initializeStream(sessionId, socket) {
     document.getElementById("startStream").addEventListener("click", () => {
         if (!streamActive) {
@@ -157,6 +163,7 @@ function initializeStream(sessionId, socket) {
                 streamActive = false;
                 cleanupPeerConnection();
                 streamUI.hide();
+                removeWebRTCListeners(socket);
             });
         }
     });
@@ -168,9 +175,7 @@ function initializeStream(sessionId, socket) {
             cleanupPeerConnection();
             await apiCall("/api/stream/stop");
             streamUI.clear();
-            socket.off("webrtc_offer");
-            socket.off("webrtc_remote_ice");
-            socket.off("stream_error");
+            removeWebRTCListeners(socket);
         }
     });
 
