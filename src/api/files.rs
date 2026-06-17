@@ -70,6 +70,30 @@ impl<S> Drop for DeleteOnDropStream<S> {
     }
 }
 
+fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
+    if paths.is_empty() {
+        return None;
+    }
+    let mut common = paths[0].parent()?.to_path_buf();
+    for path in paths.iter().skip(1) {
+        let parent = path.parent()?;
+        let mut new_common = std::path::PathBuf::new();
+        for (c, p) in common.components().zip(parent.components()) {
+            if c == p {
+                new_common.push(c);
+            } else {
+                break;
+            }
+        }
+        common = new_common;
+    }
+    if common.as_os_str().is_empty() {
+        None
+    } else {
+        Some(common)
+    }
+}
+
 // --- HANDLERS ---
 
 pub async fn list_files_handler(
@@ -248,12 +272,21 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
             .compression_method(zip::CompressionMethod::Stored)
             .unix_permissions(0o755);
 
-        for p in paths {
-            let path = Path::new(&p);
+        let path_bufs: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
+        let common_parent = find_common_parent(&path_bufs);
+
+        for path in path_bufs {
             if path.is_file() {
-                let name = path.file_name().unwrap().to_string_lossy();
-                let _ = zip.start_file(name, options);
-                let mut f = std::fs::File::open(path)?;
+                let zip_path_name = match &common_parent {
+                    Some(parent) => match path.strip_prefix(parent) {
+                        Ok(rel_path) => rel_path.to_string_lossy().replace('\\', "/"),
+                        Err(_) => path.file_name().unwrap().to_string_lossy().into_owned(),
+                    },
+                    None => path.file_name().unwrap().to_string_lossy().into_owned(),
+                };
+
+                let _ = zip.start_file(zip_path_name, options);
+                let mut f = std::fs::File::open(&path)?;
                 std::io::copy(&mut f, &mut zip)?;
             }
         }
