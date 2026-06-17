@@ -218,6 +218,22 @@ pub async fn upload_handler(
     Ok(Json(json!({"status": "success", "count": uploaded_count})))
 }
 
+struct TempFileGuard {
+    path: PathBuf,
+    disarmed: bool,
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        if !self.disarmed {
+            let path = self.path.clone();
+            tokio::spawn(async move {
+                let _ = tokio::fs::remove_file(path).await;
+            });
+        }
+    }
+}
+
 pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> AppResult<Response> {
     let query_str = uri.query().unwrap_or("");
     let query: DownloadQuery = serde_qs::from_str(query_str)
@@ -263,6 +279,11 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
     let zip_path = std::env::temp_dir().join(&zip_filename);
     let zip_path_clone = zip_path.clone();
 
+    let mut cleanup_guard = TempFileGuard {
+        path: zip_path.clone(),
+        disarmed: false,
+    };
+
     // Create the Zip in a blocking task
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
         let file = std::fs::File::create(&zip_path_clone)?;
@@ -299,6 +320,8 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
 
     let file = File::open(&zip_path).await?;
     let stream = ReaderStream::new(file);
+
+    cleanup_guard.disarmed = true;
 
     let wrapped_stream = DeleteOnDropStream {
         inner: stream,
