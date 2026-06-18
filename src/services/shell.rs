@@ -48,20 +48,33 @@ impl ShellManager {
         // 4. SPAWN BACKGROUND THREAD (The "Push" Mechanism)
         thread::spawn(move || {
             let mut buffer = [0u8; 1024];
+            let mut leftover = Vec::new();
             loop {
-                match reader.read(&mut buffer) {
-                    Ok(n) if n > 0 => {
-                        let output = String::from_utf8_lossy(&buffer[..n]).to_string();
-                        let _ = socket_clone.emit(
-                            "shell_output",
-                            &json!({
-                                "session_id": sid,
-                                "output": output
-                            }),
-                        );
+                let n = match reader.read(&mut buffer) {
+                    Ok(n) if n > 0 => n,
+                    _ => break,
+                };
+                leftover.extend_from_slice(&buffer[..n]);
+
+                match std::str::from_utf8(&leftover) {
+                    Ok(s) => {
+                        let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
+                        leftover.clear();
                     }
-                    Ok(_) => break,  // EOF
-                    Err(_) => break, // Error or closed
+                    Err(e) => {
+                        let valid = e.valid_up_to();
+                        if valid > 0 {
+                            let s = std::str::from_utf8(&leftover[..valid]).unwrap();
+                            let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
+                        }
+
+                        if e.error_len().is_none() {
+                            leftover = leftover[valid..].to_vec();
+                        } else {
+                            let skip = valid + e.error_len().unwrap();
+                            leftover = leftover[skip..].to_vec();
+                        }
+                    }
                 }
             }
         });

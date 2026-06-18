@@ -18,7 +18,7 @@ export class InteractiveShell {
             windowsPty: {
                 backend: "conpty",
             },
-            fontFamily: "Consolas, monospace",
+            fontFamily: "'MesloLGM Nerd Font', Consolas, monospace",
             scrollback: 10000,
         });
 
