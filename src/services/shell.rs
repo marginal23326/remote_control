@@ -49,6 +49,7 @@ impl ShellManager {
         thread::spawn(move || {
             let mut buffer = [0u8; 1024];
             let mut leftover = Vec::new();
+
             loop {
                 let n = match reader.read(&mut buffer) {
                     Ok(n) if n > 0 => n,
@@ -56,23 +57,31 @@ impl ShellManager {
                 };
                 leftover.extend_from_slice(&buffer[..n]);
 
-                match std::str::from_utf8(&leftover) {
-                    Ok(s) => {
-                        let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
-                        leftover.clear();
-                    }
-                    Err(e) => {
-                        let valid = e.valid_up_to();
-                        if valid > 0 {
-                            let s = std::str::from_utf8(&leftover[..valid]).unwrap();
+                while !leftover.is_empty() {
+                    match std::str::from_utf8(&leftover) {
+                        Ok(s) => {
                             let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
+                            leftover.clear();
+                            break;
                         }
+                        Err(e) => {
+                            let valid = e.valid_up_to();
 
-                        if e.error_len().is_none() {
-                            leftover = leftover[valid..].to_vec();
-                        } else {
-                            let skip = valid + e.error_len().unwrap();
-                            leftover = leftover[skip..].to_vec();
+                            if valid > 0 {
+                                let s = std::str::from_utf8(&leftover[..valid]).unwrap();
+                                let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
+
+                                leftover = leftover[valid..].to_vec();
+                                continue;
+                            }
+
+                            if let Some(err_len) = e.error_len() {
+                                let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": "" }));
+                                leftover = leftover[err_len..].to_vec();
+                                continue;
+                            } else {
+                                break;
+                            }
                         }
                     }
                 }
