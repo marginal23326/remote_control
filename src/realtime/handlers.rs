@@ -129,6 +129,13 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
 
     state.audio.stop_server_stream();
     state.audio.stop_client_playback();
+
+    let input = state.input.clone();
+    tokio::spawn(async move {
+        let _ = input.click_mouse("left", false).await;
+        let _ = input.click_mouse("right", false).await;
+        let _ = input.click_mouse("middle", false).await;
+    });
 }
 
 pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {
