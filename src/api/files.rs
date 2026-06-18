@@ -200,6 +200,8 @@ pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Mu
     let final_dir_str = target_dir.unwrap_or_else(|| ".".to_string());
     let final_dir = Path::new(&final_dir_str);
 
+    let _ = tokio::fs::create_dir_all(final_dir).await;
+
     for (name, temp_path) in temp_files {
         let dest_path = final_dir.join(&name);
         match tokio::fs::rename(&temp_path, &dest_path).await {
