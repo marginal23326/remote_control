@@ -206,13 +206,13 @@ pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Mu
         let dest_path = final_dir.join(&name);
         match tokio::fs::rename(&temp_path, &dest_path).await {
             Ok(_) => uploaded_count += 1,
-            Err(_) => match tokio::fs::copy(&temp_path, &dest_path).await {
-                Ok(_) => {
-                    let _ = tokio::fs::remove_file(temp_path).await;
-                    uploaded_count += 1;
+            Err(_) => {
+                match tokio::fs::copy(&temp_path, &dest_path).await {
+                    Ok(_) => uploaded_count += 1,
+                    Err(e) => tracing::error!("Failed to save file {}: {}", name, e),
                 }
-                Err(e) => tracing::error!("Failed to save file {}: {}", name, e),
-            },
+                let _ = tokio::fs::remove_file(&temp_path).await;
+            }
         }
     }
 
