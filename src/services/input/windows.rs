@@ -148,9 +148,9 @@ impl InputManager {
     fn map_key_to_vk(&self, key: &str) -> VIRTUAL_KEY {
         match key.to_lowercase().as_str() {
             "shift" => VK_SHIFT,
-            "ctrl" => VK_CONTROL,
+            "ctrl" | "control" => VK_CONTROL,
             "alt" => VK_MENU,
-            "win" => VK_LWIN,
+            "win" | "super" | "meta" => VK_LWIN,
             "enter" | "return" => VK_RETURN,
             "backspace" => VK_BACK,
             "tab" => VK_TAB,
