@@ -258,10 +258,19 @@ impl ScreenManager {
         socket: socketioxide::extract::SocketRef,
         state: crate::state::SharedState,
     ) -> anyhow::Result<()> {
-        if self.is_running.load(Ordering::SeqCst) {
+        if self
+            .is_running
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
             tracing::warn!("start_stream: already running");
             return Err(anyhow::anyhow!("Stream is already active on another client"));
         }
+
+        let mut startup_guard = StreamGuard {
+            is_running: self.is_running.clone(),
+            success: false,
+        };
 
         gst::init().map_err(|e| anyhow::anyhow!("GStreamer init failed: {e}"))?;
 
@@ -357,11 +366,6 @@ impl ScreenManager {
             tokio::runtime::Handle::current(),
         );
 
-        self.is_running.store(true, Ordering::SeqCst);
-        let mut startup_guard = StreamGuard {
-            is_running: self.is_running.clone(),
-            success: false,
-        };
         let is_running = self.is_running.clone();
         let settings = self.settings.clone();
 
