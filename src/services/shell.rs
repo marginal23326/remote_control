@@ -8,7 +8,7 @@ use std::thread;
 
 pub struct ShellSession {
     pub master: Box<dyn MasterPty + Send>,
-    pub writer: Box<dyn Write + Send>,
+    pub input_tx: std::sync::mpsc::Sender<String>,
     pub child: Box<dyn Child + Send>,
 }
 
@@ -88,14 +88,24 @@ impl ShellManager {
             }
         });
 
-        // 5. Store the writer/master so we can send input/resize later
-        let writer = pair.master.take_writer()?;
+        // 5. Set up input channel and dedicated background writer thread
+        let mut writer = pair.master.take_writer()?;
+        let (input_tx, input_rx) = std::sync::mpsc::channel::<String>();
+
+        thread::spawn(move || {
+            while let Ok(data) = input_rx.recv() {
+                if write!(writer, "{}", data).is_err() {
+                    break;
+                }
+                let _ = writer.flush();
+            }
+        });
 
         self.sessions.insert(
             session_id,
             ShellSession {
                 master: pair.master,
-                writer,
+                input_tx,
                 child,
             },
         );
@@ -105,7 +115,7 @@ impl ShellManager {
 
     pub fn write_to_shell(&mut self, session_id: &str, data: &str) -> Result<()> {
         if let Some(session) = self.sessions.get_mut(session_id) {
-            write!(session.writer, "{}", data)?;
+            let _ = session.input_tx.send(data.to_string());
         }
         Ok(())
     }
