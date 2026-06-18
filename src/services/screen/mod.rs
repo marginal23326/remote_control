@@ -219,6 +219,20 @@ pub(crate) struct InnerState {
     emit_handle: Option<thread::JoinHandle<()>>,
 }
 
+struct StreamGuard {
+    is_running: Arc<AtomicBool>,
+    success: bool,
+}
+
+impl Drop for StreamGuard {
+    fn drop(&mut self) {
+        if !self.success {
+            tracing::warn!("Stream startup failed or was interrupted. Resetting is_running flag.");
+            self.is_running.store(false, Ordering::SeqCst);
+        }
+    }
+}
+
 impl ScreenManager {
     pub fn new() -> Self {
         let max_fps = detect_max_fps();
@@ -243,7 +257,7 @@ impl ScreenManager {
     ) -> anyhow::Result<()> {
         if self.is_running.load(Ordering::SeqCst) {
             tracing::warn!("start_stream: already running");
-            return Ok(());
+            return Err(anyhow::anyhow!("Stream is already active on another client"));
         }
 
         gst::init().map_err(|e| anyhow::anyhow!("GStreamer init failed: {e}"))?;
@@ -341,6 +355,10 @@ impl ScreenManager {
         );
 
         self.is_running.store(true, Ordering::SeqCst);
+        let mut startup_guard = StreamGuard {
+            is_running: self.is_running.clone(),
+            success: false,
+        };
         let is_running = self.is_running.clone();
         let settings = self.settings.clone();
 
@@ -540,6 +558,8 @@ impl ScreenManager {
 
         inner.emit_handle = Some(emit_handle);
         *self.inner.lock().unwrap() = Some(inner);
+
+        startup_guard.success = true;
 
         Ok(())
     }
