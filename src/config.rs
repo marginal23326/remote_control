@@ -1,6 +1,8 @@
 use anyhow::Result;
-use bcrypt::{DEFAULT_COST, hash};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 use std::path::Path;
 use tokio::fs;
@@ -52,7 +54,12 @@ impl ConfigManager {
         };
 
         println!("\nGenerating security keys...");
-        let password_hash = hash(&password, DEFAULT_COST)?;
+        let salt = Uuid::new_v4().as_bytes().to_vec();
+        let hash = Sha256::new()
+            .chain_update(&salt)
+            .chain_update(password.as_bytes())
+            .finalize();
+        let password_hash = format!("{}:{}", BASE64.encode(&salt), BASE64.encode(hash));
         let jwt_secret = Uuid::new_v4().to_string();
 
         let config = AppConfig {

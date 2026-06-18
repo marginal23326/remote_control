@@ -7,9 +7,28 @@ use axum::{
     http::{HeaderMap, header},
     response::{IntoResponse, Response},
 };
-use bcrypt::verify;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use serde::Deserialize;
 use serde_json::json;
+use sha2::{Digest, Sha256};
+
+fn verify_password(password: &str, stored: &str) -> bool {
+    let Some((salt_b64, hash_b64)) = stored.split_once(':') else {
+        return false;
+    };
+    let Ok(salt) = BASE64.decode(salt_b64) else {
+        return false;
+    };
+    let Ok(expected) = BASE64.decode(hash_b64) else {
+        return false;
+    };
+    let actual = Sha256::new()
+        .chain_update(&salt)
+        .chain_update(password.as_bytes())
+        .finalize();
+    actual.as_slice() == expected.as_slice()
+}
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -20,7 +39,7 @@ pub struct LoginRequest {
 pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json<LoginRequest>) -> AppResult<Response> {
     let config = &state.config;
 
-    let password_valid = verify(&payload.password, &config.password_hash).unwrap_or(false);
+    let password_valid = verify_password(&payload.password, &config.password_hash);
     let username_valid = payload.username == config.username;
 
     if username_valid && password_valid {
