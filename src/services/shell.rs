@@ -1,5 +1,5 @@
 use anyhow::Result;
-use portable_pty::{CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
+use portable_pty::{CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem, Child};
 use serde_json::json;
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
@@ -9,6 +9,7 @@ use std::thread;
 pub struct ShellSession {
     pub master: Box<dyn MasterPty + Send>,
     pub writer: Box<dyn Write + Send>,
+    pub child: Box<dyn Child + Send>,
 }
 
 pub struct ShellManager {
@@ -43,7 +44,7 @@ impl ShellManager {
         let pair = self.pty_system.openpty(size)?;
 
         let cmd = CommandBuilder::new(default_shell());
-        let _child = pair.slave.spawn_command(cmd)?;
+        let child = pair.slave.spawn_command(cmd)?;
 
         // 3. Clone the reader to move into a background thread
         let mut reader = pair.master.try_clone_reader()?;
@@ -79,6 +80,7 @@ impl ShellManager {
             ShellSession {
                 master: pair.master,
                 writer,
+                child,
             },
         );
 
@@ -106,7 +108,9 @@ impl ShellManager {
 
     // Clean up session
     pub fn close_session(&mut self, session_id: &str) {
-        if self.sessions.remove(session_id).is_some() {
+        if let Some(mut session) = self.sessions.remove(session_id) {
+            let _ = session.child.kill();
+            let _ = session.child.wait();
             tracing::info!("Shell session closed/cleaned up: {}", session_id);
         }
     }
