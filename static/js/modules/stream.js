@@ -25,6 +25,7 @@ const streamUI = {
     },
 
     startFpsCounter() {
+        this.stopFpsCounter();
         const frameTimes = this.frameTimes;
         const fpsCounter = this.fpsCounter;
         const video = this.view;
@@ -218,6 +219,7 @@ function initializeStream(sessionId, socket) {
 }
 
 function cleanupPeerConnection() {
+    streamUI.stopFpsCounter();
     mouseMoveChannel = null;
     mouseControlChannel = null;
     pendingMouseMove = null;
