@@ -17,17 +17,33 @@ pub struct ProcessDTO {
 
 pub struct TaskManager {
     sys: Arc<RwLock<System>>,
+    last_refresh: RwLock<std::time::Instant>,
 }
 
 impl TaskManager {
     pub fn new(sys: Arc<RwLock<System>>) -> Self {
-        Self { sys }
+        Self {
+            sys,
+            last_refresh: RwLock::new(
+                std::time::Instant::now()
+                    .checked_sub(std::time::Duration::from_secs(10))
+                    .unwrap(),
+            ),
+        }
     }
 
     pub fn get_processes(&self) -> Vec<ProcessDTO> {
-        let mut sys = self.sys.write().unwrap();
+        if let Ok(mut last) = self.last_refresh.write()
+            && last.elapsed() > std::time::Duration::from_millis(1500)
+        {
+            self.sys
+                .write()
+                .unwrap()
+                .refresh_processes(ProcessesToUpdate::All, true);
+            *last = std::time::Instant::now();
+        }
 
-        sys.refresh_processes(ProcessesToUpdate::All, true);
+        let sys = self.sys.read().unwrap();
 
         let mut groups: HashMap<String, ProcessDTO> = HashMap::new();
 
