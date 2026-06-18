@@ -74,7 +74,7 @@ fn get_cpu_base_speed(brand: &str) -> String {
     "N/A".to_string()
 }
 
-async fn fetch_wan_info() -> (String, String, String, String, String) {
+async fn fetch_wan_info() -> Result<(String, String, String, String, String), ()> {
     let result = tokio::task::spawn_blocking(|| {
         minreq::get("https://api.ipapi.is/")
             .with_timeout(3)
@@ -107,9 +107,9 @@ async fn fetch_wan_info() -> (String, String, String, String, String) {
                 .and_then(|l| l.timezone.clone())
                 .unwrap_or("N/A".to_string());
 
-            (ip, asn, isp, country, timezone)
+            Ok((ip, asn, isp, country, timezone))
         }
-        _ => na_wan_info(),
+        _ => Err(()),
     }
 }
 
@@ -217,7 +217,10 @@ pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc
 pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
     let base = refresh_system_info(&state.sys, &state.networks);
 
-    let wan_info = state.wan_info.get_or_init(fetch_wan_info).await;
+    let wan_info = match state.wan_info.get_or_try_init(fetch_wan_info).await {
+        Ok(info) => info.clone(),
+        Err(_) => na_wan_info(),
+    };
 
     let lan_ip = get_local_ip();
     let mac = get_mac_address(&state.networks);
