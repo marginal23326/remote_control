@@ -40,6 +40,9 @@ pub struct ShellResizeEvent {
 }
 
 #[derive(Debug, Clone)]
+struct ActiveStreamMarker;
+
+#[derive(Debug, Clone)]
 struct TaskPollTask {
     handle: AbortHandle,
 }
@@ -127,7 +130,6 @@ pub async fn handle_shell_resize(
 }
 
 pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedState>) {
-    // Abort the polling task if it exists
     if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
         task.handle.abort();
     }
@@ -135,7 +137,9 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     let mut shell_manager = state.shell.lock().unwrap();
     shell_manager.close_session(&socket.id.to_string());
 
-    state.screen.stop_stream();
+    if socket.extensions.remove::<ActiveStreamMarker>().is_some() {
+        state.screen.stop_stream();
+    }
 }
 
 pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {
@@ -245,6 +249,8 @@ pub async fn handle_start_stream(socket: SocketRef, State(state): State<SharedSt
     if let Err(e) = screen.start_stream(socket.clone(), state).await {
         tracing::error!("Failed to start stream: {e:#}");
         let _ = socket.emit("stream_error", &json!({ "message": e.to_string() }));
+    } else {
+        socket.extensions.insert(ActiveStreamMarker);
     }
 }
 
