@@ -173,7 +173,12 @@ class AudioManager {
 
         this.workletNode.port.onmessage = (event) => {
             if (event.data.type === "pcmData") {
+                if (this.audioQueue.length > 50) {
+                    this.audioQueue.shift();
+                }
+
                 this.audioQueue.push(event.data.pcmData);
+
                 if (!this.isProcessingAudio) {
                     this.processAudioQueue();
                 }
