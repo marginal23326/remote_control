@@ -85,17 +85,24 @@ impl FrameRateLimiter {
         if target_fps >= max_fps {
             return true;
         }
+
         let now = Instant::now();
         let interval = Duration::from_secs_f64(1.0 / target_fps as f64);
         let elapsed = now.saturating_duration_since(self.last_arrival);
+
         self.last_arrival = now;
         self.accumulated += elapsed;
 
-        if self.accumulated < interval {
-            false
-        } else {
+        if self.accumulated >= interval {
             self.accumulated -= interval;
+
+            if self.accumulated >= interval {
+                self.accumulated = Duration::ZERO;
+            }
+
             true
+        } else {
+            false
         }
     }
 }
