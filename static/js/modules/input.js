@@ -235,7 +235,7 @@ function initializeInputHandlers(socket) {
         // --- Mouse Handling ---
         streamUI.view.addEventListener("mousemove", (event) => {
             event.preventDefault();
-            // Only send move events if dragging or holding Ctrl (to avoid flooding socket with idle movements)
+            // Only send move events if dragging or holding Ctrl
             if (isDragging || isCtrlPressed) {
                 sendMouseEvent("move", event);
             }
@@ -249,12 +249,17 @@ function initializeInputHandlers(socket) {
             if (button === "left") isDragging = true;
         });
 
-        streamUI.view.addEventListener("mouseup", (event) => {
-            event.preventDefault();
-            const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
-            sendMouseEvent("click", event, { button, pressed: false });
+        window.addEventListener("mouseup", (event) => {
+            if (isDragging || event.target === streamUI.view) {
+                if (event.target === streamUI.view) {
+                    event.preventDefault();
+                }
+                
+                const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
+                sendMouseEvent("click", event, { button, pressed: false });
 
-            if (button === "left") isDragging = false;
+                if (button === "left") isDragging = false;
+            }
         });
 
         streamUI.view.addEventListener("contextmenu", (event) => event.preventDefault());
