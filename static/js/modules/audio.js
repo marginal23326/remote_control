@@ -93,6 +93,13 @@ class AudioManager {
             const targetRate = settings.rate || 48000;
 
             if (type === "client") {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error(
+                        "Microphone access is restricted to Secure Contexts (HTTPS or localhost).\n\n" +
+                            'See "Secure Context Workaround" in the README for HTTP access.',
+                    );
+                }
+
                 await this.ensureAudioContext(targetRate);
                 this.currentStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
