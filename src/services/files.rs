@@ -71,7 +71,8 @@ impl FileManager {
                 let date = meta
                     .modified()
                     .ok()
-                    .map(|t| Timestamp::try_from(t).unwrap().to_string());
+                    .and_then(|t| Timestamp::try_from(t).ok())
+                    .map(|ts| ts.to_string());
                 (meta.is_dir(), meta.len(), date)
             } else {
                 (false, 0, None)
