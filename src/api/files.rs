@@ -175,7 +175,12 @@ pub async fn upload_handler(
                 target_dir = Some(txt);
             }
         } else if name == "files" {
-            let file_name = field.file_name().unwrap_or("uploaded_file").to_string();
+            let raw_file_name = field.file_name().unwrap_or("uploaded_file");
+            let file_name = std::path::Path::new(raw_file_name)
+                .file_name()
+                .unwrap_or_else(|| std::ffi::OsStr::new("uploaded_file"))
+                .to_string_lossy()
+                .into_owned();
             let temp_uuid = Uuid::new_v4();
             let temp_path = std::env::temp_dir().join(format!("upload_{}", temp_uuid));
 
