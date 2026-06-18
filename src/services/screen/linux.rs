@@ -13,24 +13,23 @@ use ashpd::desktop::{
     Session,
     remote_desktop::{
         Axis, DeviceType, KeyState, NotifyKeyboardKeysymOptions, NotifyPointerAxisDiscreteOptions,
-        NotifyPointerAxisOptions, NotifyPointerButtonOptions, NotifyPointerMotionAbsoluteOptions,
-        RemoteDesktop, SelectDevicesOptions,
+        NotifyPointerAxisOptions, NotifyPointerButtonOptions, NotifyPointerMotionAbsoluteOptions, RemoteDesktop,
+        SelectDevicesOptions,
     },
     screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream},
 };
 use ashpd::enumflags2::BitFlags;
-use crossbeam_channel::{Receiver, Sender, TrySendError};
+use crossbeam_channel::{Receiver, Sender};
 use futures_util::StreamExt;
-use std::sync::LazyLock;
 use pipewire as pw;
 use pw::{properties::properties, spa};
+use std::sync::LazyLock;
 use tokio::sync::Mutex as AsyncMutex;
 use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
 use super::{FrameRateLimiter, RawFrame, StreamSettings};
 
-static PORTAL_SESSION: LazyLock<Arc<PortalSessionManager>> =
-    LazyLock::new(|| Arc::new(PortalSessionManager::new()));
+static PORTAL_SESSION: LazyLock<Arc<PortalSessionManager>> = LazyLock::new(|| Arc::new(PortalSessionManager::new()));
 
 pub(crate) fn portal_session() -> Arc<PortalSessionManager> {
     PORTAL_SESSION.clone()
@@ -114,8 +113,7 @@ pub(crate) fn run_pipewire_capture(
                 return;
             }
 
-            let Ok((media_type, media_subtype)) = pw::spa::param::format_utils::parse_format(param)
-            else {
+            let Ok((media_type, media_subtype)) = pw::spa::param::format_utils::parse_format(param) else {
                 return;
             };
             if media_type != pw::spa::param::format::MediaType::Video
@@ -189,13 +187,13 @@ pub(crate) fn run_pipewire_capture(
 
             let available = bytes.len().saturating_sub(offset).min(frame_size);
             let source = &bytes[offset..offset + available];
-            
+
             let mut output = user_data
                 .cached_buffer
                 .take()
                 .or_else(|| user_data.recycle_rx.try_recv().ok())
                 .unwrap_or_default();
-                
+
             if normalize_to_bgra(source, width, height, stride, format, &mut output).is_err() {
                 user_data.cached_buffer = Some(output);
                 return;
@@ -206,7 +204,7 @@ pub(crate) fn run_pipewire_capture(
                 width,
                 height,
             };
-            
+
             if let Err(err) = user_data.work_tx.try_send(raw) {
                 user_data.cached_buffer = Some(err.into_inner().buffer);
             }
@@ -245,15 +243,13 @@ pub(crate) fn run_pipewire_capture(
     .context("Failed to serialize PipeWire format parameters")?
     .0
     .into_inner();
-    let mut params = [spa::pod::Pod::from_bytes(&values)
-        .ok_or_else(|| anyhow::anyhow!("Failed to parse Pod from bytes"))?];
+    let mut params =
+        [spa::pod::Pod::from_bytes(&values).ok_or_else(|| anyhow::anyhow!("Failed to parse Pod from bytes"))?];
 
     stream.connect(
         spa::utils::Direction::Input,
         Some(node_id),
-        pw::stream::StreamFlags::AUTOCONNECT
-            | pw::stream::StreamFlags::MAP_BUFFERS
-            | pw::stream::StreamFlags::DRIVER,
+        pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS | pw::stream::StreamFlags::DRIVER,
         &mut params,
     )?;
 
@@ -294,9 +290,7 @@ fn normalize_to_bgra(
                 p_out[2] = p_in[2];
                 p_out[3] = 255;
             }
-        } else if format == spa::param::video::VideoFormat::RGBA
-            || format == spa::param::video::VideoFormat::RGBx
-        {
+        } else if format == spa::param::video::VideoFormat::RGBA || format == spa::param::video::VideoFormat::RGBx {
             for (p_in, p_out) in src.chunks_exact(4).zip(dst.chunks_exact_mut(4)) {
                 p_out[0] = p_in[2];
                 p_out[1] = p_in[1];
@@ -330,10 +324,7 @@ pub(crate) fn get_active_window_title() -> String {
 }
 
 pub(crate) fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
-    let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-    else {
+    let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
         return;
     };
 
@@ -368,13 +359,7 @@ async fn monitor_active_window(is_running: Arc<AtomicBool>) -> Result<()> {
     );
     fs::write(&script_path, script_content)?;
 
-    let scripting = Proxy::new(
-        &connection,
-        "org.kde.KWin",
-        "/Scripting",
-        "org.kde.kwin.Scripting",
-    )
-    .await?;
+    let scripting = Proxy::new(&connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting").await?;
 
     let script_id: i32 = scripting
         .call(
@@ -480,9 +465,7 @@ impl PortalSessionManager {
     pub(crate) async fn open_pipewire_remote(&self) -> Result<(u32, (i32, i32), OwnedFd)> {
         let info = self.ensure_started().await?;
         let state = self.state.lock().await;
-        let session = state
-            .as_ref()
-            .ok_or_else(|| anyhow!("Portal session uninitialized"))?;
+        let session = state.as_ref().ok_or_else(|| anyhow!("Portal session uninitialized"))?;
         let fd = session
             .screencast
             .open_pipe_wire_remote(&session.session, Default::default())
@@ -513,12 +496,7 @@ impl PortalSessionManager {
         let session = guard.as_ref().unwrap();
         session
             .remote_desktop
-            .notify_pointer_button(
-                &session.session,
-                button,
-                state,
-                NotifyPointerButtonOptions::default(),
-            )
+            .notify_pointer_button(&session.session, button, state, NotifyPointerButtonOptions::default())
             .await?;
         Ok(())
     }
@@ -568,12 +546,7 @@ impl PortalSessionManager {
         let session = guard.as_ref().unwrap();
         session
             .remote_desktop
-            .notify_keyboard_keysym(
-                &session.session,
-                keysym,
-                state,
-                NotifyKeyboardKeysymOptions::default(),
-            )
+            .notify_keyboard_keysym(&session.session, keysym, state, NotifyKeyboardKeysymOptions::default())
             .await?;
         Ok(())
     }
@@ -631,9 +604,7 @@ async fn create_portal_session(restore_token: Option<&str>) -> Result<PortalSess
 fn restore_token_path() -> Option<PathBuf> {
     let base = std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state"))
-        })?;
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state")))?;
     Some(base.join("remote-control").join("portal-restore-token"))
 }
 

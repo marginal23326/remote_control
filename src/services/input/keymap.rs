@@ -34,10 +34,7 @@ pub(crate) fn shortcut_keysym(name: &str) -> Option<u32> {
         "f10" => Some(key::F10),
         "f11" => Some(key::F11),
         "f12" => Some(key::F12),
-        s if s.chars().count() == 1 => s
-            .chars()
-            .next()
-            .map(|ch| xkeysym::Keysym::from_char(ch).raw()),
+        s if s.chars().count() == 1 => s.chars().next().map(|ch| xkeysym::Keysym::from_char(ch).raw()),
         _ => None,
     }
 }

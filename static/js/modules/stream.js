@@ -281,7 +281,7 @@ function sendRawMousePayload(channel, payload) {
     try {
         channel.send(JSON.stringify(payload));
         return true;
-    } catch (_error) {
+    } catch {
         return false;
     }
 }

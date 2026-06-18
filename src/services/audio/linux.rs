@@ -54,35 +54,45 @@ pub(crate) fn server_loop(
         }
     };
 
-    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props)
-        .map_err(|e| e.to_string())?;
+    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props).map_err(|e| e.to_string())?;
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
         .param_changed(|_, user_data, id, param| {
             let Some(param) = param else { return };
-            if id != pw::spa::param::ParamType::Format.as_raw() { return; }
+            if id != pw::spa::param::ParamType::Format.as_raw() {
+                return;
+            }
 
             let mut format = spa::param::audio::AudioInfoRaw::default();
             if format.parse(param).is_ok() {
                 let negotiated_rate = format.rate();
-                let _ = user_data.socket.emit("server_audio_format", &serde_json::json!({
-                    "rate": negotiated_rate,
-                    "channels": 1,
-                    "format": "int16"
-                }));
+                let _ = user_data.socket.emit(
+                    "server_audio_format",
+                    &serde_json::json!({
+                        "rate": negotiated_rate,
+                        "channels": 1,
+                        "format": "int16"
+                    }),
+                );
             }
         })
         .process(|stream, user_data| {
             if !user_data.is_running.load(Ordering::SeqCst) {
-                unsafe { pw::sys::pw_main_loop_quit(user_data.main_loop); }
+                unsafe {
+                    pw::sys::pw_main_loop_quit(user_data.main_loop);
+                }
                 return;
             }
-            
-            let Some(mut buffer) = stream.dequeue_buffer() else { return; };
+
+            let Some(mut buffer) = stream.dequeue_buffer() else {
+                return;
+            };
             let datas = buffer.datas_mut();
-            if datas.is_empty() { return; }
-            
+            if datas.is_empty() {
+                return;
+            }
+
             let chunk = datas[0].chunk();
             let offset = chunk.offset() as usize;
             let size = chunk.size() as usize;
@@ -111,7 +121,7 @@ pub(crate) fn server_loop(
     let socket_clone = socket.clone();
     let thread_running = is_running.clone();
     let thread_queue = capture_queue.clone();
-    
+
     thread::spawn(move || {
         let chunk_size = 1024;
         let mut pcm = Vec::with_capacity(chunk_size * 2);
@@ -149,32 +159,33 @@ pub(crate) fn server_loop(
         id: pw::spa::param::ParamType::EnumFormat.as_raw(),
         properties: audio_info.into(),
     };
-    
+
     let values: Vec<u8> = pw::spa::pod::serialize::PodSerializer::serialize(
         std::io::Cursor::new(Vec::new()),
         &pw::spa::pod::Value::Object(obj),
-    ).unwrap().0.into_inner();
+    )
+    .unwrap()
+    .0
+    .into_inner();
 
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
 
-    stream.connect(
-        spa::utils::Direction::Input,
-        None,
-        pw::stream::StreamFlags::AUTOCONNECT
-            | pw::stream::StreamFlags::MAP_BUFFERS
-            | pw::stream::StreamFlags::RT_PROCESS,
-        &mut params,
-    ).map_err(|e| e.to_string())?;
+    stream
+        .connect(
+            spa::utils::Direction::Input,
+            None,
+            pw::stream::StreamFlags::AUTOCONNECT
+                | pw::stream::StreamFlags::MAP_BUFFERS
+                | pw::stream::StreamFlags::RT_PROCESS,
+            &mut params,
+        )
+        .map_err(|e| e.to_string())?;
 
     mainloop.run(); // Blocks until pw_main_loop_quit is called
     Ok(())
 }
 
-pub(crate) fn client_loop(
-    rate: u32,
-    is_running: Arc<AtomicBool>,
-    queue: Arc<ArrayQueue<f32>>,
-) -> Result<(), String> {
+pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<ArrayQueue<f32>>) -> Result<(), String> {
     let mainloop = pw::main_loop::MainLoopBox::new(None).map_err(|e| e.to_string())?;
     let context = pw::context::ContextBox::new(mainloop.loop_(), None).map_err(|e| e.to_string())?;
     let core = context.connect(None).map_err(|e| e.to_string())?;
@@ -197,23 +208,29 @@ pub(crate) fn client_loop(
         *pw::keys::MEDIA_ROLE => "Communication",
     };
 
-    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-playback", props)
-        .map_err(|e| e.to_string())?;
+    let stream =
+        pw::stream::StreamBox::new(&core, "remote-control-audio-playback", props).map_err(|e| e.to_string())?;
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
         .process(|stream, user_data| {
             if !user_data.is_running.load(Ordering::SeqCst) {
-                unsafe { pw::sys::pw_main_loop_quit(user_data.main_loop); }
+                unsafe {
+                    pw::sys::pw_main_loop_quit(user_data.main_loop);
+                }
                 return;
             }
-            
-            let Some(mut buffer) = stream.dequeue_buffer() else { return; };
+
+            let Some(mut buffer) = stream.dequeue_buffer() else {
+                return;
+            };
             let requested_frames = buffer.requested() as usize;
             let stride = 4;
 
             let datas = buffer.datas_mut();
-            if datas.is_empty() { return; }
+            if datas.is_empty() {
+                return;
+            }
             let data = &mut datas[0];
 
             if let Some(slice) = data.data() {
@@ -249,22 +266,27 @@ pub(crate) fn client_loop(
         id: pw::spa::param::ParamType::EnumFormat.as_raw(),
         properties: audio_info.into(),
     };
-    
+
     let values: Vec<u8> = pw::spa::pod::serialize::PodSerializer::serialize(
         std::io::Cursor::new(Vec::new()),
         &pw::spa::pod::Value::Object(obj),
-    ).unwrap().0.into_inner();
+    )
+    .unwrap()
+    .0
+    .into_inner();
 
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
 
-    stream.connect(
-        spa::utils::Direction::Output,
-        None,
-        pw::stream::StreamFlags::AUTOCONNECT
-            | pw::stream::StreamFlags::MAP_BUFFERS
-            | pw::stream::StreamFlags::RT_PROCESS,
-        &mut params,
-    ).map_err(|e| e.to_string())?;
+    stream
+        .connect(
+            spa::utils::Direction::Output,
+            None,
+            pw::stream::StreamFlags::AUTOCONNECT
+                | pw::stream::StreamFlags::MAP_BUFFERS
+                | pw::stream::StreamFlags::RT_PROCESS,
+            &mut params,
+        )
+        .map_err(|e| e.to_string())?;
 
     mainloop.run();
     Ok(())

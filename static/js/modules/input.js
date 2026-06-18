@@ -254,7 +254,7 @@ function initializeInputHandlers(socket) {
                 if (event.target === streamUI.view) {
                     event.preventDefault();
                 }
-                
+
                 const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
                 sendMouseEvent("click", event, { button, pressed: false });
 

@@ -17,10 +17,7 @@ pub struct LoginRequest {
     password: String,
 }
 
-pub async fn login_handler(
-    State(state): State<SharedState>,
-    Json(payload): Json<LoginRequest>,
-) -> AppResult<Response> {
+pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json<LoginRequest>) -> AppResult<Response> {
     let config = &state.config;
 
     let password_valid = verify(&payload.password, &config.password_hash).unwrap_or(false);

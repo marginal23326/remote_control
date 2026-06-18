@@ -62,18 +62,12 @@ pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): Stat
     }
 }
 
-pub async fn handle_keyboard_event(
-    Data(data): Data<KeyboardEvent>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<SharedState>) {
     let input = state.input.clone();
 
     let result = match data {
         KeyboardEvent::Text { text } => input.type_text(&text).await,
-        KeyboardEvent::Shortcut {
-            shortcut,
-            modifiers,
-        } => {
+        KeyboardEvent::Shortcut { shortcut, modifiers } => {
             let mods = modifiers.unwrap_or_default();
             input.send_shortcut(&shortcut, mods).await
         }
@@ -92,9 +86,7 @@ pub async fn handle_shell_create(
     let mut shell_manager = state.shell.lock().unwrap();
     let session_id = socket.id.to_string();
 
-    if let Err(e) =
-        shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone())
-    {
+    if let Err(e) = shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone()) {
         tracing::error!("Failed to create shell: {}", e);
         let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
         return;
@@ -109,20 +101,14 @@ pub async fn handle_shell_create(
     );
 }
 
-pub async fn handle_shell_input(
-    Data(data): Data<ShellInputEvent>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_shell_input(Data(data): Data<ShellInputEvent>, State(state): State<SharedState>) {
     let mut shell_manager = state.shell.lock().unwrap();
     if let Err(e) = shell_manager.write_to_shell(&data.session_id, &data.command) {
         tracing::error!("Shell write error: {}", e);
     }
 }
 
-pub async fn handle_shell_resize(
-    Data(data): Data<ShellResizeEvent>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_shell_resize(Data(data): Data<ShellResizeEvent>, State(state): State<SharedState>) {
     let mut shell_manager = state.shell.lock().unwrap();
     if let Err(e) = shell_manager.resize_shell(&data.session_id, data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
@@ -217,10 +203,7 @@ pub async fn handle_stop_server_audio(State(state): State<SharedState>) {
     audio.stop_server_stream();
 }
 
-pub async fn handle_start_client_audio(
-    Data(data): Data<AudioConfig>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_start_client_audio(Data(data): Data<AudioConfig>, State(state): State<SharedState>) {
     let audio = &state.audio;
     let rate = data.rate.unwrap_or(48000);
 
@@ -254,17 +237,10 @@ pub async fn handle_start_stream(socket: SocketRef, State(state): State<SharedSt
     }
 }
 
-pub async fn handle_webrtc_answer(
-    Data(data): Data<serde_json::Value>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
     let sdp_str = if let Some(s) = data.as_str() {
         s.to_string()
-    } else if let Some(s) = data
-        .as_array()
-        .and_then(|a| a.first())
-        .and_then(|v| v.as_str())
-    {
+    } else if let Some(s) = data.as_array().and_then(|a| a.first()).and_then(|v| v.as_str()) {
         s.to_string()
     } else {
         return;
@@ -273,26 +249,19 @@ pub async fn handle_webrtc_answer(
     if let Some(inner) = state.screen.inner.lock().unwrap().as_ref() {
         let _ = inner
             .cmd_tx
-            .send(crate::services::screen::GstCommand::SetRemoteDescription(
-                sdp_str,
-            ));
+            .send(crate::services::screen::GstCommand::SetRemoteDescription(sdp_str));
     }
 }
 
-pub async fn handle_webrtc_ice(
-    Data(data): Data<serde_json::Value>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
     if let (Some(idx), Some(candidate)) = (
         data.get("sdp_mline_index").and_then(|v| v.as_u64()),
         data.get("candidate").and_then(|v| v.as_str()),
     ) && let Some(inner) = state.screen.inner.lock().unwrap().as_ref()
     {
-        let _ = inner
-            .cmd_tx
-            .send(crate::services::screen::GstCommand::AddIceCandidate {
-                sdp_mline_index: idx as u32,
-                candidate: candidate.to_string(),
-            });
+        let _ = inner.cmd_tx.send(crate::services::screen::GstCommand::AddIceCandidate {
+            sdp_mline_index: idx as u32,
+            candidate: candidate.to_string(),
+        });
     }
 }

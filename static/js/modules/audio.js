@@ -7,7 +7,7 @@ class AudioManager {
         this.workletNode = null;
         this.audioQueue = [];
         this.isProcessingAudio = false;
-        
+
         // Default format mapping until Rust handshakes
         this.audioFormat = { rate: 48000, channels: 1, format: "int16" };
         this.playbackNode = null;
@@ -121,7 +121,7 @@ class AudioManager {
                     this.audioFormat = {
                         rate: info.rate,
                         channels: info.channels,
-                        format: info.format
+                        format: info.format,
                     };
 
                     const rateInput = document.getElementById("serverAudioRate");
@@ -217,19 +217,14 @@ class AudioManager {
         for (let i = 0; i < frameCount; i++) {
             let sum = 0;
             for (let c = 0; c < channels; c++) {
-                const offset = (i * frameSize) + (c * bytesPerSample);
-                let val = format === "float32"
-                    ? view.getFloat32(offset, true)
-                    : view.getInt16(offset, true) / 32768.0;
+                const offset = i * frameSize + c * bytesPerSample;
+                let val = format === "float32" ? view.getFloat32(offset, true) : view.getInt16(offset, true) / 32768.0;
                 sum += val;
             }
             float32Samples[i] = sum / channels;
         }
 
-        this.playbackNode.port.postMessage(
-            { type: "pcm", samples: float32Samples },
-            [float32Samples.buffer]
-        );
+        this.playbackNode.port.postMessage({ type: "pcm", samples: float32Samples }, [float32Samples.buffer]);
     }
 
     async stopAudioStream(type, isResetting = false) {

@@ -4,7 +4,7 @@ use std::sync::{
 };
 use std::thread;
 
-use crossbeam_channel::{Receiver, Sender, TrySendError};
+use crossbeam_channel::{Receiver, Sender};
 
 use windows_capture::{
     capture::{Context, GraphicsCaptureApiHandler},
@@ -12,8 +12,8 @@ use windows_capture::{
     graphics_capture_api::InternalCaptureControl,
     monitor::Monitor,
     settings::{
-        ColorFormat, CursorCaptureSettings, DirtyRegionSettings, DrawBorderSettings,
-        MinimumUpdateIntervalSettings, SecondaryWindowSettings, Settings,
+        ColorFormat, CursorCaptureSettings, DirtyRegionSettings, DrawBorderSettings, MinimumUpdateIntervalSettings,
+        SecondaryWindowSettings, Settings,
     },
 };
 
@@ -43,8 +43,7 @@ pub(crate) async fn start_os_capture(
     native_size: Arc<Mutex<(i32, i32)>>,
 ) -> anyhow::Result<()> {
     unsafe {
-        *native_size.lock().unwrap() =
-            (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+        *native_size.lock().unwrap() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
     }
 
     thread::spawn(move || {
@@ -155,7 +154,8 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             return Ok(());
         }
 
-        let mut buffer = self.ctx
+        let mut buffer = self
+            .ctx
             .cached_buffer
             .take()
             .or_else(|| self.ctx.recycle_rx.try_recv().ok())
@@ -165,16 +165,12 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             Ok(fb) => fb,
             Err(e) => {
                 self.ctx.cached_buffer = Some(buffer);
-                return Err(e);
+                return Err(Box::new(e));
             }
         };
         let _ = frame_buffer.as_nopadding_buffer(&mut buffer);
 
-        let raw = RawFrame {
-            buffer,
-            width,
-            height,
-        };
+        let raw = RawFrame { buffer, width, height };
 
         if let Err(err) = self.ctx.work_tx.try_send(raw) {
             self.ctx.cached_buffer = Some(err.into_inner().buffer);

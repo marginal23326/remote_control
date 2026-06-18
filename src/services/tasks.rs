@@ -38,8 +38,12 @@ impl TaskManager {
 
             let mut mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
             let mut cpu = proc.cpu_usage();
-            if cpu.is_nan() { cpu = 0.0; }
-            if mem_mb.is_nan() { mem_mb = 0.0; }
+            if cpu.is_nan() {
+                cpu = 0.0;
+            }
+            if mem_mb.is_nan() {
+                mem_mb = 0.0;
+            }
             let name = proc.name().to_string_lossy().to_string();
 
             let dto = ProcessDTO {

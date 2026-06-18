@@ -96,10 +96,7 @@ fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf
 
 // --- HANDLERS ---
 
-pub async fn list_files_handler(
-    State(state): State<SharedState>,
-    Query(q): Query<ListQuery>,
-) -> Response {
+pub async fn list_files_handler(State(state): State<SharedState>, Query(q): Query<ListQuery>) -> Response {
     let files = &state.files;
 
     let result = if let Some(path) = q.path {
@@ -159,10 +156,7 @@ pub async fn rename_handler(
     Ok(Json(json!({"status": "success"})))
 }
 
-pub async fn upload_handler(
-    State(_state): State<SharedState>,
-    mut multipart: Multipart,
-) -> AppResult<Json<Value>> {
+pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Multipart) -> AppResult<Json<Value>> {
     let mut target_dir = None;
     let mut temp_files: Vec<(String, std::path::PathBuf)> = Vec::new();
     let mut uploaded_count = 0;
@@ -241,8 +235,8 @@ impl Drop for TempFileGuard {
 
 pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> AppResult<Response> {
     let query_str = uri.query().unwrap_or("");
-    let query: DownloadQuery = serde_qs::from_str(query_str)
-        .map_err(|_| AppError::BadRequest("Invalid query parameters".to_string()))?;
+    let query: DownloadQuery =
+        serde_qs::from_str(query_str).map_err(|_| AppError::BadRequest("Invalid query parameters".to_string()))?;
 
     let paths = query.paths;
     if paths.is_empty() {
@@ -258,11 +252,7 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
             let file = File::open(path).await?;
             let stream = ReaderStream::new(file);
             let body = Body::from_stream(stream);
-            let filename = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
+            let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
             let mime = from_path(path).first_or_octet_stream();
 
             let mut headers = HeaderMap::new();

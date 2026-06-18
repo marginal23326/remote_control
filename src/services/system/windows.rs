@@ -10,16 +10,13 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
     let (gpu_info, disk_model_info, antivirus_info, cpu_max_speed_info) = tokio::join!(
         run_wmic_command("path win32_VideoController get name"),
         run_wmic_command("diskdrive get Model,Size"),
-        run_wmic_command(
-            r"/namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName"
-        ),
+        run_wmic_command(r"/namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName"),
         run_wmic_command("cpu get MaxClockSpeed")
     );
 
     let cpu_max_speed = parse_wmic_cpu_speed(&cpu_max_speed_info);
     let os_edition = get_windows_product_name().unwrap_or_else(|| "Windows".to_string());
-    let (screen_w, screen_h) =
-        unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) };
+    let (screen_w, screen_h) = unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) };
     let battery_status = get_battery_status();
     let domain = std::env::var("USERDOMAIN")
         .or_else(|_| std::env::var("userdomain"))

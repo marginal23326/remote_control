@@ -26,11 +26,7 @@ impl InputManager {
             _ => return Ok(()),
         };
 
-        let state = if pressed {
-            KeyState::Pressed
-        } else {
-            KeyState::Released
-        };
+        let state = if pressed { KeyState::Pressed } else { KeyState::Released };
 
         portal_session().notify_pointer_button(code, state).await
     }

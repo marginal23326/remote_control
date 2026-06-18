@@ -15,10 +15,7 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Result<Response, StatusCode> {
     // 1. Extract Cookie Header
-    let cookie_header = req
-        .headers()
-        .get(header::COOKIE)
-        .and_then(|h| h.to_str().ok());
+    let cookie_header = req.headers().get(header::COOKIE).and_then(|h| h.to_str().ok());
 
     let cookie_str = match cookie_header {
         Some(s) => s,

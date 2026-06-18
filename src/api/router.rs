@@ -1,8 +1,7 @@
 use crate::api::{
     auth::{login_handler, logout_handler},
     files::{
-        create_folder_handler, delete_handler, download_handler, list_files_handler,
-        rename_handler, upload_handler,
+        create_folder_handler, delete_handler, download_handler, list_files_handler, rename_handler, upload_handler,
     },
     middleware::auth_middleware,
     stream::{get_settings_handler, stop_stream_handler, update_settings_handler},
@@ -24,10 +23,7 @@ use tower_http::services::ServeFile;
 
 // New handler for the root path "/"
 async fn index_handler(State(state): State<SharedState>, req: Request) -> Response {
-    let cookie_header = req
-        .headers()
-        .get(header::COOKIE)
-        .and_then(|h| h.to_str().ok());
+    let cookie_header = req.headers().get(header::COOKIE).and_then(|h| h.to_str().ok());
 
     let is_authed = if let Some(cookie_str) = cookie_header {
         if let Some(token) = extract_token_from_cookie(cookie_str) {
@@ -75,16 +71,10 @@ pub fn create_router(state: SharedState) -> Router {
         .route("/create_folder", post(create_folder_handler))
         .route("/delete", post(delete_handler))
         .route("/rename", post(rename_handler))
-        .route(
-            "/upload",
-            post(upload_handler).layer(DefaultBodyLimit::disable()),
-        )
+        .route("/upload", post(upload_handler).layer(DefaultBodyLimit::disable()))
         .route("/download", get(download_handler))
         .route("/tasks/kill", post(kill_process_handler))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth_middleware,
-        ));
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Serve assets at /assets path (Vite builds with /assets/* references)
     // Vite hashes filenames, so these can be cached indefinitely

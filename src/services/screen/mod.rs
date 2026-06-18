@@ -16,7 +16,6 @@ use gstreamer_app as gst_app;
 use gstreamer_sdp as gst_sdp;
 use gstreamer_webrtc as gst_webrtc;
 
-
 #[derive(Clone, Debug)]
 pub struct StreamSettings {
     pub bitrate: u32,
@@ -103,10 +102,7 @@ impl FrameRateLimiter {
 
 pub(crate) enum GstCommand {
     SetRemoteDescription(String),
-    AddIceCandidate {
-        sdp_mline_index: u32,
-        candidate: String,
-    },
+    AddIceCandidate { sdp_mline_index: u32, candidate: String },
     Stop,
 }
 
@@ -145,6 +141,7 @@ fn detect_encoder() -> EncoderInfo {
                     ("gop-size", "30"),
                     ("ref", "1"),
                 ],
+                #[rustfmt::skip]
                 property_constraints: &[
                     ("low-latency", EncoderPropertyConstraint { value_type: "bool", min: None, max: None, enum_values: None }),
                     ("rc-mode", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(3), enum_values: None }),
@@ -172,6 +169,7 @@ fn detect_encoder() -> EncoderInfo {
                     ("ref-frames", "1"),
                     ("cpb-size", "100"),
                 ],
+                #[rustfmt::skip]
                 property_constraints: &[
                     ("target-usage", EncoderPropertyConstraint { value_type: "int", min: Some(1), max: Some(7), enum_values: None }),
                     ("rate-control", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["cbr", "vbr", "cqp"]) }),
@@ -188,10 +186,8 @@ fn detect_encoder() -> EncoderInfo {
     EncoderInfo {
         name: "x264enc",
         pipeline_str: "x264enc name=enc tune=zerolatency speed-preset=ultrafast",
-        default_properties: &[
-            ("tune", "zerolatency"),
-            ("speed-preset", "ultrafast"),
-        ],
+        default_properties: &[("tune", "zerolatency"), ("speed-preset", "ultrafast")],
+        #[rustfmt::skip]
         property_constraints: &[
             ("tune", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["stillimage", "fastdecode", "zerolatency"]) }),
             ("speed-preset", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"]) }),
@@ -368,11 +364,7 @@ impl ScreenManager {
         thread::spawn(move || {
             let res = pipeline_clone.set_state(gst::State::Playing);
             tracing::debug!("Pipeline state set to Playing: {res:?}");
-            for msg in pipeline_clone
-                .bus()
-                .unwrap()
-                .iter_timed(None::<gst::ClockTime>)
-            {
+            for msg in pipeline_clone.bus().unwrap().iter_timed(None::<gst::ClockTime>) {
                 use gst::MessageView;
                 match msg.view() {
                     MessageView::Eos(..) => {
@@ -395,9 +387,7 @@ impl ScreenManager {
                     _ => {}
                 }
             }
-            let _ = pipeline_weak
-                .upgrade()
-                .map(|p| p.set_state(gst::State::Null));
+            let _ = pipeline_weak.upgrade().map(|p| p.set_state(gst::State::Null));
         });
 
         #[cfg(target_os = "linux")]
@@ -475,8 +465,7 @@ impl ScreenManager {
                     let title = get_active_window_title();
                     if title != last {
                         last = title;
-                        let _ =
-                            socket_emit.emit("active_window", &serde_json::json!({"title": &last}));
+                        let _ = socket_emit.emit("active_window", &serde_json::json!({"title": &last}));
                     }
                     thread::sleep(Duration::from_millis(500));
                 }
@@ -584,14 +573,10 @@ impl ScreenManager {
 
                 let promise = gst::Promise::with_change_func(move |reply| {
                     if let Ok(Some(structure)) = reply
-                        && let Ok(offer) =
-                            structure.get::<gst_webrtc::WebRTCSessionDescription>("offer")
+                        && let Ok(offer) = structure.get::<gst_webrtc::WebRTCSessionDescription>("offer")
                         && let Ok(sdp_text) = offer.sdp().as_text()
                     {
-                        webrtc_promise.emit_by_name::<()>(
-                            "set-local-description",
-                            &[&offer, &None::<gst::Promise>],
-                        );
+                        webrtc_promise.emit_by_name::<()>("set-local-description", &[&offer, &None::<gst::Promise>]);
                         let _ = socket.emit("webrtc_offer", &sdp_text);
                     }
                 });
@@ -625,14 +610,9 @@ impl ScreenManager {
                 match cmd {
                     GstCommand::SetRemoteDescription(sdp_text) => {
                         if let Ok(sdp) = gst_sdp::SDPMessage::parse_buffer(sdp_text.as_bytes()) {
-                            let desc = gst_webrtc::WebRTCSessionDescription::new(
-                                gst_webrtc::WebRTCSDPType::Answer,
-                                sdp,
-                            );
-                            webrtc.emit_by_name::<()>(
-                                "set-remote-description",
-                                &[&desc, &None::<gst::Promise>],
-                            );
+                            let desc =
+                                gst_webrtc::WebRTCSessionDescription::new(gst_webrtc::WebRTCSDPType::Answer, sdp);
+                            webrtc.emit_by_name::<()>("set-remote-description", &[&desc, &None::<gst::Promise>]);
                         } else {
                             tracing::error!("Failed to parse SDP answer");
                         }
@@ -641,10 +621,7 @@ impl ScreenManager {
                         sdp_mline_index,
                         candidate,
                     } => {
-                        webrtc.emit_by_name::<()>(
-                            "add-ice-candidate",
-                            &[&sdp_mline_index as &dyn ToValue, &candidate],
-                        );
+                        webrtc.emit_by_name::<()>("add-ice-candidate", &[&sdp_mline_index as &dyn ToValue, &candidate]);
                     }
                     GstCommand::Stop => {
                         break;
@@ -661,10 +638,8 @@ impl ScreenManager {
         input: Arc<crate::services::input::InputManager>,
         runtime: tokio::runtime::Handle,
     ) -> tokio::task::JoinHandle<()> {
-        let (move_tx, mut move_rx) =
-            tokio::sync::watch::channel::<Option<crate::services::input::MouseEvent>>(None);
-        let (control_tx, mut control_rx) =
-            tokio::sync::mpsc::unbounded_channel::<crate::services::input::MouseEvent>();
+        let (move_tx, mut move_rx) = tokio::sync::watch::channel::<Option<crate::services::input::MouseEvent>>(None);
+        let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel::<crate::services::input::MouseEvent>();
 
         let input_handle = runtime.spawn({
             let input = input.clone();
@@ -740,8 +715,7 @@ impl ScreenManager {
                 return;
             };
 
-            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message)
-            else {
+            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message) else {
                 tracing::debug!("Ignoring malformed mouse data-channel message");
                 return;
             };
@@ -761,8 +735,7 @@ impl ScreenManager {
                 return;
             };
 
-            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message)
-            else {
+            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message) else {
                 tracing::debug!("Ignoring malformed mouse data-channel message");
                 return;
             };
@@ -804,9 +777,7 @@ impl ScreenManager {
         }
 
         if let Some(state) = self.inner.lock().unwrap().as_ref() {
-            state
-                .encoder
-                .set_property_from_str("bitrate", &bitrate.to_string());
+            state.encoder.set_property_from_str("bitrate", &bitrate.to_string());
         }
     }
 
@@ -855,7 +826,6 @@ fn detect_max_fps() -> u64 {
     {
         60
     }
-
 }
 
 fn detect_native_size() -> (i32, i32) {
@@ -868,4 +838,3 @@ fn detect_native_size() -> (i32, i32) {
         (0, 0)
     }
 }
-

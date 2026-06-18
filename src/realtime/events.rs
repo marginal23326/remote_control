@@ -1,9 +1,8 @@
 use crate::realtime::handlers::{
-    handle_client_audio_data, handle_disconnect, handle_keyboard_event, handle_mouse_event,
-    handle_shell_create, handle_shell_input, handle_shell_resize, handle_start_client_audio,
-    handle_start_server_audio, handle_start_stream, handle_stop_client_audio,
-    handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop, handle_webrtc_answer,
-    handle_webrtc_ice,
+    handle_client_audio_data, handle_disconnect, handle_keyboard_event, handle_mouse_event, handle_shell_create,
+    handle_shell_input, handle_shell_resize, handle_start_client_audio, handle_start_server_audio, handle_start_stream,
+    handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
+    handle_webrtc_answer, handle_webrtc_ice,
 };
 use crate::state::SharedState;
 use crate::utils::auth::{extract_token_from_cookie, verify_jwt};
@@ -20,10 +19,7 @@ pub fn register(io: SocketIo) {
 
 async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     let headers = &socket.req_parts().headers;
-    let cookie_str = headers
-        .get("cookie")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("");
+    let cookie_str = headers.get("cookie").and_then(|h| h.to_str().ok()).unwrap_or("");
 
     let is_authenticated = if let Some(token) = extract_token_from_cookie(cookie_str) {
         let config = &state.config;

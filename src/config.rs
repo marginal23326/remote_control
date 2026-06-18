@@ -66,10 +66,7 @@ impl ConfigManager {
         let json = serde_json::to_string_pretty(&config)?;
         fs::write(CONFIG_FILE, json).await?;
 
-        println!(
-            "Configuration saved to '{}'. Starting server...\n",
-            CONFIG_FILE
-        );
+        println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
 
         Ok(config)
     }

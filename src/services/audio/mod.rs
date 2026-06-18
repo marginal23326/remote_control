@@ -1,19 +1,19 @@
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 
-#[cfg(windows)]
-mod windows;
 #[cfg(target_os = "linux")]
 mod linux;
-
 #[cfg(windows)]
-use windows as backend;
+mod windows;
+
 #[cfg(target_os = "linux")]
 use linux as backend;
+#[cfg(windows)]
+use windows as backend;
 
 pub struct AudioManager {
     server_is_running: Arc<AtomicBool>,
@@ -40,12 +40,7 @@ impl AudioManager {
         }
     }
 
-    pub fn start_server_stream(
-        &self,
-        socket: SocketRef,
-        source: String,
-        rate: u32,
-    ) -> Result<(), String> {
+    pub fn start_server_stream(&self, socket: SocketRef, source: String, rate: u32) -> Result<(), String> {
         self.stop_server_stream();
 
         self.server_is_running.store(true, Ordering::SeqCst);

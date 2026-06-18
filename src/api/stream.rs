@@ -27,9 +27,7 @@ pub struct CurrentSettingsResponse {
     pub encoder_property_constraints: HashMap<String, EncoderPropertyConstraint>,
 }
 
-pub async fn get_settings_handler(
-    State(state): State<SharedState>,
-) -> Json<CurrentSettingsResponse> {
+pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
     let s = screen.settings.lock().unwrap();
     let (native_width, native_height) = *screen.native_size.lock().unwrap();

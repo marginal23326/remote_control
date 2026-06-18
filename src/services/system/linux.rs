@@ -96,10 +96,8 @@ fn read_battery_status() -> String {
             continue;
         }
 
-        let capacity = std::fs::read_to_string(path.join("capacity"))
-            .unwrap_or_else(|_| "Unknown".to_string());
-        let status =
-            std::fs::read_to_string(path.join("status")).unwrap_or_else(|_| "Battery".to_string());
+        let capacity = std::fs::read_to_string(path.join("capacity")).unwrap_or_else(|_| "Unknown".to_string());
+        let status = std::fs::read_to_string(path.join("status")).unwrap_or_else(|_| "Battery".to_string());
         return format!("{} ({}% remaining)", status.trim(), capacity.trim());
     }
 
@@ -118,10 +116,7 @@ fn read_gpu_info() -> String {
     let text = String::from_utf8_lossy(&output.stdout);
     let devices: Vec<String> = text
         .lines()
-        .filter_map(|line| {
-            line.split_once(':')
-                .map(|(_, rest)| rest.trim().to_string())
-        })
+        .filter_map(|line| line.split_once(':').map(|(_, rest)| rest.trim().to_string()))
         .filter(|line| !line.is_empty())
         .collect();
 
@@ -136,11 +131,7 @@ async fn get_firewall_status() -> String {
     match Command::new("firewall-cmd").arg("--state").output().await {
         Ok(output) if output.status.success() => {
             let state = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if state.is_empty() {
-                "Unknown".to_string()
-            } else {
-                state
-            }
+            if state.is_empty() { "Unknown".to_string() } else { state }
         }
         Ok(_) => "Disabled".to_string(),
         Err(_) => "Unknown".to_string(),

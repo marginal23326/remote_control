@@ -56,4 +56,3 @@ pub async fn apply_mouse_event(input: &InputManager, data: MouseEvent) -> anyhow
         _ => Ok(()),
     }
 }
-

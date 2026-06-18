@@ -178,10 +178,7 @@ pub(crate) struct OsSpecificInfo {
     pub cpu_max_speed: String,
 }
 
-pub(crate) fn refresh_system_info(
-    sys_lock: &Arc<RwLock<System>>,
-    net_lock: &Arc<RwLock<Networks>>,
-) -> SystemBaseInfo {
+pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemBaseInfo {
     {
         let mut sys = sys_lock.write().unwrap();
         sys.refresh_cpu_all();
@@ -200,10 +197,7 @@ pub(crate) fn refresh_system_info(
             sys.total_memory() / 1024 / 1024,
             sys.processes().len(),
             sys.cpus().len(),
-            sys.cpus()
-                .first()
-                .map(|c| c.brand().to_string())
-                .unwrap_or_default(),
+            sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default(),
             sys.cpus().first().map(|c| c.frequency()).unwrap_or(0),
         )
     };
@@ -220,10 +214,7 @@ pub(crate) fn refresh_system_info(
     }
 }
 
-pub async fn get_system_info(
-    sys_lock: &Arc<RwLock<System>>,
-    net_lock: &Arc<RwLock<Networks>>,
-) -> SystemInfoDTO {
+pub async fn get_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemInfoDTO {
     let base = refresh_system_info(sys_lock, net_lock);
     let wan_info = fetch_wan_info().await;
     let lan_ip = get_local_ip();
@@ -282,4 +273,3 @@ use windows::get_os_specific_info;
 mod linux;
 #[cfg(target_os = "linux")]
 use linux::get_os_specific_info;
-

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use portable_pty::{CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem, Child};
+use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use serde_json::json;
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
@@ -27,13 +27,7 @@ impl ShellManager {
         }
     }
 
-    pub fn create_session(
-        &mut self,
-        session_id: String,
-        cols: u16,
-        rows: u16,
-        socket: SocketRef,
-    ) -> Result<()> {
+    pub fn create_session(&mut self, session_id: String, cols: u16, rows: u16, socket: SocketRef) -> Result<()> {
         // 1. Configure the PTY
         let size = PtySize {
             rows,

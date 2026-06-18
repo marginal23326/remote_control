@@ -14,7 +14,7 @@ async function apiCall(endpoint, method = "GET", data = null) {
     }
 
     const response = await fetch(endpoint, options);
-    
+
     if (!response.ok) {
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
@@ -555,7 +555,7 @@ class BaseFileManager extends UIManager {
             containerSelector: "#fileList",
             itemDataAttribute: "path",
             getItemId: (element) => element.dataset.path,
-            isItemSelectable: (element) => !CLASSES.noAccess.every(cls => element.classList.contains(cls)),
+            isItemSelectable: (element) => !CLASSES.noAccess.every((cls) => element.classList.contains(cls)),
             getContextMenuItems: (context) => {
                 const selectedItems = context?.selectedItems || this.getSelectedItems();
                 if (!selectedItems.length) return [];
