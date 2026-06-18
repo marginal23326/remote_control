@@ -8,7 +8,7 @@ debug = 0
 strip = true
 
 [profile.release]
-lto = "thin"
+lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
