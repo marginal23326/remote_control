@@ -97,6 +97,7 @@ struct CaptureContext {
     is_running: Arc<AtomicBool>,
     settings: Arc<Mutex<StreamSettings>>,
     limiter: FrameRateLimiter,
+    cached_buffer: Option<Vec<u8>>,
 }
 
 impl CaptureContext {
@@ -112,6 +113,7 @@ impl CaptureContext {
             is_running,
             settings,
             limiter: FrameRateLimiter::new(),
+            cached_buffer: None,
         }
     }
 }
@@ -153,9 +155,19 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             return Ok(());
         }
 
-        let mut buffer = self.ctx.recycle_rx.try_recv().unwrap_or_default();
+        let mut buffer = self.ctx
+            .cached_buffer
+            .take()
+            .or_else(|| self.ctx.recycle_rx.try_recv().ok())
+            .unwrap_or_default();
 
-        let frame_buffer = frame.buffer()?;
+        let frame_buffer = match frame.buffer() {
+            Ok(fb) => fb,
+            Err(e) => {
+                self.ctx.cached_buffer = Some(buffer);
+                return Err(e);
+            }
+        };
         let _ = frame_buffer.as_nopadding_buffer(&mut buffer);
 
         let raw = RawFrame {
@@ -164,8 +176,8 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             height,
         };
 
-        if let Err(TrySendError::Full(returned)) = self.ctx.work_tx.try_send(raw) {
-            let _ = self.ctx.recycle_rx.try_recv().unwrap_or(returned.buffer);
+        if let Err(err) = self.ctx.work_tx.try_send(raw) {
+            self.ctx.cached_buffer = Some(err.into_inner().buffer);
         }
 
         Ok(())

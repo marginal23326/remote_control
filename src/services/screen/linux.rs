@@ -80,6 +80,7 @@ pub(crate) fn run_pipewire_capture(
         main_loop: *mut pw::sys::pw_main_loop,
         settings: Arc<Mutex<StreamSettings>>,
         limiter: FrameRateLimiter,
+        cached_buffer: Option<Vec<u8>>,
     }
 
     let data = PipeWireUserData {
@@ -91,6 +92,7 @@ pub(crate) fn run_pipewire_capture(
         main_loop: mainloop.as_raw_ptr(),
         settings,
         limiter: FrameRateLimiter::new(),
+        cached_buffer: None,
     };
 
     let stream = pw::stream::StreamBox::new(
@@ -187,8 +189,15 @@ pub(crate) fn run_pipewire_capture(
 
             let available = bytes.len().saturating_sub(offset).min(frame_size);
             let source = &bytes[offset..offset + available];
-            let mut output = user_data.recycle_rx.try_recv().unwrap_or_default();
+            
+            let mut output = user_data
+                .cached_buffer
+                .take()
+                .or_else(|| user_data.recycle_rx.try_recv().ok())
+                .unwrap_or_default();
+                
             if normalize_to_bgra(source, width, height, stride, format, &mut output).is_err() {
+                user_data.cached_buffer = Some(output);
                 return;
             }
 
@@ -197,8 +206,9 @@ pub(crate) fn run_pipewire_capture(
                 width,
                 height,
             };
-            if let Err(TrySendError::Full(returned)) = user_data.work_tx.try_send(raw) {
-                let _ = user_data.recycle_rx.try_recv().unwrap_or(returned.buffer);
+            
+            if let Err(err) = user_data.work_tx.try_send(raw) {
+                user_data.cached_buffer = Some(err.into_inner().buffer);
             }
         })
         .register()?;
