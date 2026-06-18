@@ -57,7 +57,7 @@ pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json
         let token = create_jwt(&claims, &config.jwt_secret)?;
 
         let mut headers = HeaderMap::new();
-        let cookie_value = format!("auth_token={}; Path=/; HttpOnly; SameSite=Strict", token);
+        let cookie_value = format!("auth_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400", token);
         headers.insert(header::SET_COOKIE, cookie_value.parse().unwrap());
 
         Ok((headers, Json(json!({"status": "success"}))).into_response())
