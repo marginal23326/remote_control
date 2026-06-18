@@ -135,21 +135,21 @@ fn get_windows_product_name() -> Option<String> {
 fn get_battery_status() -> String {
     unsafe {
         let mut status = SYSTEM_POWER_STATUS::default();
-        if GetSystemPowerStatus(&mut status).is_ok() {
-            match status.ACLineStatus {
-                0 => {
-                    let pct = status.BatteryLifePercent;
-                    if pct == 255 {
-                        "Battery (Unknown %)".to_string()
-                    } else {
-                        format!("Discharging ({}% remaining)", pct)
-                    }
-                }
-                1 => "No battery detected".to_string(),
-                _ => "Unknown".to_string(),
-            }
-        } else {
-            "Unknown".to_string()
+        if GetSystemPowerStatus(&mut status).is_err() {
+            return "Unknown".to_string();
+        }
+
+        if status.BatteryFlag & 128 != 0 {
+            return "No battery detected".to_string();
+        }
+
+        let pct = status.BatteryLifePercent;
+        let pct_str = if pct == 255 { "?" } else { &pct.to_string() };
+
+        match status.ACLineStatus {
+            0 => format!("On Battery ({}% remaining)", pct_str),
+            1 => format!("Plugged In ({}%)", pct_str),
+            _ => "Unknown".to_string(),
         }
     }
 }
