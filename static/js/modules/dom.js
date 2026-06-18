@@ -11,12 +11,31 @@ function getInteractiveElements() {
 function disableInteractiveElements() {
     getInteractiveElements().forEach((element) => {
         element.disabled = true;
+
+        if (element.tagName === "A" || !("disabled" in element)) {
+            if (!element.hasAttribute("data-orig-tabindex")) {
+                element.setAttribute("data-orig-tabindex", element.getAttribute("tabindex") || "");
+            }
+            element.setAttribute("tabindex", "-1");
+            element.classList.add("pointer-events-none", "opacity-50");
+        }
     });
 }
 
 function enableInteractiveElements() {
     getInteractiveElements().forEach((element) => {
         element.disabled = false;
+
+        if (element.tagName === "A" || !("disabled" in element)) {
+            element.classList.remove("pointer-events-none", "opacity-50");
+            const origTabindex = element.getAttribute("data-orig-tabindex");
+            if (origTabindex) {
+                element.setAttribute("tabindex", origTabindex);
+            } else {
+                element.removeAttribute("tabindex");
+            }
+            element.removeAttribute("data-orig-tabindex");
+        }
     });
 }
 
