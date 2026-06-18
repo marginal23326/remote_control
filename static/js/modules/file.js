@@ -123,9 +123,6 @@ class FileManager extends BaseFileManager {
 
     updateFileOperationsUI() {
         const selectionCount = this.selectionManager.selectedItems.size;
-        const hasDirectorySelected = Array.from(this.selectionManager.selectedItems).some(
-            (item) => item.dataset.isDir === "true",
-        );
 
         const elements = {
             operations: document.getElementById("fileOperations"),
@@ -137,7 +134,7 @@ class FileManager extends BaseFileManager {
 
         if (elements.operations) elements.operations.classList.toggle("hidden", !selectionCount);
 
-        if (elements.download) elements.download.disabled = !selectionCount || hasDirectorySelected;
+        if (elements.download) elements.download.disabled = !selectionCount;
         if (elements.delete) elements.delete.disabled = !selectionCount;
         if (elements.renameInput) elements.renameInput.disabled = selectionCount !== 1;
         if (elements.renameButton) elements.renameButton.disabled = selectionCount !== 1;
@@ -306,10 +303,9 @@ class FileManager extends BaseFileManager {
     }
 
     async handleDownload(selectedItems) {
-        const selectedFiles = selectedItems.filter((item) => item.dataset.isDir !== "true");
-        if (selectedFiles.length === 0) return;
+        if (selectedItems.length === 0) return;
 
-        const paths = selectedFiles.map((item) => item.dataset.path);
+        const paths = selectedItems.map((item) => item.dataset.path);
         const queryString = paths.map((path) => `paths[]=${encodeURIComponent(path)}`).join("&");
         const url = `/api/download?${queryString}`;
 

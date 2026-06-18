@@ -250,23 +250,26 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
         let path_str = &paths[0];
         let path = Path::new(path_str);
 
-        if path.exists() && path.is_file() {
-            let file = File::open(path).await?;
-            let stream = ReaderStream::new(file);
-            let body = Body::from_stream(stream);
-            let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-            let mime = from_path(path).first_or_octet_stream();
+        if path.exists() {
+            if path.is_file() {
+                let file = File::open(path).await?;
+                let stream = ReaderStream::new(file);
+                let body = Body::from_stream(stream);
+                let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let mime = from_path(path).first_or_octet_stream();
 
-            let mut headers = HeaderMap::new();
-            headers.insert(header::CONTENT_TYPE, mime.as_ref().parse().unwrap());
-            headers.insert(
-                header::CONTENT_DISPOSITION,
-                format!("attachment; filename=\"{}\"", filename)
-                    .parse()
-                    .unwrap_or_else(|_| "attachment".parse().unwrap()),
-            );
+                let mut headers = HeaderMap::new();
+                headers.insert(header::CONTENT_TYPE, mime.as_ref().parse().unwrap());
+                headers.insert(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename)
+                        .parse()
+                        .unwrap_or_else(|_| "attachment".parse().unwrap()),
+                );
 
-            return Ok((headers, body).into_response());
+                return Ok((headers, body).into_response());
+            }
+            // If it's a directory, fall through to ZIP generation
         } else {
             return Err(AppError::NotFound("File not found".to_string()));
         }
@@ -293,19 +296,22 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
         let path_bufs: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
         let common_parent = find_common_parent(&path_bufs);
 
-        for path in path_bufs {
-            if path.is_file() {
-                let zip_path_name = match &common_parent {
-                    Some(parent) => match path.strip_prefix(parent) {
-                        Ok(rel_path) => rel_path.to_string_lossy().replace('\\', "/"),
-                        Err(_) => path.file_name().unwrap().to_string_lossy().into_owned(),
-                    },
-                    None => path.file_name().unwrap().to_string_lossy().into_owned(),
-                };
+        for root_path in path_bufs {
+            for entry in walkdir::WalkDir::new(&root_path).into_iter().filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_file() {
+                    let zip_path_name = common_parent
+                        .as_ref()
+                        .and_then(|parent| path.strip_prefix(parent).ok())
+                        .map(|p| p.to_string_lossy().replace('\\', "/"))
+                        .unwrap_or_else(|| path.file_name().unwrap().to_string_lossy().into_owned());
 
-                let _ = zip.start_file(zip_path_name, options);
-                let mut f = std::fs::File::open(&path)?;
-                std::io::copy(&mut f, &mut zip)?;
+                    if zip.start_file(zip_path_name, options).is_ok()
+                        && let Ok(mut f) = std::fs::File::open(path)
+                    {
+                        let _ = std::io::copy(&mut f, &mut zip);
+                    }
+                }
             }
         }
         zip.finish()?;

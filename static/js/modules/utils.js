@@ -561,15 +561,12 @@ class BaseFileManager extends UIManager {
                 if (!selectedItems.length) return [];
 
                 const items = [];
-                const hasDirectories = selectedItems.some((item) => item.dataset.isDir === "true");
                 const singleItem = selectedItems.length === 1;
 
-                if (!hasDirectories) {
-                    items.push({
-                        label: "Download",
-                        action: () => this.handleDownload(selectedItems),
-                    });
-                }
+                items.push({
+                    label: "Download",
+                    action: () => this.handleDownload(selectedItems),
+                });
 
                 if (singleItem) {
                     items.push({
