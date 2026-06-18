@@ -14,6 +14,14 @@ async function apiCall(endpoint, method = "GET", data = null) {
     }
 
     const response = await fetch(endpoint, options);
+    
+    if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+    }
+
     return response.json();
 }
 
