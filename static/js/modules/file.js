@@ -278,7 +278,8 @@ class FileManager extends BaseFileManager {
                     ? `Access Denied: You do not have permission to view ${path}`
                     : response.message;
 
-                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${errorMsg}</td></tr>`;
+                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
+                fileList.querySelector("td").textContent = errorMsg;
 
                 // Allow going back up even if current view failed
                 if (path !== "/") {
@@ -298,7 +299,9 @@ class FileManager extends BaseFileManager {
             this.selectionManager.notifyItemsUpdate();
         } catch (error) {
             console.error("Error listing files:", error);
-            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+            
+            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
+            fileList.querySelector("td").textContent = `Error: ${error.message}`;
         }
     }
 
