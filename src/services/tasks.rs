@@ -1,6 +1,5 @@
 use anyhow::{Result, anyhow};
 use serde::Serialize;
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use sysinfo::{Pid, ProcessesToUpdate, System};
 
@@ -11,8 +10,6 @@ pub struct ProcessDTO {
     pub cpu_percent: f32,
     pub memory_usage: f64,
     pub ppid: Option<u32>,
-    pub is_group: bool,
-    pub children: Vec<ProcessDTO>,
 }
 
 pub struct TaskManager {
@@ -44,61 +41,83 @@ impl TaskManager {
         }
 
         let sys = self.sys.read().unwrap();
+        let mut result: Vec<ProcessDTO> = Vec::new();
 
-        let mut groups: HashMap<String, ProcessDTO> = HashMap::new();
+        for (pid, proc_info) in sys.processes() {
+            let pid_u32 = pid.as_u32();
 
-        for (pid, proc) in sys.processes() {
-            if proc.name().to_string_lossy().is_empty() {
+            if proc_info.name().to_string_lossy().is_empty() {
                 continue;
             }
 
-            let mut mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
-            let mut cpu = proc.cpu_usage();
+            let mut mem_mb = proc_info.memory() as f64 / 1024.0 / 1024.0;
+
+            #[cfg(target_os = "linux")]
+            {
+                let status_path = format!("/proc/{}/status", pid_u32);
+                if let Ok(content) = std::fs::read_to_string(&status_path) {
+                    let mut tgid = None;
+                    let mut vmrss_kb = None;
+                    for line in content.lines() {
+                        if line.starts_with("Tgid:") {
+                            tgid = line.split_whitespace().nth(1).and_then(|s| s.parse::<u32>().ok());
+                        } else if line.starts_with("VmRSS:") {
+                            vmrss_kb = line.split_whitespace().nth(1).and_then(|s| s.parse::<f64>().ok());
+                        }
+                        if tgid.is_some() && vmrss_kb.is_some() {
+                            break;
+                        }
+                    }
+
+                    if let Some(t) = tgid {
+                        if t != pid_u32 {
+                            continue;
+                        }
+                    }
+
+                    let mut memory_found = false;
+                    if let Ok(smaps) = std::fs::read_to_string(format!("/proc/{}/smaps_rollup", pid_u32)) {
+                        for line in smaps.lines() {
+                            if line.starts_with("Pss:") {
+                                if let Some(kb_str) = line.split_whitespace().nth(1) {
+                                    if let Ok(kb) = kb_str.parse::<f64>() {
+                                        mem_mb = kb / 1024.0;
+                                        memory_found = true;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    if !memory_found {
+                        if let Some(kb) = vmrss_kb {
+                            mem_mb = kb / 1024.0;
+                        }
+                    }
+                }
+            }
+
+            let mut cpu = proc_info.cpu_usage();
             if cpu.is_nan() {
                 cpu = 0.0;
             }
             if mem_mb.is_nan() {
                 mem_mb = 0.0;
             }
-            let name = proc.name().to_string_lossy().to_string();
 
-            let dto = ProcessDTO {
-                pid: pid.as_u32(),
-                name: name.clone(),
+            result.push(ProcessDTO {
+                pid: pid_u32,
+                name: proc_info.name().to_string_lossy().to_string(),
                 cpu_percent: cpu,
                 memory_usage: mem_mb,
-                ppid: proc.parent().map(|p| p.as_u32()),
-                is_group: false,
-                children: vec![],
-            };
-
-            groups
-                .entry(name)
-                .and_modify(|group| {
-                    if !group.is_group {
-                        let first_child = group.clone();
-                        group.is_group = true;
-                        group.children.push(first_child);
-                    }
-                    group.children.push(dto.clone());
-                    group.cpu_percent += dto.cpu_percent;
-                    group.memory_usage += dto.memory_usage;
-                })
-                .or_insert(dto);
-        }
-
-        let mut result: Vec<ProcessDTO> = groups.into_values().collect();
-
-        for proc in &mut result {
-            if proc.is_group && proc.children.len() <= 1 {
-                proc.is_group = false;
-                proc.children.clear();
-            }
+                ppid: proc_info.parent().map(|p| p.as_u32()),
+            });
         }
 
         result.sort_by(|a, b| {
-            b.cpu_percent
-                .partial_cmp(&a.cpu_percent)
+            b.memory_usage
+                .partial_cmp(&a.memory_usage)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 

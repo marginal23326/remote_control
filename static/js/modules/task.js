@@ -3,9 +3,8 @@ import { apiCall, SVG_TEMPLATES, BaseTaskManager } from "./utils.js";
 
 function initializeTaskManager(socket) {
     let _selectedProcess = null;
-    let currentSort = { column: "name", order: "asc" };
+    let currentSort = { column: "memory_usage", order: "desc" };
     let processes = [];
-    let expandedGroups = new Set();
 
     const taskList = document.getElementById("taskList");
 
@@ -23,12 +22,6 @@ function initializeTaskManager(socket) {
     const taskManager = new BaseTaskManager({ onKillProcess: killProcess });
 
     function renderTaskList(newProcesses) {
-        newProcesses.forEach((process) => {
-            if (process.is_group) {
-                process.expanded = expandedGroups.has(process.pid);
-            }
-        });
-
         processes = newProcesses;
         sortProcesses(processes, currentSort.column, currentSort.order);
 
@@ -38,13 +31,9 @@ function initializeTaskManager(socket) {
             row.classList.add("cursor-pointer");
             row.dataset.pid = process.pid;
 
-            const expandArrow = process.is_group
-                ? `<span class="inline-block w-4 mr-2 cursor-pointer expand-arrow">${process.expanded ? "▼" : "▶"}</span>`
-                : '<span class="inline-block w-4 mr-2"></span>';
-
             row.innerHTML = `
                 <td class="px-4 py-1 whitespace-nowrap text-sm font-medium text-white">
-                    ${expandArrow}${process.name}
+                    ${process.name}
                 </td>
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${process.cpu_percent.toFixed(1)}%</td>
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${process.memory_usage.toFixed(1)} MB</td>
@@ -52,26 +41,6 @@ function initializeTaskManager(socket) {
             `;
 
             fragment.appendChild(row);
-
-            if (process.is_group && process.expanded && process.children) {
-                process.children.forEach((childProcess) => {
-                    const childRow = document.createElement("tr");
-                    childRow.classList.add("cursor-pointer", "child-process");
-                    childRow.dataset.pid = childProcess.pid;
-                    childRow.dataset.parentPid = process.pid;
-
-                    childRow.innerHTML = `
-                        <td class="px-4 py-1 whitespace-nowrap text-sm font-medium text-white pl-16">
-                            ${childProcess.name}
-                        </td>
-                        <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${childProcess.cpu_percent.toFixed(1)}%</td>
-                        <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${childProcess.memory_usage.toFixed(1)} MB</td>
-                        <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${childProcess.pid}</td>
-                    `;
-
-                    fragment.appendChild(childRow);
-                });
-            }
         });
 
         taskList.innerHTML = "";
@@ -125,27 +94,6 @@ function initializeTaskManager(socket) {
             return typeof valueA === "number" ? (valueA - valueB) * modifier : valueA.localeCompare(valueB) * modifier;
         });
     }
-
-    taskList.addEventListener("click", (event) => {
-        const expandArrow = event.target.closest(".expand-arrow");
-        if (expandArrow) {
-            const row = expandArrow.closest("tr");
-            const pid = parseInt(row.dataset.pid);
-            const process = processes.find((p) => p.pid === pid);
-
-            if (process && process.is_group) {
-                process.expanded = !process.expanded;
-                if (process.expanded) {
-                    expandedGroups.add(pid);
-                } else {
-                    expandedGroups.delete(pid);
-                }
-                renderTaskList(processes);
-                event.stopPropagation();
-                return;
-            }
-        }
-    });
 
     // Handle sorting
     document.querySelectorAll("#processSection thead th").forEach((header) => {
