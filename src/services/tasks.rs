@@ -36,8 +36,10 @@ impl TaskManager {
                 continue;
             }
 
-            let mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
-            let cpu = proc.cpu_usage();
+            let mut mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
+            let mut cpu = proc.cpu_usage();
+            if cpu.is_nan() { cpu = 0.0; }
+            if mem_mb.is_nan() { mem_mb = 0.0; }
             let name = proc.name().to_string_lossy().to_string();
 
             let dto = ProcessDTO {
@@ -74,7 +76,11 @@ impl TaskManager {
             }
         }
 
-        result.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap());
+        result.sort_by(|a, b| {
+            b.cpu_percent
+                .partial_cmp(&a.cpu_percent)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         result
     }
