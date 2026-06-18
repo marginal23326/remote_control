@@ -97,39 +97,47 @@ fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf
 // --- HANDLERS ---
 
 pub async fn list_files_handler(State(state): State<SharedState>, Query(q): Query<ListQuery>) -> Response {
-    let files = &state.files;
+    let files = state.files.clone();
 
-    let result = if let Some(path) = q.path {
-        if path == "/" || path.is_empty() {
-            json!(files.get_drives())
-        } else {
-            match files.list_directory(&path) {
-                Ok(entries) => json!(entries),
-                Err(e) => {
-                    let is_access_error = e.to_string().to_lowercase().contains("access");
-                    return Json(json!({
-                        "status": "error",
-                        "message": e.to_string(),
-                        "no_access": is_access_error
-                    }))
-                    .into_response();
+    let result = tokio::task::spawn_blocking(move || {
+        if let Some(path) = q.path {
+            if path == "/" || path.is_empty() {
+                Ok(json!(files.get_drives()))
+            } else {
+                match files.list_directory(&path) {
+                    Ok(entries) => Ok(json!(entries)),
+                    Err(e) => {
+                        let is_access_error = e.to_string().to_lowercase().contains("access");
+                        Err(json!({
+                            "status": "error",
+                            "message": e.to_string(),
+                            "no_access": is_access_error
+                        }))
+                    }
                 }
             }
+        } else {
+            Ok(json!(files.get_drives()))
         }
-    } else {
-        json!(files.get_drives())
-    };
+    })
+    .await
+    .unwrap_or_else(|_| Err(json!({"status": "error", "message": "Thread pool failed"})));
 
-    Json(result).into_response()
+    match result {
+        Ok(val) => Json(val).into_response(),
+        Err(err_val) => Json(err_val).into_response(),
+    }
 }
 
 pub async fn create_folder_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    let files = &state.files;
     if let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) {
-        files.create_folder(&parent, &name)?;
+        let files = state.files.clone();
+        tokio::task::spawn_blocking(move || files.create_folder(&parent, &name))
+            .await
+            .map_err(|e| anyhow!("Task failed: {}", e))??;
     }
     Ok(Json(json!({"status": "success"})))
 }
@@ -138,9 +146,11 @@ pub async fn delete_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    let files = &state.files;
     if let Some(paths) = payload.paths {
-        files.delete_items(paths)?;
+        let files = state.files.clone();
+        tokio::task::spawn_blocking(move || files.delete_items(paths))
+            .await
+            .map_err(|e| anyhow!("Task failed: {}", e))??;
     }
     Ok(Json(json!({"status": "success"})))
 }
@@ -149,9 +159,11 @@ pub async fn rename_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    let files = &state.files;
     if let (Some(old), Some(new)) = (payload.old_path, payload.new_name) {
-        files.rename_item(&old, &new)?;
+        let files = state.files.clone();
+        tokio::task::spawn_blocking(move || files.rename_item(&old, &new))
+            .await
+            .map_err(|e| anyhow!("Task failed: {}", e))??;
     }
     Ok(Json(json!({"status": "success"})))
 }
