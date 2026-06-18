@@ -55,31 +55,50 @@ impl InputManager {
 
     pub async fn send_shortcut(&self, key: &str, modifiers: Vec<String>) -> Result<()> {
         let mut pressed_modifiers = Vec::new();
+        let mut result: Result<()> = Ok(());
 
         for modifier in modifiers {
             if let Some(keysym) = shortcut_keysym(&modifier) {
-                portal_session()
+                match portal_session()
                     .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
-                    .await?;
-                pressed_modifiers.push(keysym);
+                    .await
+                {
+                    Ok(_) => pressed_modifiers.push(keysym),
+                    Err(e) => {
+                        result = Err(e);
+                        break;
+                    }
+                }
             }
         }
 
-        if let Some(keysym) = shortcut_keysym(key) {
-            portal_session()
-                .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
-                .await?;
-            portal_session()
-                .notify_keyboard_keysym(keysym as i32, KeyState::Released)
-                .await?;
+        if result.is_ok() {
+            if let Some(keysym) = shortcut_keysym(key) {
+                if let Err(e) = portal_session()
+                    .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
+                    .await
+                {
+                    result = Err(e);
+                } else if let Err(e) = portal_session()
+                    .notify_keyboard_keysym(keysym as i32, KeyState::Released)
+                    .await
+                {
+                    result = Err(e);
+                }
+            }
         }
 
         for keysym in pressed_modifiers.into_iter().rev() {
-            portal_session()
+            if let Err(e) = portal_session()
                 .notify_keyboard_keysym(keysym as i32, KeyState::Released)
-                .await?;
+                .await
+            {
+                if result.is_ok() {
+                    result = Err(e);
+                }
+            }
         }
 
-        Ok(())
+        result
     }
 }
