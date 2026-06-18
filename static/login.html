@@ -72,7 +72,7 @@
                     </div>
                 </div>
 
-                <form id="loginForm" class="space-y-6">
+                <form id="loginForm" class="space-y-6" method="POST">
                     <!-- Username -->
                     <div class="login-input-group space-y-2">
                         <label
@@ -92,6 +92,8 @@
                             <input
                                 type="text"
                                 id="username"
+                                name="username"
+                                autocomplete="username"
                                 required
                                 autofocus
                                 class="w-full pl-12 pr-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono text-sm"
@@ -119,6 +121,8 @@
                             <input
                                 type="password"
                                 id="password"
+                                name="password"
+                                autocomplete="current-password"
                                 required
                                 class="w-full pl-12 pr-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono text-sm"
                                 placeholder="••••••••"
