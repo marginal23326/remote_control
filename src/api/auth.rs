@@ -44,7 +44,7 @@ pub async fn login_handler(
         let cookie_value = format!("auth_token={}; Path=/; HttpOnly; SameSite=Strict", token);
         headers.insert(header::SET_COOKIE, cookie_value.parse().unwrap());
 
-        Ok((headers, Json(json!({"status": "success", "token": token}))).into_response())
+        Ok((headers, Json(json!({"status": "success"}))).into_response())
     } else {
         Err(AppError::AuthError("Invalid credentials".to_string()))
     }
