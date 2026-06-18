@@ -126,6 +126,9 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     if socket.extensions.remove::<ActiveStreamMarker>().is_some() {
         state.screen.stop_stream();
     }
+
+    state.audio.stop_server_stream();
+    state.audio.stop_client_playback();
 }
 
 pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {
