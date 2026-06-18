@@ -214,11 +214,13 @@ pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc
     }
 }
 
-pub async fn get_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemInfoDTO {
-    let base = refresh_system_info(sys_lock, net_lock);
-    let wan_info = fetch_wan_info().await;
+pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
+    let base = refresh_system_info(&state.sys, &state.networks);
+
+    let wan_info = state.wan_info.get_or_init(fetch_wan_info).await;
+
     let lan_ip = get_local_ip();
-    let mac = get_mac_address(net_lock);
+    let mac = get_mac_address(&state.networks);
     let username = whoami::username().unwrap_or_else(|_| "Unknown".to_string());
     let pc_name = whoami::devicename().unwrap_or_else(|_| "Unknown".to_string());
     let hostname = hostname::get()
@@ -240,11 +242,11 @@ pub async fn get_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLo
         uptime: format_uptime(System::uptime()),
         mac_address: mac,
         lan_ip,
-        wan_ip: wan_info.0,
-        asn: wan_info.1,
-        isp: wan_info.2,
-        country: wan_info.3,
-        timezone: wan_info.4,
+        wan_ip: wan_info.0.clone(),
+        asn: wan_info.1.clone(),
+        isp: wan_info.2.clone(),
+        country: wan_info.3.clone(),
+        timezone: wan_info.4.clone(),
         active_processes: base.active_processes,
         os: os_info.os,
         architecture: std::env::consts::ARCH.to_string(),

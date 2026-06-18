@@ -7,6 +7,9 @@ use crate::services::shell::ShellManager;
 use crate::services::tasks::TaskManager;
 use std::sync::{Arc, Mutex, RwLock};
 use sysinfo::{Networks, System};
+use tokio::sync::OnceCell;
+
+type WanInfo = (String, String, String, String, String);
 
 #[derive(Clone)]
 pub struct AppState {
@@ -19,6 +22,7 @@ pub struct AppState {
     pub files: Arc<FileManager>,
     pub tasks: Arc<TaskManager>,
     pub audio: Arc<AudioManager>,
+    pub wan_info: Arc<OnceCell<WanInfo>>,
 }
 
 impl AppState {
@@ -46,6 +50,7 @@ impl AppState {
             files: Arc::new(files),
             tasks: Arc::new(tasks),
             audio: Arc::new(audio),
+            wan_info: Arc::new(OnceCell::new()),
         }
     }
 }
