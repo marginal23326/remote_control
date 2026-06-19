@@ -83,12 +83,8 @@ class FileManager extends BaseFileManager {
     async handleApiCall(apiEndpoint, method, data, successCallback) {
         try {
             const response = await apiCall(apiEndpoint, method, data);
-            if (response.status === "success") {
-                if (response.message) alert(response.message);
-                successCallback?.(response);
-            } else {
-                alert(response.message || "An error occurred");
-            }
+            if (response.message) alert(response.message);
+            successCallback?.(response);
         } catch (error) {
             console.error(`Error in ${apiEndpoint}:`, error);
             alert(`Error: ${error.message}`);

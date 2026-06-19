@@ -370,10 +370,7 @@ async function updateStreamSettings(includeEncoderProps = false) {
     }
 
     const response = await apiCall("/api/stream/settings", "POST", payload);
-
-    if (response) {
-        updateSettingsDisplay(response);
-    }
+    updateSettingsDisplay(response);
 }
 
 function setAutoFPS() {
