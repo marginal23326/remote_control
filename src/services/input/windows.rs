@@ -79,13 +79,32 @@ impl InputManager {
     // --- KEYBOARD FUNCTIONS ---
 
     pub async fn type_text(&self, text: &str) -> anyhow::Result<()> {
+        let make_input = |code_unit, flags| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: code_unit,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        };
+
         for ch in text.chars() {
             let mut buf = [0; 2];
             let encoded = ch.encode_utf16(&mut buf);
-            for code_unit in encoded.iter() {
-                self.send_key_event(VIRTUAL_KEY(0), Some(*code_unit), false);
-                self.send_key_event(VIRTUAL_KEY(0), Some(*code_unit), true);
+            let len = encoded.len();
+
+            let mut inputs = [unsafe { std::mem::zeroed::<INPUT>() }; 4];
+
+            for (i, &code_unit) in encoded.iter().enumerate() {
+                inputs[i] = make_input(code_unit, KEYEVENTF_UNICODE);
+                inputs[i + len] = make_input(code_unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP);
             }
+
+            unsafe { SendInput(&inputs[..len * 2], std::mem::size_of::<INPUT>() as i32) };
         }
         Ok(())
     }
