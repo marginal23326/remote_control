@@ -161,14 +161,25 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             .or_else(|| self.ctx.recycle_rx.try_recv().ok())
             .unwrap_or_default();
 
-        let frame_buffer = match frame.buffer() {
+        let mut frame_buffer = match frame.buffer() {
             Ok(fb) => fb,
             Err(e) => {
                 self.ctx.cached_buffer = Some(buffer);
                 return Err(Box::new(e));
             }
         };
-        let _ = frame_buffer.as_nopadding_buffer(&mut buffer);
+
+        let expected_size = (width * height * 4) as usize;
+
+        if buffer.len() != expected_size {
+            buffer.resize(expected_size, 0);
+        }
+
+        if !frame_buffer.has_padding() {
+            buffer.copy_from_slice(frame_buffer.as_raw_buffer());
+        } else {
+            let _ = frame_buffer.as_nopadding_buffer(&mut buffer);
+        }
 
         let raw = RawFrame { buffer, width, height };
 
