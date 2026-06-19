@@ -133,12 +133,15 @@ pub async fn create_folder_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    if let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) {
-        let files = state.files.clone();
-        tokio::task::spawn_blocking(move || files.create_folder(&parent, &name))
-            .await
-            .map_err(|e| anyhow!("Task failed: {}", e))??;
-    }
+    let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) else {
+        return Err(AppError::BadRequest("Missing parentPath or folderName".to_string()));
+    };
+
+    let files = state.files.clone();
+    tokio::task::spawn_blocking(move || files.create_folder(&parent, &name))
+        .await
+        .map_err(|e| anyhow!("Task failed: {}", e))??;
+
     Ok(Json(json!({"status": "success"})))
 }
 
@@ -146,12 +149,15 @@ pub async fn delete_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    if let Some(paths) = payload.paths {
-        let files = state.files.clone();
-        tokio::task::spawn_blocking(move || files.delete_items(paths))
-            .await
-            .map_err(|e| anyhow!("Task failed: {}", e))??;
-    }
+    let Some(paths) = payload.paths else {
+        return Err(AppError::BadRequest("Missing paths".to_string()));
+    };
+
+    let files = state.files.clone();
+    tokio::task::spawn_blocking(move || files.delete_items(paths))
+        .await
+        .map_err(|e| anyhow!("Task failed: {}", e))??;
+
     Ok(Json(json!({"status": "success"})))
 }
 
@@ -159,12 +165,15 @@ pub async fn rename_handler(
     State(state): State<SharedState>,
     Json(payload): Json<ActionPayload>,
 ) -> AppResult<Json<Value>> {
-    if let (Some(old), Some(new)) = (payload.old_path, payload.new_name) {
-        let files = state.files.clone();
-        tokio::task::spawn_blocking(move || files.rename_item(&old, &new))
-            .await
-            .map_err(|e| anyhow!("Task failed: {}", e))??;
-    }
+    let (Some(old), Some(new)) = (payload.old_path, payload.new_name) else {
+        return Err(AppError::BadRequest("Missing oldPath or newName".to_string()));
+    };
+
+    let files = state.files.clone();
+    tokio::task::spawn_blocking(move || files.rename_item(&old, &new))
+        .await
+        .map_err(|e| anyhow!("Task failed: {}", e))??;
+
     Ok(Json(json!({"status": "success"})))
 }
 
