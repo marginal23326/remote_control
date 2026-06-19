@@ -501,6 +501,8 @@ impl ScreenManager {
             };
 
             let mut resizer = Resizer::new();
+            let mut last_width = 0;
+            let mut last_height = 0;
 
             while is_running_enc.load(Ordering::SeqCst) {
                 let Ok(mut raw) = frame_rx_enc.recv_timeout(Duration::from_millis(100)) else {
@@ -540,12 +542,16 @@ impl ScreenManager {
                     (raw.buffer, capture_recycle_tx.clone())
                 };
 
-                let caps = gst::Caps::builder("video/x-raw")
-                    .field("format", "BGRA")
-                    .field("width", raw.width as i32)
-                    .field("height", raw.height as i32)
-                    .build();
-                appsrc.set_caps(Some(&caps));
+                if raw.width != last_width || raw.height != last_height {
+                    let caps = gst::Caps::builder("video/x-raw")
+                        .field("format", "BGRA")
+                        .field("width", raw.width as i32)
+                        .field("height", raw.height as i32)
+                        .build();
+                    appsrc.set_caps(Some(&caps));
+                    last_width = raw.width;
+                    last_height = raw.height;
+                }
 
                 let recycled = RecycleBin {
                     buffer: Some(push_buf),
