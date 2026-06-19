@@ -305,15 +305,14 @@ class FileManager extends BaseFileManager {
         const queryString = paths.map((path) => `paths[]=${encodeURIComponent(path)}`).join("&");
         const url = `/api/download?${queryString}`;
 
-        // Trigger download via iframe to avoid navigating away
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src = url;
-        document.body.appendChild(iframe);
-
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-        }, 30000);
+        const iframe = document.getElementById("global-download-iframe");
+        if (!iframe) {
+            const el = document.createElement("iframe");
+            el.id = "global-download-iframe";
+            el.style.display = "none";
+            document.body.appendChild(el);
+        }
+        document.getElementById("global-download-iframe").src = url;
     }
 
     async handleDelete(selectedItems) {
