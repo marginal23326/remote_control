@@ -69,31 +69,29 @@ impl TaskManager {
                         }
                     }
 
-                    if let Some(t) = tgid {
-                        if t != pid_u32 {
-                            continue;
-                        }
+                    if let Some(t) = tgid
+                        && t != pid_u32
+                    {
+                        continue;
                     }
 
                     let mut memory_found = false;
                     if let Ok(smaps) = std::fs::read_to_string(format!("/proc/{}/smaps_rollup", pid_u32)) {
                         for line in smaps.lines() {
                             if line.starts_with("Pss:") {
-                                if let Some(kb_str) = line.split_whitespace().nth(1) {
-                                    if let Ok(kb) = kb_str.parse::<f64>() {
-                                        mem_mb = kb / 1024.0;
-                                        memory_found = true;
-                                    }
+                                if let Some(kb_str) = line.split_whitespace().nth(1)
+                                    && let Ok(kb) = kb_str.parse::<f64>()
+                                {
+                                    mem_mb = kb / 1024.0;
+                                    memory_found = true;
                                 }
                                 break;
                             }
                         }
                     }
 
-                    if !memory_found {
-                        if let Some(kb) = vmrss_kb {
-                            mem_mb = kb / 1024.0;
-                        }
+                    if !memory_found && let Some(kb) = vmrss_kb {
+                        mem_mb = kb / 1024.0;
                     }
                 }
             }

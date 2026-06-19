@@ -37,19 +37,19 @@ pub(crate) fn portal_session() -> Arc<PortalSessionManager> {
 
 pub(crate) fn get_max_fps() -> u64 {
     let out = process::Command::new("wayland-info").output().ok();
-    if let Some(out) = out {
-        if let Ok(s) = std::str::from_utf8(&out.stdout) {
-            let hz = s
-                .lines()
-                .filter_map(|line| line.split_once("refresh:"))
-                .filter_map(|(_, rest)| {
-                    let hz_str = rest.trim_start().split_whitespace().next()?;
-                    hz_str.parse::<f64>().ok()
-                })
-                .fold(0.0, f64::max);
-            if hz > 0.0 {
-                return hz.round() as u64;
-            }
+    if let Some(out) = out
+        && let Ok(s) = std::str::from_utf8(&out.stdout)
+    {
+        let hz = s
+            .lines()
+            .filter_map(|line| line.split_once("refresh:"))
+            .filter_map(|(_, rest)| {
+                let hz_str = rest.split_whitespace().next()?;
+                hz_str.parse::<f64>().ok()
+            })
+            .fold(0.0, f64::max);
+        if hz > 0.0 {
+            return hz.round() as u64;
         }
     }
     60

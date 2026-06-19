@@ -97,22 +97,22 @@ pub(crate) fn server_loop(
             let offset = chunk.offset() as usize;
             let size = chunk.size() as usize;
 
-            if let Some(mapped_data) = datas[0].data() {
-                if offset + size <= mapped_data.len() {
-                    let valid_data = &mapped_data[offset..offset + size];
+            if let Some(mapped_data) = datas[0].data()
+                && offset + size <= mapped_data.len()
+            {
+                let valid_data = &mapped_data[offset..offset + size];
 
-                    for chunk in valid_data.chunks_exact(4) {
-                        let f = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                        let s = (f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                for chunk in valid_data.chunks_exact(4) {
+                    let f = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                    let s = (f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
 
-                        if user_data.capture_queue.push(s).is_err() {
-                            let _ = user_data.capture_queue.pop();
-                            let _ = user_data.capture_queue.push(s);
-                        }
+                    if user_data.capture_queue.push(s).is_err() {
+                        let _ = user_data.capture_queue.pop();
+                        let _ = user_data.capture_queue.push(s);
                     }
-
-                    let _ = user_data.wake_tx.try_send(());
                 }
+
+                let _ = user_data.wake_tx.try_send(());
             }
         })
         .register()
@@ -250,7 +250,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
                 let chunk_mut = data.chunk_mut();
                 *chunk_mut.offset_mut() = 0;
                 *chunk_mut.size_mut() = bytes_to_write as u32;
-                *chunk_mut.stride_mut() = stride as i32;
+                *chunk_mut.stride_mut() = stride;
             }
         })
         .register()

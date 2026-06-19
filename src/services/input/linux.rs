@@ -68,19 +68,19 @@ impl InputManager {
             }
         }
 
-        if result.is_ok() {
-            if let Some(keysym) = shortcut_keysym(key) {
-                if let Err(e) = portal_session()
-                    .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
-                    .await
-                {
-                    result = Err(e);
-                } else if let Err(e) = portal_session()
-                    .notify_keyboard_keysym(keysym as i32, KeyState::Released)
-                    .await
-                {
-                    result = Err(e);
-                }
+        if result.is_ok()
+            && let Some(keysym) = shortcut_keysym(key)
+        {
+            if let Err(e) = portal_session()
+                .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
+                .await
+            {
+                result = Err(e);
+            } else if let Err(e) = portal_session()
+                .notify_keyboard_keysym(keysym as i32, KeyState::Released)
+                .await
+            {
+                result = Err(e);
             }
         }
 
@@ -88,10 +88,9 @@ impl InputManager {
             if let Err(e) = portal_session()
                 .notify_keyboard_keysym(keysym as i32, KeyState::Released)
                 .await
+                && result.is_ok()
             {
-                if result.is_ok() {
-                    result = Err(e);
-                }
+                result = Err(e);
             }
         }
 
