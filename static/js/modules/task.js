@@ -10,12 +10,10 @@ function initializeTaskManager(socket) {
 
     async function killProcess(pid) {
         try {
-            const response = await apiCall("/api/tasks/kill", "POST", { pid });
-            if (response.status !== "success") {
-                console.error(response.message);
-            }
+            await apiCall("/api/tasks/kill", "POST", { pid });
         } catch (error) {
             console.error("Error killing process:", error);
+            alert(error.message);
         }
     }
 
