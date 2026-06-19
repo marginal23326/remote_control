@@ -184,7 +184,6 @@ export class InteractiveShell {
             }
         });
 
-        // --- Key Handling ---
         this.terminal.attachCustomKeyEventHandler((event) => {
             if (event.type !== "keydown") return true;
 
@@ -194,6 +193,17 @@ export class InteractiveShell {
                 }
                 return false;
             }
+
+            if (event.ctrlKey && (event.key === "+" || event.key === "=")) {
+                event.preventDefault();
+                this.adjustFontSize(1);
+                return false;
+            } else if (event.ctrlKey && event.key === "-") {
+                event.preventDefault();
+                this.adjustFontSize(-1);
+                return false;
+            }
+
             return true;
         });
 
@@ -210,17 +220,6 @@ export class InteractiveShell {
                         this.terminal.paste(text);
                     }
                 });
-            }
-        });
-
-        document.addEventListener("keydown", (e) => {
-            if (!this.isStarted) return;
-            if (e.ctrlKey && (e.key === "+" || e.key === "=")) {
-                e.preventDefault();
-                this.adjustFontSize(1);
-            } else if (e.ctrlKey && e.key === "-") {
-                e.preventDefault();
-                this.adjustFontSize(-1);
             }
         });
     }
