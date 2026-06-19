@@ -81,6 +81,7 @@ let pendingMouseMove = null;
 let mouseInputSeq = 0;
 let encoderProperties = {};
 let encoderPropertyConstraints = {};
+let cachedDimensions = null;
 
 function removeWebRTCListeners(socket) {
     socket.off("webrtc_offer");
@@ -89,6 +90,10 @@ function removeWebRTCListeners(socket) {
 }
 
 function initializeStream(sessionId, socket) {
+    window.addEventListener("resize", () => (cachedDimensions = null));
+    window.addEventListener("scroll", () => (cachedDimensions = null), { capture: true, passive: true });
+    streamUI.view.addEventListener("resize", () => (cachedDimensions = null));
+
     document.getElementById("startStream").addEventListener("click", () => {
         if (!streamActive) {
             streamActive = true;
@@ -298,6 +303,7 @@ function updateSettingsDisplay(settings) {
         nativeHeight = settings.native_height;
         streamUI.nativeWidth = settings.native_width;
         streamUI.nativeHeight = settings.native_height;
+        cachedDimensions = null;
     }
 
     document.getElementById("streamBitrate").value = settings.bitrate;
@@ -547,31 +553,29 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function calculateStreamDimensions() {
+    if (cachedDimensions) return cachedDimensions;
+
     const w = nativeWidth || streamUI.view.videoWidth || 1920;
     const h = nativeHeight || streamUI.view.videoHeight || 1080;
-    const rect = streamUI.view.getBoundingClientRect();
     const container = streamUI.container.getBoundingClientRect();
 
-    let streamWidth = rect.width;
-    let streamHeight = rect.height;
+    const containerAspect = container.width / container.height;
+    const streamAspect = w / h;
 
-    if (isFullscreen) {
-        const containerAspect = container.width / container.height;
-        const streamAspect = w / h;
+    let streamWidth, streamHeight;
 
-        if (containerAspect > streamAspect) {
-            streamWidth = container.height * streamAspect;
-            streamHeight = container.height;
-        } else {
-            streamWidth = container.width;
-            streamHeight = container.width / streamAspect;
-        }
+    if (containerAspect > streamAspect) {
+        streamHeight = container.height;
+        streamWidth = container.height * streamAspect;
+    } else {
+        streamWidth = container.width;
+        streamHeight = container.width / streamAspect;
     }
 
     const offsetX = (container.width - streamWidth) / 2;
     const offsetY = (container.height - streamHeight) / 2;
 
-    return {
+    cachedDimensions = {
         container,
         streamWidth,
         streamHeight,
@@ -582,6 +586,8 @@ function calculateStreamDimensions() {
         nativeWidth: w,
         nativeHeight: h,
     };
+
+    return cachedDimensions;
 }
 
 export {
