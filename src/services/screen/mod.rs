@@ -352,6 +352,10 @@ impl ScreenManager {
             encoder.set_property_from_str(key, value);
         }
 
+        pipeline
+            .set_state(gst::State::Ready)
+            .map_err(|e| anyhow::anyhow!("Failed to set pipeline to Ready: {e}"))?;
+
         let (cmd_tx, cmd_rx) = bounded::<GstCommand>(32);
 
         let (frame_tx, frame_rx): (Sender<RawFrame>, _) = bounded(3);
@@ -704,15 +708,26 @@ impl ScreenManager {
             }
         });
 
-        webrtcbin.connect_local("on-data-channel", false, move |values| {
-            let channel: gst_webrtc::WebRTCDataChannel = values[0].get().expect("on-data-channel param");
-            match channel.label().as_deref() {
-                Some("mouse-move") => Self::attach_move_data_channel(&channel, move_tx.clone()),
-                Some("mouse-control") => Self::attach_control_data_channel(&channel, control_tx.clone()),
-                _ => {}
-            }
-            None
-        });
+        let move_options = gst::Structure::builder("options")
+            .field("ordered", false)
+            .field("max-retransmits", 0i32)
+            .build();
+
+        let move_channel = webrtcbin
+            .emit_by_name::<Option<gst_webrtc::WebRTCDataChannel>>(
+                "create-data-channel",
+                &[&"mouse-move", &move_options],
+            )
+            .expect("Failed to create mouse-move data channel");
+        Self::attach_move_data_channel(&move_channel, move_tx.clone());
+
+        let control_channel = webrtcbin
+            .emit_by_name::<Option<gst_webrtc::WebRTCDataChannel>>(
+                "create-data-channel",
+                &[&"mouse-control", &None::<gst::Structure>],
+            )
+            .expect("Failed to create mouse-control data channel");
+        Self::attach_control_data_channel(&control_channel, control_tx.clone());
 
         input_handle
     }
@@ -762,11 +777,7 @@ impl ScreenManager {
         if let Some(state) = self.inner.lock().unwrap().take() {
             let _ = state.cmd_tx.send(GstCommand::Stop);
 
-            if let Some(src) = state.pipeline.by_name("src")
-                && let Ok(appsrc) = src.dynamic_cast::<gst_app::AppSrc>()
-            {
-                let _ = appsrc.end_of_stream();
-            }
+            let _ = state.pipeline.set_state(gst::State::Null);
 
             drop(state.pw_handle);
             drop(state.title_handle);

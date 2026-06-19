@@ -129,15 +129,6 @@ function initializeStream(sessionId, socket) {
                             });
                         }
                     };
-
-                    const moveChannel = peerConnection.createDataChannel("mouse-move", {
-                        ordered: false,
-                        maxRetransmits: 0,
-                    });
-                    moveChannel.bufferedAmountLowThreshold = 1024;
-                    registerInputDataChannel(moveChannel);
-                    const controlChannel = peerConnection.createDataChannel("mouse-control");
-                    registerInputDataChannel(controlChannel);
                 }
 
                 await peerConnection.setRemoteDescription({ type: "offer", sdp: sdpText });
@@ -173,8 +164,8 @@ function initializeStream(sessionId, socket) {
         if (streamActive) {
             streamActive = false;
             streamUI.hide();
-            cleanupPeerConnection();
             await apiCall("/api/stream/stop");
+            cleanupPeerConnection();
             streamUI.clear();
             removeWebRTCListeners(socket);
         }
