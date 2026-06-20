@@ -179,7 +179,7 @@ pub async fn rename_handler(
 
 pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Multipart) -> AppResult<Json<Value>> {
     let mut target_dir = None;
-    let mut temp_files: Vec<(String, std::path::PathBuf)> = Vec::new();
+    let mut temp_files: Vec<(String, TempFileGuard)> = Vec::new();
     let mut uploaded_count = 0;
 
     while let Ok(Some(mut field)) = multipart.next_field().await {
@@ -199,7 +199,12 @@ pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Mu
             let temp_uuid = Uuid::new_v4();
             let temp_path = std::env::temp_dir().join(format!("upload_{}", temp_uuid));
 
-            if let Ok(mut file) = File::create(&temp_path).await {
+            let temp_guard = TempFileGuard {
+                path: temp_path,
+                disarmed: false,
+            };
+
+            if let Ok(mut file) = File::create(&temp_guard.path).await {
                 let mut success = true;
 
                 while let Ok(Some(chunk)) = field.chunk().await {
@@ -210,9 +215,7 @@ pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Mu
                 }
 
                 if success {
-                    temp_files.push((file_name, temp_path));
-                } else {
-                    let _ = tokio::fs::remove_file(&temp_path).await;
+                    temp_files.push((file_name, temp_guard));
                 }
             }
         }
@@ -223,17 +226,17 @@ pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Mu
 
     let _ = tokio::fs::create_dir_all(final_dir).await;
 
-    for (name, temp_path) in temp_files {
+    for (name, mut guard) in temp_files {
         let dest_path = final_dir.join(&name);
-        match tokio::fs::rename(&temp_path, &dest_path).await {
-            Ok(_) => uploaded_count += 1,
-            Err(_) => {
-                match tokio::fs::copy(&temp_path, &dest_path).await {
-                    Ok(_) => uploaded_count += 1,
-                    Err(e) => tracing::error!("Failed to save file {}: {}", name, e),
-                }
-                let _ = tokio::fs::remove_file(&temp_path).await;
+        match tokio::fs::rename(&guard.path, &dest_path).await {
+            Ok(_) => {
+                uploaded_count += 1;
+                guard.disarmed = true;
             }
+            Err(_) => match tokio::fs::copy(&guard.path, &dest_path).await {
+                Ok(_) => uploaded_count += 1,
+                Err(e) => tracing::error!("Failed to save file {}: {}", name, e),
+            },
         }
     }
 
