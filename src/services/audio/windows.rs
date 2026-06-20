@@ -90,6 +90,24 @@ pub(crate) fn server_loop(
                             let b = [sample_queue.pop_front().unwrap(), sample_queue.pop_front().unwrap()];
                             i16::from_le_bytes(b) as f32 / i16::MAX as f32
                         }
+                        (SampleType::Int, 4) => {
+                            let b = [
+                                sample_queue.pop_front().unwrap(),
+                                sample_queue.pop_front().unwrap(),
+                                sample_queue.pop_front().unwrap(),
+                                sample_queue.pop_front().unwrap(),
+                            ];
+                            i32::from_le_bytes(b) as f32 / i32::MAX as f32
+                        }
+                        (SampleType::Int, 3) => {
+                            let b = [
+                                0,
+                                sample_queue.pop_front().unwrap(),
+                                sample_queue.pop_front().unwrap(),
+                                sample_queue.pop_front().unwrap(),
+                            ];
+                            i32::from_le_bytes(b) as f32 / i32::MAX as f32
+                        }
                         _ => {
                             for _ in 0..bytes_per_sample {
                                 sample_queue.pop_front().unwrap();
@@ -161,6 +179,12 @@ pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Ar
                 } else if sample_type == SampleType::Int && bytes_per_sample == 2 {
                     let i = (f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
                     sample_queue.extend(&i.to_le_bytes());
+                } else if sample_type == SampleType::Int && bytes_per_sample == 4 {
+                    let i = (f.clamp(-1.0, 1.0) * i32::MAX as f32) as i32;
+                    sample_queue.extend(&i.to_le_bytes());
+                } else if sample_type == SampleType::Int && bytes_per_sample == 3 {
+                    let i = (f.clamp(-1.0, 1.0) * 8388607.0) as i32;
+                    sample_queue.extend(&i.to_le_bytes()[0..3]);
                 } else {
                     for _ in 0..bytes_per_sample {
                         sample_queue.push_back(0);
