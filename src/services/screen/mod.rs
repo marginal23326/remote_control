@@ -515,9 +515,10 @@ impl ScreenManager {
 
                 let scale_pct = settings_enc.lock().unwrap().resolution_percentage;
 
-                let (push_buf, push_tx) = if scale_pct < 100 {
-                    let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
-                    let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
+                let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
+                let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
+
+                let (push_buf, push_tx) = if new_w != raw.width || new_h != raw.height {
                     let required = (new_w * new_h * 4) as usize;
 
                     let mut final_buf = scaler_recycle_rx.try_recv().unwrap_or_else(|_| vec![0u8; required]);
