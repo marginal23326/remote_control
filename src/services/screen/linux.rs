@@ -442,6 +442,13 @@ impl PortalSessionManager {
         }
     }
 
+    pub(crate) async fn close(&self) {
+        let mut state = self.state.lock().await;
+        if let Some(session) = state.take() {
+            let _ = session.session.close().await;
+        }
+    }
+
     async fn ensure_started(&self) -> Result<PortalStreamInfo> {
         let mut state = self.state.lock().await;
         if let Some(session) = state.as_ref() {

@@ -792,6 +792,11 @@ impl ScreenManager {
                 handle.abort();
             }
         }
+
+        #[cfg(target_os = "linux")]
+        tokio::spawn(async move {
+            linux::portal_session().close().await;
+        });
     }
 
     pub fn update_settings(&self, bitrate: u32, resolution: u8) {
