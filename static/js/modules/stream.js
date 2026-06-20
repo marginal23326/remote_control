@@ -82,6 +82,7 @@ let mouseInputSeq = 0;
 let encoderProperties = {};
 let encoderPropertyConstraints = {};
 let cachedDimensions = null;
+let pendingIceCandidates = [];
 
 function removeWebRTCListeners(socket) {
     socket.off("webrtc_offer");
@@ -142,6 +143,12 @@ function initializeStream(sessionId, socket) {
                 }
 
                 await peerConnection.setRemoteDescription({ type: "offer", sdp: sdpText });
+
+                for (const c of pendingIceCandidates) {
+                    await peerConnection.addIceCandidate(c);
+                }
+                pendingIceCandidates = [];
+
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
                 socket.emit("webrtc_answer", answer.sdp);
@@ -149,13 +156,14 @@ function initializeStream(sessionId, socket) {
 
             socket.on("webrtc_remote_ice", async (data) => {
                 if (peerConnection) {
-                    try {
-                        await peerConnection.addIceCandidate({
-                            sdpMLineIndex: data.sdp_mline_index,
-                            candidate: data.candidate,
-                        });
-                    } catch (e) {
-                        console.warn("ICE add error:", e);
+                    const candidate = {
+                        sdpMLineIndex: data.sdp_mline_index,
+                        candidate: data.candidate,
+                    };
+                    if (peerConnection.remoteDescription) {
+                        await peerConnection.addIceCandidate(candidate);
+                    } else {
+                        pendingIceCandidates.push(candidate);
                     }
                 }
             });
