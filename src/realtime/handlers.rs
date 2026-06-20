@@ -43,6 +43,9 @@ pub struct ShellResizeEvent {
 struct ActiveStreamMarker;
 
 #[derive(Debug, Clone)]
+struct ActiveShellMarker(String);
+
+#[derive(Debug, Clone)]
 struct TaskPollTask {
     handle: AbortHandle,
 }
@@ -84,13 +87,20 @@ pub async fn handle_shell_create(
     State(state): State<SharedState>,
 ) {
     let mut shell_manager = state.shell.lock().unwrap();
-    let session_id = socket.id.to_string();
+
+    if let Some(old_session) = socket.extensions.get::<ActiveShellMarker>() {
+        shell_manager.close_session(&old_session.0);
+    }
+
+    let session_id = uuid::Uuid::new_v4().to_string();
 
     if let Err(e) = shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone()) {
         tracing::error!("Failed to create shell: {}", e);
         let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
         return;
     }
+
+    socket.extensions.insert(ActiveShellMarker(session_id.clone()));
 
     let _ = socket.emit(
         "shell_created",
@@ -121,7 +131,11 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     }
 
     let mut shell_manager = state.shell.lock().unwrap();
-    shell_manager.close_session(&socket.id.to_string());
+    if let Some(session) = socket.extensions.remove::<ActiveShellMarker>() {
+        shell_manager.close_session(&session.0);
+    } else {
+        shell_manager.close_session(&socket.id.to_string());
+    }
 
     if socket.extensions.remove::<ActiveStreamMarker>().is_some() {
         state.screen.stop_stream();

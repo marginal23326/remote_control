@@ -226,6 +226,7 @@ export class InteractiveShell {
 
     restartShell() {
         if (!this.isStarted) return;
+        this.sessionId = null;
         this.terminal.clear();
         this.createShellSession();
     }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
+use portable_pty::{ChildKiller, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use serde_json::json;
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use std::thread;
 pub struct ShellSession {
     pub master: Box<dyn MasterPty + Send>,
     pub input_tx: std::sync::mpsc::Sender<String>,
-    pub child: Box<dyn Child + Send>,
+    pub killer: Box<dyn ChildKiller + Send + Sync>,
 }
 
 pub struct ShellManager {
@@ -38,14 +38,14 @@ impl ShellManager {
         let pair = self.pty_system.openpty(size)?;
 
         let cmd = CommandBuilder::new(default_shell());
-        let child = pair.slave.spawn_command(cmd)?;
+        let mut child = pair.slave.spawn_command(cmd)?;
+        let killer = child.clone_killer();
 
         // 3. Clone the reader to move into a background thread
         let mut reader = pair.master.try_clone_reader()?;
         let socket_clone = socket.clone();
         let sid = session_id.clone();
 
-        // 4. SPAWN BACKGROUND THREAD (The "Push" Mechanism)
         thread::spawn(move || {
             let mut buffer = [0u8; 1024];
             let mut leftover = Vec::new();
@@ -88,6 +88,16 @@ impl ShellManager {
             }
         });
 
+        let sid_wait = session_id.clone();
+        let socket_wait = socket.clone();
+        thread::spawn(move || {
+            let _ = child.wait();
+            let _ = socket_wait.emit(
+                "shell_output",
+                &json!({ "session_id": sid_wait, "output": "\r\n\x1b[33m[Process Terminated]\x1b[0m\r\n" }),
+            );
+        });
+
         // 5. Set up input channel and dedicated background writer thread
         let mut writer = pair.master.take_writer()?;
         let (input_tx, input_rx) = std::sync::mpsc::channel::<String>();
@@ -106,7 +116,7 @@ impl ShellManager {
             ShellSession {
                 master: pair.master,
                 input_tx,
-                child,
+                killer,
             },
         );
 
@@ -135,8 +145,7 @@ impl ShellManager {
     // Clean up session
     pub fn close_session(&mut self, session_id: &str) {
         if let Some(mut session) = self.sessions.remove(session_id) {
-            let _ = session.child.kill();
-            let _ = session.child.wait();
+            let _ = session.killer.kill();
             tracing::info!("Shell session closed/cleaned up: {}", session_id);
         }
     }
