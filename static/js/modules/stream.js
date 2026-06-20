@@ -92,7 +92,12 @@ function removeWebRTCListeners(socket) {
 function initializeStream(sessionId, socket) {
     window.addEventListener("resize", () => (cachedDimensions = null));
     window.addEventListener("scroll", () => (cachedDimensions = null), { capture: true, passive: true });
-    streamUI.view.addEventListener("resize", () => (cachedDimensions = null));
+    streamUI.view.addEventListener("resize", () => {
+        cachedDimensions = null;
+        apiCall("/api/stream/settings")
+            .then(updateSettingsDisplay)
+            .catch(() => {});
+    });
 
     document.getElementById("startStream").addEventListener("click", () => {
         if (!streamActive) {

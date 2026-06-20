@@ -48,7 +48,7 @@ pub(crate) async fn start_os_capture(
 
     thread::spawn(move || {
         let monitor = Monitor::primary().expect("No primary monitor found");
-        let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings);
+        let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings, native_size.clone());
 
         let settings = Settings::new(
             monitor,
@@ -97,6 +97,9 @@ struct CaptureContext {
     settings: Arc<Mutex<StreamSettings>>,
     limiter: FrameRateLimiter,
     cached_buffer: Option<Vec<u8>>,
+    native_size: Arc<Mutex<(i32, i32)>>,
+    last_width: u32,
+    last_height: u32,
 }
 
 impl CaptureContext {
@@ -105,6 +108,7 @@ impl CaptureContext {
         recycle_rx: Receiver<Vec<u8>>,
         is_running: Arc<AtomicBool>,
         settings: Arc<Mutex<StreamSettings>>,
+        native_size: Arc<Mutex<(i32, i32)>>,
     ) -> Self {
         Self {
             work_tx,
@@ -113,6 +117,9 @@ impl CaptureContext {
             settings,
             limiter: FrameRateLimiter::new(),
             cached_buffer: None,
+            native_size,
+            last_width: 0,
+            last_height: 0,
         }
     }
 }
@@ -152,6 +159,12 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         let height = frame.height();
         if width == 0 || height == 0 {
             return Ok(());
+        }
+
+        if width != self.ctx.last_width || height != self.ctx.last_height {
+            self.ctx.last_width = width;
+            self.ctx.last_height = height;
+            *self.ctx.native_size.lock().unwrap() = (width as i32, height as i32);
         }
 
         let mut buffer = self

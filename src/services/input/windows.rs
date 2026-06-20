@@ -8,19 +8,11 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-pub struct InputManager {
-    screen_width: i32,
-    screen_height: i32,
-}
+pub struct InputManager;
 
 impl InputManager {
     pub fn new() -> Self {
-        let width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
-        let height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
-        Self {
-            screen_width: width,
-            screen_height: height,
-        }
+        Self
     }
 
     // --- MOUSE FUNCTIONS ---
@@ -43,8 +35,13 @@ impl InputManager {
     }
 
     pub async fn move_mouse(&self, x: i32, y: i32) -> anyhow::Result<()> {
-        let abs_x = ((x as f64 * 65536.0) / self.screen_width as f64) as i32 + 1;
-        let abs_y = ((y as f64 * 65536.0) / self.screen_height as f64) as i32 + 1;
+        let width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
+        let height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
+        let width = if width > 0 { width } else { 1920 };
+        let height = if height > 0 { height } else { 1080 };
+
+        let abs_x = ((x as f64 * 65536.0) / width as f64) as i32 + 1;
+        let abs_y = ((y as f64 * 65536.0) / height as f64) as i32 + 1;
         self.send_mouse_input(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, abs_x, abs_y, 0);
         Ok(())
     }
