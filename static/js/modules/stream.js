@@ -176,10 +176,12 @@ function initializeStream(sessionId, socket) {
         }
     });
 
-    document.getElementById("streamBitrate").addEventListener("input", updateStreamSettings);
-    document.getElementById("streamResolution").addEventListener("input", updateResolutionLabel);
+    document.getElementById("streamBitrate").addEventListener("input", updateSliderLabels);
+    document.getElementById("streamBitrate").addEventListener("change", updateStreamSettings);
+    document.getElementById("streamResolution").addEventListener("input", updateSliderLabels);
     document.getElementById("streamResolution").addEventListener("change", updateStreamSettings);
-    document.getElementById("streamFPS").addEventListener("input", updateStreamSettings);
+    document.getElementById("streamFPS").addEventListener("input", updateSliderLabels);
+    document.getElementById("streamFPS").addEventListener("change", updateStreamSettings);
     document.getElementById("autoFpsButton").addEventListener("click", setAutoFPS);
 
     const fullscreenBtn = document.getElementById("fullscreenBtn");
@@ -341,20 +343,20 @@ function updateSettingsDisplay(settings) {
     }
 }
 
-function updateResolutionLabel() {
-    const pct = parseInt(document.getElementById("streamResolution").value);
-    document.getElementById("resolutionValue").textContent = pct + "%";
+function updateSliderLabels() {
+    const bitrate = parseInt(document.getElementById("streamBitrate").value);
+    const resolution = parseInt(document.getElementById("streamResolution").value);
+    const fps = parseInt(document.getElementById("streamFPS").value);
+    document.getElementById("bitrateValue").textContent =
+        bitrate >= 1000 ? (bitrate / 1000).toFixed(1) + " mbps" : bitrate + " kbps";
+    document.getElementById("resolutionValue").textContent = resolution + "%";
+    document.getElementById("fpsValue").textContent = `(Target: ${fps} FPS)`;
 }
 
 async function updateStreamSettings(includeEncoderProps = false) {
     const bitrate = parseInt(document.getElementById("streamBitrate").value);
     const resolutionPercentage = parseInt(document.getElementById("streamResolution").value);
     const fps = parseInt(document.getElementById("streamFPS").value);
-
-    document.getElementById("bitrateValue").textContent =
-        bitrate >= 1000 ? (bitrate / 1000).toFixed(1) + " mbps" : bitrate + " kbps";
-    document.getElementById("resolutionValue").textContent = resolutionPercentage + "%";
-    document.getElementById("fpsValue").textContent = `(Target: ${fps} FPS)`;
 
     const payload = {
         bitrate,
