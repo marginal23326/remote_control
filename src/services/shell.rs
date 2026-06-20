@@ -76,7 +76,8 @@ impl ShellManager {
                             }
 
                             if let Some(err_len) = e.error_len() {
-                                let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": "" }));
+                                let _ = socket_clone
+                                    .emit("shell_output", &json!({ "session_id": sid, "output": "\u{FFFD}" }));
                                 leftover = leftover[err_len..].to_vec();
                                 continue;
                             } else {
