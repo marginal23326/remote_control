@@ -1,71 +1,94 @@
 // static/js/modules/nav.js
+let activeSectionId = "streamSection";
+let isInitialized = false;
+
+let cachedSections = [];
+let cachedNavLinks = [];
+let cachedNavContainer = null;
+
+function syncStateFromHash() {
+    const hash = window.location.hash.substring(1);
+    if (hash && document.getElementById(hash)?.classList.contains("section")) {
+        activeSectionId = hash;
+        return true;
+    }
+    return false;
+}
+
+function showSection(sectionId) {
+    cachedSections.forEach((section) => {
+        if (section.id === sectionId) {
+            section.classList.remove("hidden");
+            section.style.animation = "none";
+            void section.offsetHeight; // triggers reflow
+            section.style.animation = null;
+        } else {
+            section.classList.add("hidden");
+        }
+    });
+
+    window.dispatchEvent(new CustomEvent("sectionchange", { detail: { activeSectionId: sectionId } }));
+}
+
+function updateActiveNavLink(activeLinkId) {
+    cachedNavLinks.forEach((link) => {
+        const isActive = link.getAttribute("href") === `#${activeLinkId}`;
+        link.classList.toggle("active", isActive);
+        link.classList.toggle("text-blue-400", isActive);
+        link.classList.toggle("bg-blue-500/10", isActive);
+    });
+    updateOverflowIndicators();
+}
+
+function updateOverflowIndicators() {
+    if (!cachedNavContainer) return;
+
+    const isOverflowing = cachedNavContainer.scrollWidth > cachedNavContainer.clientWidth;
+    const isAtStart = cachedNavContainer.scrollLeft === 0;
+    const isAtEnd =
+        Math.abs(cachedNavContainer.scrollLeft + cachedNavContainer.clientWidth - cachedNavContainer.scrollWidth) < 1;
+
+    cachedNavContainer.parentElement.classList.toggle("mask-start", isOverflowing && !isAtStart);
+    cachedNavContainer.parentElement.classList.toggle("mask-end", isOverflowing && !isAtEnd);
+}
+
 function initializeNavigation(isAuthenticated = true) {
-    const navLinks = document.querySelectorAll(".nav-link");
-    const sections = document.querySelectorAll(".section");
+    if (!isInitialized) {
+        cachedSections = document.querySelectorAll(".section");
+        cachedNavLinks = document.querySelectorAll(".nav-link");
+        cachedNavContainer = document.querySelector("nav .overflow-x-auto");
 
-    const navContainer = document.querySelector("nav .overflow-x-auto");
+        syncStateFromHash();
 
-    function showSection(sectionId) {
-        sections.forEach((section) => {
-            if (section.id === sectionId) {
-                section.classList.remove("hidden");
-                // Trigger animation replay if needed
-                section.style.animation = "none";
-                void section.offsetHeight; /* trigger reflow */
-                section.style.animation = null;
-            } else {
-                section.classList.add("hidden");
+        cachedNavLinks.forEach((link) => {
+            link.addEventListener("click", (event) => {
+                event.preventDefault();
+                activeSectionId = link.getAttribute("href").substring(1);
+                window.location.hash = activeSectionId;
+                showSection(activeSectionId);
+                updateActiveNavLink(activeSectionId);
+            });
+        });
+
+        window.addEventListener("hashchange", () => {
+            if (syncStateFromHash()) {
+                showSection(activeSectionId);
+                updateActiveNavLink(activeSectionId);
             }
         });
-    }
 
-    function updateActiveNavLink(activeLinkId) {
-        navLinks.forEach((link) => {
-            const isActive = link.getAttribute("href") === `#${activeLinkId}`;
-            link.classList.toggle("active", isActive);
+        if (cachedNavContainer) {
+            cachedNavContainer.addEventListener("scroll", updateOverflowIndicators);
+            window.addEventListener("resize", updateOverflowIndicators);
+            setTimeout(updateOverflowIndicators, 100);
+        }
 
-            // Update the icon/text color inside the active tab
-            if (isActive) {
-                link.classList.add("text-blue-400", "bg-blue-500/10");
-            } else {
-                link.classList.remove("text-blue-400", "bg-blue-500/10");
-            }
-        });
-        if (navContainer) updateOverflowIndicators();
-    }
-
-    function updateOverflowIndicators() {
-        if (!navContainer) return;
-
-        const isOverflowing = navContainer.scrollWidth > navContainer.clientWidth;
-        const isAtStart = navContainer.scrollLeft === 0;
-        const isAtEnd = Math.abs(navContainer.scrollLeft + navContainer.clientWidth - navContainer.scrollWidth) < 1;
-
-        // You can toggle classes here if you want fade masks on the sides
-        navContainer.parentElement.classList.toggle("mask-start", isOverflowing && !isAtStart);
-        navContainer.parentElement.classList.toggle("mask-end", isOverflowing && !isAtEnd);
+        isInitialized = true;
     }
 
     if (isAuthenticated) {
-        const defaultSectionId = "streamSection";
-        showSection(defaultSectionId);
-        updateActiveNavLink(defaultSectionId);
-    }
-
-    navLinks.forEach((link) => {
-        link.addEventListener("click", (event) => {
-            event.preventDefault();
-            const sectionId = link.getAttribute("href").substring(1);
-            showSection(sectionId);
-            updateActiveNavLink(sectionId);
-        });
-    });
-
-    if (navContainer) {
-        navContainer.addEventListener("scroll", updateOverflowIndicators);
-        window.addEventListener("resize", updateOverflowIndicators);
-        // Initial check
-        setTimeout(updateOverflowIndicators, 100);
+        showSection(activeSectionId);
+        updateActiveNavLink(activeSectionId);
     }
 }
 
