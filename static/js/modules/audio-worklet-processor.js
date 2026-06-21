@@ -48,13 +48,45 @@ registerProcessor("client-audio-processor", ClientAudioProcessor);
 class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
-        this.chunks = [];
-        this.chunkIndex = 0;
-        this.sampleIndex = 0;
+
+        const currentSampleRate = globalThis.sampleRate || 48000;
+
+        this.capacity = currentSampleRate * 2;
+        this.buffer = new Float32Array(this.capacity);
+
+        this.readIndex = 0;
+        this.writeIndex = 0;
+        this.samplesAvailable = 0;
+
+        this.targetBufferSamples = Math.floor(currentSampleRate * 0.12);
+
+        this.maxBufferSamples = Math.floor(currentSampleRate * 0.3);
+
+        this.isBuffering = true;
 
         this.port.onmessage = (event) => {
             if (event.data.type === "pcm") {
-                this.chunks.push(event.data.samples);
+                const samples = event.data.samples;
+                const len = samples.length;
+
+                for (let i = 0; i < len; i++) {
+                    this.buffer[this.writeIndex] = samples[i];
+                    this.writeIndex = (this.writeIndex + 1) % this.capacity;
+                }
+
+                this.samplesAvailable += len;
+
+                if (this.samplesAvailable > this.capacity) {
+                    this.readIndex = this.writeIndex;
+                    this.samplesAvailable = this.capacity;
+                }
+
+                if (this.samplesAvailable > this.maxBufferSamples) {
+                    const excess = this.samplesAvailable - this.targetBufferSamples;
+                    this.readIndex = (this.readIndex + excess) % this.capacity;
+                    this.samplesAvailable = this.targetBufferSamples;
+                    this.isBuffering = false;
+                }
             }
         };
     }
@@ -66,30 +98,24 @@ class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
         const channelData = output[0];
         const length = channelData.length;
 
-        for (let i = 0; i < length; i++) {
-            if (this.chunkIndex < this.chunks.length) {
-                const chunk = this.chunks[this.chunkIndex];
-                channelData[i] = chunk[this.sampleIndex];
-                this.sampleIndex++;
-
-                if (this.sampleIndex >= chunk.length) {
-                    this.sampleIndex = 0;
-                    this.chunkIndex++;
-                }
+        if (this.isBuffering) {
+            if (this.samplesAvailable >= this.targetBufferSamples) {
+                this.isBuffering = false;
             } else {
-                channelData[i] = 0.0;
+                for (let i = 0; i < length; i++) channelData[i] = 0.0;
+                return true;
             }
         }
 
-        const maxPendingChunks = 30;
-        if (this.chunks.length - this.chunkIndex > maxPendingChunks) {
-            this.chunkIndex = this.chunks.length - 10;
-            this.sampleIndex = 0;
-        }
-
-        if (this.chunkIndex > 64) {
-            this.chunks.splice(0, this.chunkIndex);
-            this.chunkIndex = 0;
+        for (let i = 0; i < length; i++) {
+            if (this.samplesAvailable > 0) {
+                channelData[i] = this.buffer[this.readIndex];
+                this.readIndex = (this.readIndex + 1) % this.capacity;
+                this.samplesAvailable--;
+            } else {
+                channelData[i] = 0.0;
+                this.isBuffering = true;
+            }
         }
 
         return true;
