@@ -257,12 +257,12 @@ class AudioManager {
             }
         }
 
-        if (!isResetting && this.audioContext) {
+        this.streamActive[type] = false;
+
+        if (!isResetting && !this.streamActive["server"] && !this.streamActive["client"] && this.audioContext) {
             await this.audioContext.close();
             this.audioContext = null;
         }
-
-        this.streamActive[type] = false;
     }
 
     cleanupWorklet() {
