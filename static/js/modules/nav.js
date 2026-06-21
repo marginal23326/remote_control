@@ -84,11 +84,19 @@ function initializeNavigation(isAuthenticated = true) {
         }
 
         isInitialized = true;
-    }
 
-    if (isAuthenticated) {
-        showSection(activeSectionId);
-        updateActiveNavLink(activeSectionId);
+        if (isAuthenticated) {
+            showSection(activeSectionId);
+            updateActiveNavLink(activeSectionId);
+        }
+    } else {
+        if (isAuthenticated) {
+            window.dispatchEvent(
+                new CustomEvent("sectionchange", {
+                    detail: { activeSectionId: activeSectionId },
+                }),
+            );
+        }
     }
 }
 

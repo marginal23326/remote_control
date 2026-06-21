@@ -22,19 +22,20 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
         "systemSection",
         "processSection",
     ];
-    sections.forEach((sectionId) => {
-        const section = document.getElementById(sectionId);
-        section.classList.toggle("hidden", !isAuthenticated);
-    });
 
     const logoutButton = document.getElementById("logoutButton");
     logoutButton.classList.toggle("hidden", !isAuthenticated);
 
-    if (!isAuthenticated && window.location.pathname !== "/login") {
-        window.location.href = "/login";
+    if (!isAuthenticated) {
+        sections.forEach((sectionId) => {
+            document.getElementById(sectionId).classList.add("hidden");
+        });
+        if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+        }
+    } else {
+        initializeNavigation(isAuthenticated);
     }
-
-    initializeNavigation(isAuthenticated);
 }
 
 (async function () {
