@@ -17,7 +17,35 @@ function initializeTaskManager(socket) {
         }
     }
 
-    const taskManager = new BaseTaskManager({ onKillProcess: killProcess });
+    const taskManager = new BaseTaskManager({
+        onKillProcess: killProcess,
+        getContextMenuItems: (defaultItems, selectedItems) => {
+            const items = [];
+
+            if (selectedItems.length === 1) {
+                items.push({
+                    label: "Process Details",
+                    action: async () => {
+                        const pid = selectedItems[0].dataset.pid;
+                        try {
+                            const res = await apiCall(`/api/tasks/${pid}`);
+                            const d = res.data;
+                            let msg =
+                                `Process: ${d.name} (PID: ${d.pid})\n` + `Memory: ${d.rss_memory_mb.toFixed(2)} MB`;
+                            if (d.rss_memory_mb !== d.exact_memory_mb) {
+                                msg += `\nAccurate (PSS): ${d.exact_memory_mb.toFixed(2)} MB`;
+                            }
+                            alert(msg);
+                        } catch (err) {
+                            alert("Failed to get details: " + err.message);
+                        }
+                    },
+                });
+            }
+
+            return [...items, ...defaultItems];
+        },
+    });
 
     function renderTaskList(newProcesses) {
         processes = newProcesses;

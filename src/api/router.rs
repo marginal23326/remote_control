@@ -6,7 +6,7 @@ use crate::api::{
     middleware::auth_middleware,
     stream::{get_settings_handler, stop_stream_handler, update_settings_handler},
     system::get_system_info_handler,
-    tasks::kill_process_handler,
+    tasks::{get_process_details_handler, kill_process_handler},
 };
 use crate::state::SharedState;
 use crate::utils::auth::{extract_token_from_cookie, verify_jwt};
@@ -79,6 +79,7 @@ pub fn create_router(state: SharedState) -> Router {
         .route("/upload", post(upload_handler).layer(DefaultBodyLimit::disable()))
         .route("/download", get(download_handler))
         .route("/tasks/kill", post(kill_process_handler))
+        .route("/tasks/{pid}", get(get_process_details_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Serve assets at /assets path (Vite builds with /assets/* references)

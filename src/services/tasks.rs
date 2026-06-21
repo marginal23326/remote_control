@@ -12,6 +12,15 @@ pub struct ProcessDTO {
     pub ppid: Option<u32>,
 }
 
+#[derive(Serialize)]
+pub struct ProcessDetailsDTO {
+    pub pid: u32,
+    pub name: String,
+    pub rss_memory_mb: f64,
+    pub exact_memory_mb: f64,
+    pub command_line: String,
+}
+
 pub struct TaskManager {
     sys: Arc<RwLock<System>>,
     last_refresh: RwLock<std::time::Instant>,
@@ -57,14 +66,9 @@ impl TaskManager {
                 let status_path = format!("/proc/{}/status", pid_u32);
                 if let Ok(content) = std::fs::read_to_string(&status_path) {
                     let mut tgid = None;
-                    let mut vmrss_kb = None;
                     for line in content.lines() {
                         if line.starts_with("Tgid:") {
                             tgid = line.split_whitespace().nth(1).and_then(|s| s.parse::<u32>().ok());
-                        } else if line.starts_with("VmRSS:") {
-                            vmrss_kb = line.split_whitespace().nth(1).and_then(|s| s.parse::<f64>().ok());
-                        }
-                        if tgid.is_some() && vmrss_kb.is_some() {
                             break;
                         }
                     }
@@ -73,25 +77,6 @@ impl TaskManager {
                         && t != pid_u32
                     {
                         continue;
-                    }
-
-                    let mut memory_found = false;
-                    if let Ok(smaps) = std::fs::read_to_string(format!("/proc/{}/smaps_rollup", pid_u32)) {
-                        for line in smaps.lines() {
-                            if line.starts_with("Pss:") {
-                                if let Some(kb_str) = line.split_whitespace().nth(1)
-                                    && let Ok(kb) = kb_str.parse::<f64>()
-                                {
-                                    mem_mb = kb / 1024.0;
-                                    memory_found = true;
-                                }
-                                break;
-                            }
-                        }
-                    }
-
-                    if !memory_found && let Some(kb) = vmrss_kb {
-                        mem_mb = kb / 1024.0;
                     }
                 }
             }
@@ -120,6 +105,48 @@ impl TaskManager {
         });
 
         result
+    }
+
+    pub fn get_process_details(&self, pid: u32) -> Result<ProcessDetailsDTO> {
+        let sys = self.sys.read().unwrap();
+        let proc = sys
+            .process(Pid::from_u32(pid))
+            .ok_or_else(|| anyhow!("Process not found"))?;
+
+        let rss_memory_mb = proc.memory() as f64 / 1024.0 / 1024.0;
+        #[allow(unused_mut)]
+        let mut exact_memory_mb = rss_memory_mb;
+
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(smaps) = std::fs::read_to_string(format!("/proc/{}/smaps_rollup", pid)) {
+                for line in smaps.lines() {
+                    if line.starts_with("Pss:") {
+                        if let Some(kb_str) = line.split_whitespace().nth(1)
+                            && let Ok(kb) = kb_str.parse::<f64>()
+                        {
+                            exact_memory_mb = kb / 1024.0;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        let command_line = proc
+            .cmd()
+            .iter()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Ok(ProcessDetailsDTO {
+            pid,
+            name: proc.name().to_string_lossy().to_string(),
+            rss_memory_mb,
+            exact_memory_mb,
+            command_line,
+        })
     }
 
     pub fn kill_process(&self, pid: u32) -> Result<()> {

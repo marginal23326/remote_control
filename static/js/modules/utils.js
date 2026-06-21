@@ -594,21 +594,33 @@ class BaseFileManager extends UIManager {
 class BaseTaskManager extends UIManager {
     constructor(config = {}) {
         const onKillProcess = config.onKillProcess || (() => {});
+        const customGetMenuItems = config.getContextMenuItems;
         super({
             containerSelector: "#taskList",
             itemDataAttribute: "pid",
             getItemId: (element) => element.dataset.pid,
             isItemSelectable: (_element) => true,
-            getContextMenuItems: () => [
-                {
-                    label: "End Task",
-                    action: () => {
-                        this.getSelectedItems().forEach((item) => {
-                            onKillProcess(parseInt(item.dataset.pid));
-                        });
-                    },
-                },
-            ],
+            getContextMenuItems: () => {
+                const selected = this.getSelectedItems();
+                const defaultItems =
+                    selected.length > 0
+                        ? [
+                              {
+                                  label: "End Task",
+                                  action: () => {
+                                      selected.forEach((item) => {
+                                          onKillProcess(parseInt(item.dataset.pid));
+                                      });
+                                  },
+                              },
+                          ]
+                        : [];
+
+                if (customGetMenuItems) {
+                    return customGetMenuItems(defaultItems, selected);
+                }
+                return defaultItems;
+            },
             onSelectionChange: (selectedItems) => {
                 const endTaskContainer = document.getElementById("endTaskContainer");
                 if (!this.isDragging) {
