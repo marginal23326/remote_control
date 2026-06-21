@@ -18,8 +18,11 @@ use windows as backend;
 pub struct AudioManager {
     server_is_running: Arc<AtomicBool>,
     server_thread: Mutex<Option<thread::JoinHandle<()>>>,
+    server_owner: Mutex<Option<String>>,
+
     client_is_running: Arc<AtomicBool>,
     client_thread: Mutex<Option<thread::JoinHandle<()>>>,
+    client_owner: Mutex<Option<String>>,
     client_audio_buffer: Arc<ArrayQueue<f32>>,
 }
 
@@ -34,8 +37,10 @@ impl AudioManager {
         Self {
             server_is_running: Arc::new(AtomicBool::new(false)),
             server_thread: Mutex::new(None),
+            server_owner: Mutex::new(None),
             client_is_running: Arc::new(AtomicBool::new(false)),
             client_thread: Mutex::new(None),
+            client_owner: Mutex::new(None),
             client_audio_buffer: Arc::new(ArrayQueue::new(48000 * 2)),
         }
     }
@@ -43,6 +48,7 @@ impl AudioManager {
     pub fn start_server_stream(&self, socket: SocketRef, source: String, rate: u32) -> Result<(), String> {
         self.stop_server_stream();
 
+        *self.server_owner.lock().unwrap() = Some(socket.id.to_string());
         self.server_is_running.store(true, Ordering::SeqCst);
         let is_running = self.server_is_running.clone();
 
@@ -58,6 +64,7 @@ impl AudioManager {
 
     pub fn stop_server_stream(&self) {
         self.server_is_running.store(false, Ordering::SeqCst);
+        *self.server_owner.lock().unwrap() = None;
 
         if let Some(handle) = self.server_thread.lock().unwrap().take() {
             tokio::task::block_in_place(move || {
@@ -66,9 +73,16 @@ impl AudioManager {
         }
     }
 
-    pub fn start_client_playback(&self, rate: u32) -> Result<(), String> {
+    pub fn stop_server_stream_if_owner(&self, owner_id: &str) {
+        if self.server_owner.lock().unwrap().as_deref() == Some(owner_id) {
+            self.stop_server_stream();
+        }
+    }
+
+    pub fn start_client_playback(&self, owner_id: String, rate: u32) -> Result<(), String> {
         self.stop_client_playback();
 
+        *self.client_owner.lock().unwrap() = Some(owner_id);
         self.client_is_running.store(true, Ordering::SeqCst);
         let is_running = self.client_is_running.clone();
         let queue = self.client_audio_buffer.clone();
@@ -96,6 +110,7 @@ impl AudioManager {
 
     pub fn stop_client_playback(&self) {
         self.client_is_running.store(false, Ordering::SeqCst);
+        *self.client_owner.lock().unwrap() = None;
 
         if let Some(handle) = self.client_thread.lock().unwrap().take() {
             tokio::task::block_in_place(move || {
@@ -104,5 +119,16 @@ impl AudioManager {
         }
 
         while self.client_audio_buffer.pop().is_some() {}
+    }
+
+    pub fn stop_client_playback_if_owner(&self, owner_id: &str) {
+        if self.client_owner.lock().unwrap().as_deref() == Some(owner_id) {
+            self.stop_client_playback();
+        }
+    }
+
+    pub fn disconnect_if_owner(&self, owner_id: &str) {
+        self.stop_server_stream_if_owner(owner_id);
+        self.stop_client_playback_if_owner(owner_id);
     }
 }

@@ -210,6 +210,7 @@ pub struct ScreenManager {
     pub encoder_property_constraints: Arc<Mutex<HashMap<String, EncoderPropertyConstraint>>>,
     pub(crate) inner: Mutex<Option<InnerState>>,
     is_running: Arc<AtomicBool>,
+    owner_id: Mutex<Option<String>>,
 }
 
 pub(crate) struct InnerState {
@@ -250,6 +251,7 @@ impl ScreenManager {
             encoder_property_constraints: Arc::new(Mutex::new(HashMap::new())),
             is_running: Arc::new(AtomicBool::new(false)),
             inner: Mutex::new(None),
+            owner_id: Mutex::new(None),
         }
     }
 
@@ -266,6 +268,8 @@ impl ScreenManager {
             tracing::warn!("start_stream: already running");
             return Err(anyhow::anyhow!("Stream is already active on another client"));
         }
+
+        *self.owner_id.lock().unwrap() = Some(socket.id.to_string());
 
         let mut startup_guard = StreamGuard {
             is_running: self.is_running.clone(),
@@ -781,6 +785,8 @@ impl ScreenManager {
 
     pub fn stop_stream(&self) {
         self.is_running.store(false, Ordering::SeqCst);
+        *self.owner_id.lock().unwrap() = None;
+
         if let Some(state) = self.inner.lock().unwrap().take() {
             let _ = state.cmd_tx.send(GstCommand::Stop);
 
@@ -798,6 +804,12 @@ impl ScreenManager {
         tokio::spawn(async move {
             linux::portal_session().close().await;
         });
+    }
+
+    pub fn disconnect_if_owner(&self, owner_id: &str) {
+        if self.owner_id.lock().unwrap().as_deref() == Some(owner_id) {
+            self.stop_stream();
+        }
     }
 
     pub fn update_settings(&self, bitrate: u32, resolution: u8) {
