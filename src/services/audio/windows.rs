@@ -58,6 +58,7 @@ pub(crate) fn server_loop(
 
     let mut sample_queue = VecDeque::new();
     let chunksize = 1024;
+    let mut pcm = Vec::with_capacity(chunksize * 2);
 
     loop {
         if !is_running.load(Ordering::SeqCst) {
@@ -70,7 +71,7 @@ pub(crate) fn server_loop(
         }
 
         while sample_queue.len() >= blockalign * chunksize {
-            let mut pcm = Vec::with_capacity(chunksize * 2);
+            pcm.clear();
 
             for _ in 0..chunksize {
                 let mut sum = 0.0;
