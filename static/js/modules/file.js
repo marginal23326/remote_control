@@ -5,7 +5,7 @@ import { LoadingButton } from "./dom.js";
 class FileManager extends BaseFileManager {
     constructor() {
         super();
-        this.currentPath = "/";
+        this.currentPath = "";
         this.currentFileList = [];
         this.buttons = {};
         this.dropZone = null;
@@ -156,7 +156,7 @@ class FileManager extends BaseFileManager {
     async updateFileList(items, highlightPath = null) {
         const fragment = document.createDocumentFragment();
 
-        if (this.currentPath !== "/") {
+        if (this.currentPath !== "") {
             const upRow = this.createUpDirectoryRow(this.currentPath, () => this.listFiles(this.getParentPath()));
             fragment.appendChild(upRow);
         }
@@ -240,7 +240,7 @@ class FileManager extends BaseFileManager {
     getParentPath() {
         const path = this.currentPath;
 
-        if (path.match(/^[A-Z]:\\$/)) return "/";
+        if (path.match(/^[A-Z]:\\$/) || path === "/") return "";
 
         const cleaned = path.replace(/[\\/]$/, "");
         const lastSlash = cleaned.lastIndexOf("/");
@@ -275,7 +275,7 @@ class FileManager extends BaseFileManager {
                 fileList.querySelector("td").textContent = errorMsg;
 
                 // Allow going back up even if current view failed
-                if (path !== "/") {
+                if (path !== "") {
                     const upRow = this.createUpDirectoryRow(path, () => this.listFiles(this.getParentPath()));
                     // Prepend the back button so it's always available
                     fileList.insertBefore(upRow, fileList.firstChild);

@@ -101,7 +101,7 @@ pub async fn list_files_handler(State(state): State<SharedState>, Query(q): Quer
 
     let result = tokio::task::spawn_blocking(move || {
         if let Some(path) = q.path {
-            if path == "/" || path.is_empty() {
+            if path.is_empty() {
                 Ok(json!(files.get_drives()))
             } else {
                 match files.list_directory(&path) {
