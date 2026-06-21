@@ -50,6 +50,12 @@ struct TaskPollTask {
     handle: AbortHandle,
 }
 
+#[derive(Debug, Clone)]
+struct ActiveServerAudioMarker;
+
+#[derive(Debug, Clone)]
+struct ActiveClientAudioMarker;
+
 #[derive(Deserialize, Debug)]
 pub struct AudioConfig {
     pub source: Option<String>,
@@ -141,8 +147,13 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
         state.screen.stop_stream();
     }
 
-    state.audio.stop_server_stream();
-    state.audio.stop_client_playback();
+    if socket.extensions.remove::<ActiveServerAudioMarker>().is_some() {
+        state.audio.stop_server_stream();
+    }
+
+    if socket.extensions.remove::<ActiveClientAudioMarker>().is_some() {
+        state.audio.stop_client_playback();
+    }
 
     let input = state.input.clone();
     tokio::spawn(async move {
@@ -217,28 +228,40 @@ pub async fn handle_start_server_audio(
     let source = data.source.unwrap_or("mic".to_string());
     let rate = data.rate.unwrap_or(48000);
 
-    if let Err(e) = audio.start_server_stream(socket, source, rate) {
+    if let Err(e) = audio.start_server_stream(socket.clone(), source, rate) {
         tracing::error!("Failed to start server audio: {}", e);
+    } else {
+        socket.extensions.insert(ActiveServerAudioMarker);
     }
 }
 
-pub async fn handle_stop_server_audio(State(state): State<SharedState>) {
+pub async fn handle_stop_server_audio(socket: SocketRef, State(state): State<SharedState>) {
     let audio = &state.audio;
-    audio.stop_server_stream();
+    if socket.extensions.remove::<ActiveServerAudioMarker>().is_some() {
+        audio.stop_server_stream();
+    }
 }
 
-pub async fn handle_start_client_audio(Data(data): Data<AudioConfig>, State(state): State<SharedState>) {
+pub async fn handle_start_client_audio(
+    socket: SocketRef,
+    Data(data): Data<AudioConfig>,
+    State(state): State<SharedState>,
+) {
     let audio = &state.audio;
     let rate = data.rate.unwrap_or(48000);
 
     if let Err(e) = audio.start_client_playback(rate) {
         tracing::error!("Failed to start client playback: {}", e);
+    } else {
+        socket.extensions.insert(ActiveClientAudioMarker);
     }
 }
 
-pub async fn handle_stop_client_audio(State(state): State<SharedState>) {
+pub async fn handle_stop_client_audio(socket: SocketRef, State(state): State<SharedState>) {
     let audio = &state.audio;
-    audio.stop_client_playback();
+    if socket.extensions.remove::<ActiveClientAudioMarker>().is_some() {
+        audio.stop_client_playback();
+    }
 }
 
 pub async fn handle_client_audio_data(
