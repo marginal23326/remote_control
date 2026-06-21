@@ -83,7 +83,7 @@ impl ConfigManager {
         io::stdout().flush()?; // Ensure prompt appears before input
         let mut buffer = String::new();
         io::stdin().read_line(&mut buffer)?;
-        Ok(buffer.trim().to_string())
+        Ok(buffer.trim_end_matches(['\r', '\n']).to_string())
     }
 
     fn prompt_password() -> Result<String> {
