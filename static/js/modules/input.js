@@ -269,8 +269,8 @@ function initializeInputHandlers(socket) {
         if (!streamActive) return;
 
         // Normalize coordinates
-        const clientX = event.touches ? event.clientX : event.clientX;
-        const clientY = event.touches ? event.clientY : event.clientY;
+        const clientX = event.clientX;
+        const clientY = event.clientY;
 
         const dimensions = calculateStreamDimensions();
 
