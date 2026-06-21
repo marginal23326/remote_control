@@ -170,6 +170,7 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
     }
 
     let socket_clone = socket.clone();
+    let state_clone = state.clone();
 
     // 2. Spawn the task and get the JoinHandle
     let join_handle = tokio::spawn(async move {
@@ -178,10 +179,12 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
         loop {
             interval.tick().await;
 
-            let data = {
-                let processes = state.tasks.get_processes();
+            let state_bg = state_clone.clone();
 
-                let sys = state.sys.read().unwrap();
+            let data_res = tokio::task::spawn_blocking(move || {
+                let processes = state_bg.tasks.get_processes();
+
+                let sys = state_bg.sys.read().unwrap();
                 let total_mem = sys.total_memory() as f64;
                 let used_mem = sys.used_memory() as f64;
                 let mem_pct = if total_mem > 0.0 {
@@ -197,10 +200,15 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
                     "total_cpu_usage": cpu_global,
                     "total_memory_percentage": mem_pct
                 })
-            };
+            })
+            .await;
 
-            // If emit fails (socket closed), break the loop
-            if socket_clone.emit("task_list", &data).is_err() {
+            // If emit fails (socket closed or blocking task panicked), break the loop
+            if let Ok(data) = data_res {
+                if socket_clone.emit("task_list", &data).is_err() {
+                    break;
+                }
+            } else {
                 break;
             }
         }
