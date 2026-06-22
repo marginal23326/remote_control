@@ -72,7 +72,11 @@ class FileManager extends BaseFileManager {
                     const fileInput = document.getElementById("fileUpload");
                     if (fileInput) fileInput.value = "";
                     const label = document.getElementById("selectedFileName");
-                    if (label) label.textContent = "No file chosen";
+                    if (label) {
+                        label.textContent = "No file chosen";
+                        label.classList.remove("text-green-400");
+                        label.classList.add("text-gray-400");
+                    }
                 }
             });
         } finally {
