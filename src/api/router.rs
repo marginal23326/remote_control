@@ -88,10 +88,12 @@ pub fn create_router(state: SharedState) -> Router {
     let assets_routes = Router::new()
         .fallback_service(serve_assets)
         .layer(middleware::map_response(|mut res: Response| async move {
-            res.headers_mut().insert(
-                header::CACHE_CONTROL,
-                "public, max-age=2592000, immutable".parse().unwrap(),
-            );
+            if res.status().is_success() {
+                res.headers_mut().insert(
+                    header::CACHE_CONTROL,
+                    "public, max-age=2592000, immutable".parse().unwrap(),
+                );
+            }
             res
         }));
 
