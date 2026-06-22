@@ -227,6 +227,26 @@ function initializeStream(sessionId, socket) {
     socket.on("active_window", (data) => {
         streamUI.updateMeta({ win: data.title });
     });
+
+    let wasStreamActive = false;
+
+    socket.on("disconnect", () => {
+        if (streamActive) {
+            wasStreamActive = true;
+            streamActive = false;
+
+            cleanupPeerConnection();
+        }
+    });
+
+    socket.on("connect", () => {
+        if (wasStreamActive) {
+            wasStreamActive = false;
+            streamActive = true;
+
+            socket.emit("start_stream", { sessionId });
+        }
+    });
 }
 
 function cleanupPeerConnection() {

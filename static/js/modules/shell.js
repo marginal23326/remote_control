@@ -166,6 +166,27 @@ export class InteractiveShell {
             this.isStarted = false;
         });
 
+        // --- Handle Network Drops ---
+        let wasStarted = false;
+
+        this.socket.on("disconnect", () => {
+            if (this.isStarted) {
+                wasStarted = true;
+                this.isStarted = false;
+                this.sessionId = null;
+
+                this.terminal.writeln("\r\n\x1b[33m[Connection lost]\x1b[0m\r\n");
+            }
+        });
+
+        this.socket.on("connect", () => {
+            if (wasStarted) {
+                wasStarted = false;
+                this.terminal.writeln("\r\n\x1b[32m[Reconnected]\x1b[0m\r\n");
+                this.createShellSession();
+            }
+        });
+
         // 3. Data: Output from Server (Pushed instantly)
         this.socket.on("shell_output", (data) => {
             // Check if this output belongs to our current session

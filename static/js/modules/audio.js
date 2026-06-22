@@ -20,6 +20,10 @@ class AudioManager {
             server: false,
             client: false,
         };
+        this.wasActive = {
+            server: false,
+            client: false,
+        };
 
         this.handleServerAudioData = this.handleServerAudioData.bind(this);
         this.initializeEventListeners();
@@ -90,7 +94,9 @@ class AudioManager {
 
             await this.stopAudioStream(type, true);
 
-            const targetRate = settings.rate || 48000;
+            this.currentSettings[type] = { ...this.currentSettings[type], ...settings };
+
+            const targetRate = this.currentSettings[type].rate || 48000;
 
             if (type === "client") {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -307,6 +313,28 @@ class AudioManager {
 
         document.getElementById("stopClientAudio").addEventListener("click", () => {
             this.stopAudioStream("client");
+        });
+
+        this.socket.on("disconnect", () => {
+            if (this.streamActive.server) {
+                this.wasActive.server = true;
+                this.stopAudioStream("server", true);
+            }
+            if (this.streamActive.client) {
+                this.wasActive.client = true;
+                this.stopAudioStream("client", true);
+            }
+        });
+
+        this.socket.on("connect", () => {
+            if (this.wasActive.server) {
+                this.wasActive.server = false;
+                this.startAudioStream("server", this.currentSettings.server);
+            }
+            if (this.wasActive.client) {
+                this.wasActive.client = false;
+                this.startAudioStream("client", this.currentSettings.client);
+            }
         });
     }
 }
