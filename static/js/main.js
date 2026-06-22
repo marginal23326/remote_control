@@ -69,7 +69,8 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
         e.preventDefault();
         const response = await fetch("/logout");
         if (response.ok) {
-            updateUIBasedOnAuthentication(false); // Update UI for logged-out state
+            socket.disconnect();
+            updateUIBasedOnAuthentication(false);
         }
     });
 })();
