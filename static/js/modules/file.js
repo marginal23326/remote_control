@@ -164,7 +164,7 @@ class FileManager extends BaseFileManager {
         items.forEach((item) => {
             const row = this.createTableRow(item, item.no_access ? CLASSES.noAccess : []);
 
-            if (item.is_dir && !item.no_access) {
+            if (item.is_dir) {
                 row.addEventListener("dblclick", () => this.listFiles(item.path));
             }
 
@@ -228,8 +228,7 @@ class FileManager extends BaseFileManager {
         const iconTemplate = item.is_dir ? SVG_TEMPLATES.folder : SVG_TEMPLATES.file;
         const icon = item.is_dir && item.no_access ? iconTemplate("text-gray-500") : iconTemplate();
         const safeName = escapeHtml(item.name);
-        const nameContent = item.no_access ? `${safeName} (Requires Admin)` : safeName;
-        return `<div class="flex items-center gap-2">${icon}${nameContent}</div>`;
+        return `<div class="flex items-center gap-2">${icon}${safeName}</div>`;
     }
 
     getSeparator() {

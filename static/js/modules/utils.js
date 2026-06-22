@@ -77,7 +77,7 @@ const SVG_TEMPLATES = {
 const CLASSES = {
     row: ["cursor-pointer"],
     cell: ["px-2", "whitespace-nowrap"],
-    noAccess: ["opacity-50", "cursor-not-allowed"],
+    noAccess: ["opacity-50"],
     highlight: "bg-yellow-400/30",
     defaultHover: "hover:bg-gray-700/50",
 };
@@ -557,7 +557,7 @@ class BaseFileManager extends UIManager {
             containerSelector: "#fileList",
             itemDataAttribute: "path",
             getItemId: (element) => element.dataset.path,
-            isItemSelectable: (element) => !CLASSES.noAccess.every((cls) => element.classList.contains(cls)),
+            isItemSelectable: () => true,
             getContextMenuItems: (context) => {
                 const selectedItems = context?.selectedItems || this.getSelectedItems();
                 if (!selectedItems.length) return [];
