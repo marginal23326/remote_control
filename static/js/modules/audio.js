@@ -74,29 +74,20 @@ class AudioManager {
         }
     }
 
-    async updateSettings(settings) {
-        const type = settings.type;
-        const needsReset = JSON.stringify(this.currentSettings[type]) !== JSON.stringify(settings);
-
-        if (needsReset) {
-            await this.stopAudioStream(type, true);
-            this.currentSettings[type] = { ...settings };
-        }
-
-        return needsReset;
-    }
-
     async startAudioStream(type, settings = {}) {
         try {
-            if (this.streamActive[type] && !(await this.updateSettings({ ...settings, type }))) {
-                return;
+            const targetSettings = { ...this.currentSettings[type], ...settings };
+            const settingsChanged = JSON.stringify(this.currentSettings[type]) !== JSON.stringify(targetSettings);
+
+            if (this.streamActive[type]) {
+                if (!settingsChanged) {
+                    return;
+                }
+                await this.stopAudioStream(type, true);
             }
 
-            await this.stopAudioStream(type, true);
-
-            this.currentSettings[type] = { ...this.currentSettings[type], ...settings };
-
-            const targetRate = this.currentSettings[type].rate || 48000;
+            this.currentSettings[type] = targetSettings;
+            const targetRate = targetSettings.rate || 48000;
 
             if (type === "client") {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -120,7 +111,7 @@ class AudioManager {
                 if (!this.currentStream) throw new Error("Microphone access denied");
 
                 await this.initializeAudioWorklet();
-                this.setupWorkletNode(settings.chunk || 4096);
+                this.setupWorkletNode(targetSettings.chunk || 4096);
 
                 const source = this.audioContext.createMediaStreamSource(this.currentStream);
                 source.connect(this.workletNode);
@@ -163,7 +154,7 @@ class AudioManager {
                 this.socket.on("server_audio_data", this.handleServerAudioData);
             }
 
-            this.socket.emit(`start_${type}_audio`, settings);
+            this.socket.emit(`start_${type}_audio`, targetSettings);
             this.streamActive[type] = true;
         } catch (error) {
             console.error(`Error starting ${type} audio:`, error);
