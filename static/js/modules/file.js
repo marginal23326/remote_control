@@ -193,7 +193,7 @@ class FileManager extends BaseFileManager {
 
         this.currentFileList = items;
         this.filteredRows.clear();
-        this.filterFiles("");
+        this.filterFiles(this.elements.searchInput?.value || "");
     }
 
     filterFiles(searchTerm) {
