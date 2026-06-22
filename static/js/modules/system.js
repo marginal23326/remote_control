@@ -43,4 +43,10 @@ async function updateSystemInfo() {
     systemInfoDiv.textContent = formattedInfo;
 }
 
+window.addEventListener("sectionchange", (event) => {
+    if (event.detail.activeSectionId === "systemSection") {
+        updateSystemInfo();
+    }
+});
+
 export { updateSystemInfo };

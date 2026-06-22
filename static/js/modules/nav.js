@@ -65,7 +65,6 @@ function initializeNavigation(isAuthenticated = true) {
                 event.preventDefault();
                 activeSectionId = link.getAttribute("href").substring(1);
                 window.location.hash = activeSectionId;
-                showSection(activeSectionId);
                 updateActiveNavLink(activeSectionId);
             });
         });
