@@ -455,7 +455,7 @@ function renderEncoderProperties() {
             }
         });
         const valInput = row.querySelector(".prop-val");
-        if (valInput && valInput.tagName === "INPUT" && valInput.type !== "checkbox") {
+        if (valInput && valInput.tagName === "INPUT") {
             valInput.addEventListener("change", () => {
                 encoderProperties[key] = getValFromInput(valInput);
             });
