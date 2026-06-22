@@ -20,9 +20,60 @@ pub struct ProcessDetailsDTO {
     pub exact_memory_mb: f64,
 }
 
+// sysinfo's global_cpu_usage() is unreliable on Windows, so we sample directly.
+#[cfg(target_os = "windows")]
+struct CpuTracker {
+    prev_total: u64,
+    prev_busy: u64,
+}
+
+#[cfg(target_os = "windows")]
+impl CpuTracker {
+    fn new() -> Self {
+        Self {
+            prev_total: 0,
+            prev_busy: 0,
+        }
+    }
+
+    fn sample(&mut self) -> f32 {
+        use std::mem;
+        use windows::Win32::System::Threading::GetSystemTimes;
+
+        unsafe {
+            let (mut idle, mut kernel, mut user) = (mem::zeroed(), mem::zeroed(), mem::zeroed());
+            let _ = GetSystemTimes(Some(&mut idle), Some(&mut kernel), Some(&mut user));
+
+            let idle = ((idle.dwHighDateTime as u64) << 32) | (idle.dwLowDateTime as u64);
+            let kernel = ((kernel.dwHighDateTime as u64) << 32) | (kernel.dwLowDateTime as u64);
+            let user = ((user.dwHighDateTime as u64) << 32) | (user.dwLowDateTime as u64);
+            let total = kernel + user;
+            let busy = total - idle;
+
+            let result = if self.prev_total == 0 {
+                0.0
+            } else {
+                let dt_total = total.saturating_sub(self.prev_total);
+                let dt_busy = busy.saturating_sub(self.prev_busy);
+                if dt_total == 0 {
+                    0.0
+                } else {
+                    (dt_busy as f64 / dt_total as f64 * 100.0) as f32
+                }
+            };
+
+            self.prev_total = total;
+            self.prev_busy = busy;
+            result
+        }
+    }
+}
+
 pub struct TaskManager {
     sys: Arc<RwLock<System>>,
     last_refresh: RwLock<std::time::Instant>,
+    #[cfg(target_os = "windows")]
+    cpu_tracker: std::sync::Mutex<CpuTracker>,
 }
 
 impl TaskManager {
@@ -34,7 +85,14 @@ impl TaskManager {
                     .checked_sub(std::time::Duration::from_secs(10))
                     .unwrap(),
             ),
+            #[cfg(target_os = "windows")]
+            cpu_tracker: std::sync::Mutex::new(CpuTracker::new()),
         }
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn cpu_usage(&self) -> f32 {
+        self.cpu_tracker.lock().unwrap().sample()
     }
 
     pub fn get_processes(&self) -> Vec<ProcessDTO> {

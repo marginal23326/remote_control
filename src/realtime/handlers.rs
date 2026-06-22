@@ -167,7 +167,19 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
             let data_res = tokio::task::spawn_blocking(move || {
                 let processes = state_bg.tasks.get_processes();
 
-                let sys = state_bg.sys.read().unwrap();
+                let mut sys = state_bg.sys.write().unwrap();
+
+                #[cfg(target_os = "windows")]
+                let cpu_global = state_bg.tasks.cpu_usage();
+
+                #[cfg(target_os = "linux")]
+                let cpu_global = {
+                    sys.refresh_cpu_usage();
+                    sys.global_cpu_usage()
+                };
+
+                sys.refresh_memory();
+
                 let total_mem = sys.total_memory() as f64;
                 let used_mem = sys.used_memory() as f64;
                 let mem_pct = if total_mem > 0.0 {
@@ -175,8 +187,6 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
                 } else {
                     0.0
                 };
-
-                let cpu_global = sys.global_cpu_usage();
 
                 json!({
                     "processes": processes,
