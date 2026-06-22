@@ -276,7 +276,8 @@ class FileManager extends BaseFileManager {
 
                 // Allow going back up even if current view failed
                 if (path !== "") {
-                    const upRow = this.createUpDirectoryRow(path, () => this.listFiles(this.getParentPath()));
+                    const previousPath = this.currentPath;
+                    const upRow = this.createUpDirectoryRow(path, () => this.listFiles(previousPath));
                     // Prepend the back button so it's always available
                     fileList.insertBefore(upRow, fileList.firstChild);
                 }
