@@ -64,6 +64,7 @@ impl FileManager {
         let read_dir = fs::read_dir(path).map_err(|e| anyhow!("Access denied: {}", e))?;
 
         for entry in read_dir.flatten() {
+            let file_type = entry.file_type().ok();
             let metadata_res = entry.metadata();
 
             // If we can't get metadata, use defaults
@@ -75,7 +76,8 @@ impl FileManager {
                     .map(|ts| ts.to_string());
                 (meta.is_dir(), meta.len(), date)
             } else {
-                (false, 0, None)
+                let is_dir = file_type.map(|ft| ft.is_dir()).unwrap_or(false);
+                (is_dir, 0, None)
             };
 
             let full_path_buf = entry.path();
