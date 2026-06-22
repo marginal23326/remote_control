@@ -54,9 +54,14 @@ pub async fn update_settings_handler(
 ) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
 
+    let (current_bitrate, current_res) = {
+        let s = screen.settings.lock().unwrap();
+        (s.bitrate, s.resolution_percentage)
+    };
+
     screen.update_settings(
-        payload.bitrate.unwrap_or(5000),
-        payload.resolution_percentage.unwrap_or(100),
+        payload.bitrate.unwrap_or(current_bitrate),
+        payload.resolution_percentage.unwrap_or(current_res),
     );
 
     if let Some(fps) = payload.target_fps {
