@@ -30,7 +30,8 @@ pub async fn get_process_details_handler(
 ) -> AppResult<Json<Value>> {
     let details = tokio::task::spawn_blocking(move || state.tasks.get_process_details(pid))
         .await
-        .unwrap()?;
+        .unwrap()
+        .map_err(|_| AppError::NotFound(format!("Process with PID {} not found", pid)))?;
 
     Ok(Json(json!({ "status": "success", "data": details })))
 }
