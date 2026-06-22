@@ -97,6 +97,7 @@ class FileManager extends BaseFileManager {
         if (item) {
             row.dataset.path = item.path;
             row.dataset.isDir = item.is_dir.toString();
+            row.dataset.name = item.name;
         }
 
         ["mouseover", "mouseout"].forEach((event) => {
@@ -137,8 +138,7 @@ class FileManager extends BaseFileManager {
 
         if (selectionCount === 1 && elements.renameInput) {
             const selectedItem = Array.from(this.selectionManager.selectedItems)[0];
-            const nameDiv = selectedItem.querySelector("td:first-child > div");
-            if (nameDiv) elements.renameInput.value = nameDiv.textContent.trim();
+            if (selectedItem.dataset.name) elements.renameInput.value = selectedItem.dataset.name;
         } else if (elements.renameInput) {
             elements.renameInput.value = "";
         }
@@ -201,9 +201,8 @@ class FileManager extends BaseFileManager {
         if (!this.filteredRows.has(normalizedSearch)) {
             const visibilityMap = new Map();
             this.elements.fileList.querySelectorAll("tr[data-path]").forEach((row) => {
-                const nameDiv = row.querySelector("td:first-child > div");
-                if (nameDiv) {
-                    const fileName = nameDiv.textContent.toLowerCase();
+                if (row.dataset.name) {
+                    const fileName = row.dataset.name.toLowerCase();
                     visibilityMap.set(row, fileName.includes(normalizedSearch));
                 }
             });
