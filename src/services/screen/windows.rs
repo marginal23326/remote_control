@@ -46,8 +46,9 @@ pub(crate) async fn start_os_capture(
         *native_size.lock().unwrap() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
     }
 
+    let monitor = Monitor::primary().map_err(|e| anyhow::anyhow!("No primary monitor found: {}", e))?;
+
     thread::spawn(move || {
-        let monitor = Monitor::primary().expect("No primary monitor found");
         let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings, native_size.clone());
 
         let settings = Settings::new(
