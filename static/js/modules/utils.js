@@ -608,9 +608,7 @@ class BaseTaskManager extends UIManager {
                               {
                                   label: "End Task",
                                   action: () => {
-                                      selected.forEach((item) => {
-                                          onKillProcess(parseInt(item.dataset.pid));
-                                      });
+                                      onKillProcess(selected);
                                   },
                               },
                           ]

@@ -8,17 +8,24 @@ function initializeTaskManager(socket) {
 
     const taskList = document.getElementById("taskList");
 
-    async function killProcess(pid) {
-        try {
-            await apiCall("/api/tasks/kill", "POST", { pid });
-        } catch (error) {
-            console.error("Error killing process:", error);
-            alert(error.message);
+    async function killProcesses(items) {
+        if (!items.length) return;
+        const pids = items.map((item) => parseInt(item.dataset.pid));
+        if (!confirm(`Are you sure you want to kill ${pids.length} process(es)?`)) return;
+
+        for (const pid of pids) {
+            try {
+                await apiCall("/api/tasks/kill", "POST", { pid });
+            } catch (error) {
+                console.error("Error killing process:", error);
+                alert(error.message);
+            }
         }
+        document.getElementById("endTaskContainer").classList.add("hidden");
     }
 
     const taskManager = new BaseTaskManager({
-        onKillProcess: killProcess,
+        onKillProcess: killProcesses,
         getContextMenuItems: (defaultItems, selectedItems) => {
             const items = [];
 
@@ -101,12 +108,7 @@ function initializeTaskManager(socket) {
             `;
             endTaskButton.addEventListener("click", () => {
                 const selectedItems = taskManager.getSelectedItems();
-                if (selectedItems.length > 0) {
-                    selectedItems.forEach((item) => {
-                        killProcess(parseInt(item.dataset.pid));
-                    });
-                    document.getElementById("endTaskContainer").classList.add("hidden");
-                }
+                killProcesses(selectedItems);
             });
             endTaskButton.hasListener = true;
         }
