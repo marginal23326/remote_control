@@ -92,8 +92,10 @@ fn parse_disk_info(output: &str) -> String {
                 let gb = bytes / 1024 / 1024 / 1024;
                 disks.push(format!("{} ({}GB)", model, gb));
             } else {
-                disks.push(model);
+                disks.push(trimmed.to_string());
             }
+        } else {
+            disks.push(trimmed.to_string());
         }
     }
     if disks.is_empty() {
