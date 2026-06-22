@@ -12,6 +12,7 @@ use crossbeam_channel::{Sender, bounded};
 
 use gst::prelude::*;
 use gstreamer as gst;
+use gstreamer::glib;
 use gstreamer_app as gst_app;
 use gstreamer_sdp as gst_sdp;
 use gstreamer_webrtc as gst_webrtc;
@@ -351,10 +352,7 @@ impl ScreenManager {
         encoder.set_property_from_str("bitrate", &default_bitrate.to_string());
 
         let encoder_properties = self.settings.lock().unwrap().encoder_properties.clone();
-        for (key, value) in &encoder_properties {
-            tracing::debug!("Setting encoder property {key}={value}");
-            encoder.set_property_from_str(key, value);
-        }
+        apply_encoder_properties(&encoder, &encoder_properties);
 
         pipeline
             .set_state(gst::State::Ready)
@@ -832,17 +830,20 @@ impl ScreenManager {
         s.target_fps = fps.clamp(1, s.max_fps);
     }
 
-    pub fn set_encoder_properties(&self, properties: HashMap<String, String>) {
+    pub fn set_encoder_properties(&self, properties: HashMap<String, String>) -> Vec<String> {
+        let rejected = if let Some(state) = self.inner.lock().unwrap().as_ref() {
+            apply_encoder_properties(&state.encoder, &properties)
+        } else {
+            Vec::new()
+        };
         {
             let mut s = self.settings.lock().unwrap();
-            s.encoder_properties = properties.clone();
-        }
-        if let Some(state) = self.inner.lock().unwrap().as_ref() {
-            for (key, value) in &properties {
-                tracing::debug!("Setting encoder property {key}={value}");
-                state.encoder.set_property_from_str(key, value);
+            s.encoder_properties = properties;
+            for key in &rejected {
+                s.encoder_properties.remove(key);
             }
         }
+        rejected
     }
 }
 
@@ -858,6 +859,31 @@ mod windows;
 #[cfg(windows)]
 #[allow(unused_imports)]
 use windows::{get_active_window_title, get_display_native_size, get_max_fps, start_os_capture};
+
+fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String, String>) -> Vec<String> {
+    let mut rejected = Vec::new();
+    for (key, value) in properties {
+        tracing::trace!("Setting encoder property {key}={value}");
+        let pspec = match encoder.find_property(key) {
+            Some(pspec) => pspec,
+            None => {
+                tracing::warn!("Unknown encoder property: {key}");
+                rejected.push(key.clone());
+                continue;
+            }
+        };
+        match glib::Value::deserialize_with_pspec(value, &pspec) {
+            Ok(v) => {
+                encoder.set_property(key, v);
+            }
+            Err(_) => {
+                tracing::warn!("Invalid value for encoder property {key}: {value}");
+                rejected.push(key.clone());
+            }
+        }
+    }
+    rejected
+}
 
 fn detect_max_fps() -> u64 {
     #[cfg(windows)]
