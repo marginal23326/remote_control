@@ -310,17 +310,33 @@ class FileManager extends BaseFileManager {
         if (selectedItems.length === 0) return;
 
         const paths = selectedItems.map((item) => item.dataset.path);
-        const queryString = paths.map((path) => `paths[]=${encodeURIComponent(path)}`).join("&");
-        const url = `/api/download?${queryString}`;
 
-        const iframe = document.getElementById("global-download-iframe");
+        let iframe = document.getElementById("global-download-iframe");
         if (!iframe) {
-            const el = document.createElement("iframe");
-            el.id = "global-download-iframe";
-            el.style.display = "none";
-            document.body.appendChild(el);
+            iframe = document.createElement("iframe");
+            iframe.id = "global-download-iframe";
+            iframe.name = "global-download-iframe";
+            iframe.style.display = "none";
+            document.body.appendChild(iframe);
         }
-        document.getElementById("global-download-iframe").src = url;
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/api/download";
+        form.target = "global-download-iframe";
+        form.style.display = "none";
+
+        paths.forEach((path) => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "paths[]";
+            input.value = path;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
     }
 
     async handleDelete(selectedItems) {

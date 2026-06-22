@@ -77,7 +77,7 @@ pub fn create_router(state: SharedState) -> Router {
         .route("/delete", post(delete_handler))
         .route("/rename", post(rename_handler))
         .route("/upload", post(upload_handler).layer(DefaultBodyLimit::disable()))
-        .route("/download", get(download_handler))
+        .route("/download", post(download_handler))
         .route("/tasks/kill", post(kill_process_handler))
         .route("/tasks/{pid}", get(get_process_details_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));

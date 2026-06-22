@@ -5,9 +5,10 @@ use axum::{
     Json,
     body::Body,
     extract::{Multipart, Query, State},
-    http::{HeaderMap, Uri, header},
+    http::{HeaderMap, header},
     response::{IntoResponse, Response},
 };
+use axum_extra::extract::Form;
 use futures_util::Stream;
 use mime_guess::from_path;
 use serde::Deserialize;
@@ -29,8 +30,8 @@ pub struct ListQuery {
 }
 
 #[derive(Deserialize)]
-pub struct DownloadQuery {
-    #[serde(default)]
+pub struct DownloadForm {
+    #[serde(default, rename = "paths[]")]
     paths: Vec<String>,
 }
 
@@ -259,12 +260,11 @@ impl Drop for TempFileGuard {
     }
 }
 
-pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> AppResult<Response> {
-    let query_str = uri.query().unwrap_or("");
-    let query: DownloadQuery =
-        serde_qs::from_str(query_str).map_err(|_| AppError::BadRequest("Invalid query parameters".to_string()))?;
-
-    let paths = query.paths;
+pub async fn download_handler(
+    State(_state): State<SharedState>,
+    Form(payload): Form<DownloadForm>,
+) -> AppResult<Response> {
+    let paths = payload.paths;
     if paths.is_empty() {
         return Err(AppError::BadRequest("No files selected".to_string()));
     }
