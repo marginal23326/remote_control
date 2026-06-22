@@ -55,6 +55,11 @@ class FileManager extends BaseFileManager {
     async handleFileUpload(files, isDropZone = false) {
         if (!files.length) return;
 
+        if (!this.currentPath) {
+            alert("Please navigate to a directory before uploading files.");
+            return;
+        }
+
         const formData = new FormData();
         formData.append("path", this.currentPath);
         Array.from(files).forEach((file) => formData.append("files", file));
