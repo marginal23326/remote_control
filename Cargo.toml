@@ -16,6 +16,9 @@ strip = true
 [dependencies]
 # --- Web Server & Async Runtime ---
 axum = { version = "0.8", features = ["ws", "multipart", "macros"] }
+axum-extra = { version = "0.12", default-features = false, features = [
+    "form",
+] } # TODO: remove once axum 0.9 has native Form with serde_html_form
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "trace", "auth"] }
@@ -26,7 +29,6 @@ socketioxide = { version = "0.18", features = ["state", "extensions"] }
 # --- Serialization & Data ---
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_qs = "1.1"
 
 # --- Network ---
 minreq = { version = "2", features = ["https-rustls", "json-using-serde"] }
