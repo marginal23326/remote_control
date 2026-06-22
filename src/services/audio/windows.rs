@@ -73,57 +73,36 @@ pub(crate) fn server_loop(
         while sample_queue.len() >= blockalign * chunksize {
             pcm.clear();
 
-            for _ in 0..chunksize {
+            let flat_slice = sample_queue.make_contiguous();
+            let process_bytes = blockalign * chunksize;
+
+            for frame in flat_slice[..process_bytes].chunks_exact(blockalign) {
                 let mut sum = 0.0;
 
-                for _ in 0..channels {
+                for c in 0..channels {
+                    let offset = c * bytes_per_sample;
+                    let sample = &frame[offset..offset + bytes_per_sample];
+
                     let val = match (sample_type, bytes_per_sample) {
-                        (SampleType::Float, 4) => {
-                            let b = [
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                            ];
-                            f32::from_le_bytes(b)
-                        }
-                        (SampleType::Int, 2) => {
-                            let b = [sample_queue.pop_front().unwrap(), sample_queue.pop_front().unwrap()];
-                            i16::from_le_bytes(b) as f32 / i16::MAX as f32
-                        }
-                        (SampleType::Int, 4) => {
-                            let b = [
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                            ];
-                            i32::from_le_bytes(b) as f32 / i32::MAX as f32
-                        }
+                        (SampleType::Float, 4) => f32::from_le_bytes(sample.try_into().unwrap()),
+                        (SampleType::Int, 2) => i16::from_le_bytes(sample.try_into().unwrap()) as f32 / i16::MAX as f32,
+                        (SampleType::Int, 4) => i32::from_le_bytes(sample.try_into().unwrap()) as f32 / i32::MAX as f32,
                         (SampleType::Int, 3) => {
-                            let b = [
-                                0,
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                                sample_queue.pop_front().unwrap(),
-                            ];
+                            let b = [0, sample[0], sample[1], sample[2]];
                             i32::from_le_bytes(b) as f32 / i32::MAX as f32
                         }
-                        _ => {
-                            for _ in 0..bytes_per_sample {
-                                sample_queue.pop_front().unwrap();
-                            }
-                            0.0
-                        }
+                        _ => 0.0,
                     };
                     sum += val;
                 }
 
-                // Downmix to perfectly centered Mono, compressed to Int16
                 let avg = sum / channels as f32;
                 let s = (avg.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
                 pcm.extend_from_slice(&s.to_le_bytes());
             }
+
+            sample_queue.drain(..process_bytes);
+
             let _ = socket.emit("server_audio_data", &pcm);
         }
 
