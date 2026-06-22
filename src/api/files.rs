@@ -71,6 +71,22 @@ impl<S> Drop for DeleteOnDropStream<S> {
     }
 }
 
+fn systime_to_zip_datetime(systime: std::time::SystemTime) -> Option<zip::DateTime> {
+    use time::OffsetDateTime;
+    let utc_dt: OffsetDateTime = systime.into();
+    let offset = time::UtcOffset::current_local_offset().ok()?;
+    let local_dt = utc_dt.to_offset(offset);
+    zip::DateTime::from_date_and_time(
+        local_dt.year() as u16,
+        local_dt.month() as u8,
+        local_dt.day(),
+        local_dt.hour(),
+        local_dt.minute(),
+        local_dt.second(),
+    )
+    .ok()
+}
+
 fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
     if paths.is_empty() {
         return None;
@@ -329,7 +345,16 @@ pub async fn download_handler(
                         .map(|p| p.to_string_lossy().replace('\\', "/"))
                         .unwrap_or_else(|| path.file_name().unwrap().to_string_lossy().into_owned());
 
-                    if zip.start_file(zip_path_name, options).is_ok()
+                    let last_modified = entry
+                        .metadata()
+                        .ok()
+                        .and_then(|meta| meta.modified().ok())
+                        .and_then(systime_to_zip_datetime)
+                        .unwrap_or_default();
+
+                    let file_options = options.last_modified_time(last_modified);
+
+                    if zip.start_file(zip_path_name, file_options).is_ok()
                         && let Ok(mut f) = std::fs::File::open(path)
                     {
                         let _ = std::io::copy(&mut f, &mut zip);
