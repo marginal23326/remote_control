@@ -18,7 +18,6 @@ pub struct ProcessDetailsDTO {
     pub name: String,
     pub rss_memory_mb: f64,
     pub exact_memory_mb: f64,
-    pub command_line: String,
 }
 
 pub struct TaskManager {
@@ -133,19 +132,11 @@ impl TaskManager {
             }
         }
 
-        let command_line = proc
-            .cmd()
-            .iter()
-            .map(|arg| arg.to_string_lossy().to_string())
-            .collect::<Vec<_>>()
-            .join(" ");
-
         Ok(ProcessDetailsDTO {
             pid,
             name: proc.name().to_string_lossy().to_string(),
             rss_memory_mb,
             exact_memory_mb,
-            command_line,
         })
     }
 
