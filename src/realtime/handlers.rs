@@ -80,29 +80,34 @@ pub async fn handle_shell_create(
     Data(data): Data<ShellCreateEvent>,
     State(state): State<SharedState>,
 ) {
-    let mut shell_manager = state.shell.lock();
-
     if let Some(old_session) = socket.extensions.get::<ActiveShellMarker>() {
-        shell_manager.close_session(&old_session.0);
+        state.shell.lock().close_session(&old_session.0);
     }
 
     let session_id = uuid::Uuid::new_v4().to_string();
+    let sid = session_id.clone();
+    let socket_clone = socket.clone();
 
-    if let Err(e) = shell_manager.create_session(session_id.clone(), data.cols, data.rows, socket.clone()) {
-        tracing::error!("Failed to create shell: {}", e);
-        let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
-        return;
+    let session_result = tokio::task::spawn_blocking(move || {
+        crate::services::shell::ShellManager::create_session(sid, data.cols, data.rows, socket_clone)
+    })
+    .await
+    .unwrap();
+
+    match session_result {
+        Ok(session) => {
+            state.shell.lock().add_session(session_id.clone(), session);
+            socket.extensions.insert(ActiveShellMarker(session_id.clone()));
+            let _ = socket.emit(
+                "shell_created",
+                &json!({ "status": "success", "session_id": session_id }),
+            );
+        }
+        Err(e) => {
+            tracing::error!("Failed to create shell: {}", e);
+            let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
+        }
     }
-
-    socket.extensions.insert(ActiveShellMarker(session_id.clone()));
-
-    let _ = socket.emit(
-        "shell_created",
-        &json!({
-            "status": "success",
-            "session_id": session_id
-        }),
-    );
 }
 
 pub async fn handle_shell_input(Data(data): Data<ShellInputEvent>, State(state): State<SharedState>) {
