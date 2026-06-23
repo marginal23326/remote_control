@@ -881,27 +881,63 @@
 
                 <!-- File Section -->
                 <section id="fileSection" class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div class="glass-card rounded-2xl p-6 h-[95vh] flex flex-col">
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <div class="glass-card rounded-2xl p-6 h-[85vh] min-h-[600px] flex flex-col">
+                        <!-- Header & Primary Controls -->
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2 min-w-max">
                                 <span class="w-2 h-8 bg-pink-500 rounded-sm"></span>
                                 DATA STORAGE
                             </h2>
 
-                            <!-- File Controls -->
-                            <div class="flex gap-2 w-full md:w-auto">
+                            <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                                 <input
                                     type="text"
                                     id="searchInput"
                                     placeholder="Search index..."
-                                    class="w-full md:w-64 px-4 py-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
+                                    class="flex-1 min-w-[150px] px-3 py-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
                                 />
+
+                                <div class="flex relative group shadow-sm">
+                                    <input
+                                        type="text"
+                                        id="newFolderName"
+                                        placeholder="Folder name"
+                                        class="w-32 lg:w-40 px-3 py-2 bg-black/40 border border-gray-700 rounded-l-lg !rounded-r-none text-sm focus:border-pink-500 transition-colors"
+                                    />
+                                    <button
+                                        id="createFolder"
+                                        class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-y border-r border-emerald-500/30 rounded-r-lg rounded-l-none transition-colors cursor-pointer"
+                                        title="Create Folder"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <input type="file" id="fileUpload" class="hidden" name="files" multiple />
+                                <label
+                                    for="fileUpload"
+                                    class="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors cursor-pointer flex items-center gap-2 shadow-sm"
+                                    title="Upload Files"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-width="2"
+                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                                        />
+                                    </svg>
+                                    <span class="text-sm font-medium hidden sm:inline">Upload</span>
+                                </label>
+
                                 <button
                                     id="refresh"
-                                    class="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors"
+                                    class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors shadow-sm cursor-pointer"
+                                    title="Refresh"
                                 >
                                     <svg
-                                        class="w-5 h-5 text-gray-300"
+                                        class="w-4 h-4 text-gray-300"
                                         fill="none"
                                         stroke="currentColor"
                                         viewBox="0 0 24 24"
@@ -916,16 +952,139 @@
                             </div>
                         </div>
 
-                        <div id="currentPath" class="font-mono text-sm text-pink-400 mb-2 px-2">/root</div>
+                        <!-- Secondary Bar: Path & Contextual Operations -->
+                        <div
+                            class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 bg-black/20 py-2 px-3 rounded-lg border border-white/5 min-h-[56px]"
+                        >
+                            <!-- Path Input with Tailind-native class hiding strategies -->
+                            <div
+                                id="pathContainer"
+                                class="flex-1 w-full min-w-0 flex items-center bg-black/40 hover:bg-black/60 border border-white/5 hover:border-white/10 rounded px-2 h-9 cursor-text relative transition-colors shadow-inner group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
+                            >
+                                <div
+                                    id="currentPath"
+                                    class="flex items-center w-full h-full overflow-x-auto hide-scrollbar text-gray-300 font-mono text-sm whitespace-nowrap select-none"
+                                >
+                                    <!-- Breadcrumbs Dynamically Rendered -->
+                                </div>
+                                <input
+                                    type="text"
+                                    id="pathInput"
+                                    class="absolute inset-0 w-full h-full bg-[#0a0a0a] px-3 font-mono text-sm text-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-500/50 rounded"
+                                    spellcheck="false"
+                                    autocomplete="off"
+                                />
+                            </div>
 
-                        <div class="flex-1 overflow-hidden border border-white/10 rounded-xl bg-black/20 flex flex-col">
-                            <div class="overflow-auto flex-1">
-                                <table id="fileTable" class="w-full">
+                            <div
+                                id="fileOperations"
+                                class="flex flex-wrap items-center gap-2 hidden w-full sm:w-auto justify-end"
+                            >
+                                <div id="renameGroup" class="hidden flex items-center gap-2 w-full sm:w-auto">
+                                    <input
+                                        type="text"
+                                        id="renameInput"
+                                        placeholder="New name..."
+                                        class="flex-1 sm:w-32 px-3 py-1 bg-gray-900 border border-gray-700 rounded text-sm disabled:opacity-50"
+                                    />
+                                    <button
+                                        id="renameItem"
+                                        class="px-3 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/30 rounded text-sm font-medium disabled:opacity-50 transition-all cursor-pointer"
+                                    >
+                                        Rename
+                                    </button>
+                                </div>
+                                <button
+                                    id="downloadFile"
+                                    class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-sm font-medium disabled:opacity-50 transition-all cursor-pointer"
+                                >
+                                    Download
+                                </button>
+                                <button
+                                    id="deleteItem"
+                                    class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded text-sm font-medium disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table Area / Drop Zone Container -->
+                        <div
+                            id="dropZone"
+                            class="flex-1 overflow-hidden border border-white/10 rounded-xl bg-black/20 flex flex-col relative group transition-all"
+                            style="clip-path: inset(0 round 0.75rem)"
+                        >
+                            <!-- Drop Overlay structures -->
+                            <div
+                                id="dropOverlay"
+                                class="absolute inset-0 z-50 bg-pink-500/10 backdrop-blur-sm border-2 border-dashed border-pink-500 rounded-xl flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 hidden"
+                            >
+                                <div id="dropPrompt" class="text-center p-8 glass-card rounded-xl">
+                                    <svg
+                                        class="w-16 h-16 mx-auto mb-4 text-pink-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-width="2"
+                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                                        />
+                                    </svg>
+                                    <p class="text-xl font-bold text-white">Drop files to upload</p>
+                                </div>
+                                <div id="dropSpinner" class="hidden text-center p-8 glass-card rounded-xl">
+                                    <svg
+                                        class="w-10 h-10 animate-spin mx-auto text-pink-500 mb-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            class="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            stroke-width="4"
+                                        />
+                                        <path
+                                            class="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5 0 0 5 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        />
+                                    </svg>
+                                    <p class="text-xl font-bold text-white">Uploading files...</p>
+                                </div>
+                            </div>
+
+                            <div class="overflow-auto flex-1 h-full w-full">
+                                <table id="fileTable" class="w-full relative">
                                     <thead class="sticky top-0 z-10 backdrop-blur-md">
                                         <tr>
-                                            <th class="px-6 py-3 text-left font-mono text-xs">Filename</th>
-                                            <th class="px-6 py-3 text-left font-mono text-xs w-32">Size</th>
-                                            <th class="px-6 py-3 text-left font-mono text-xs w-48">Modified</th>
+                                            <th
+                                                class="px-6 py-3 text-left font-mono text-xs w-full cursor-pointer hover:text-white select-none transition-colors whitespace-nowrap"
+                                                data-sort="name"
+                                            >
+                                                Filename <span class="sort-indicator text-[10px] opacity-60"></span>
+                                            </th>
+                                            <th
+                                                class="px-6 py-3 text-left font-mono text-xs w-24 sm:w-32 hidden sm:table-cell cursor-pointer hover:text-white select-none transition-colors whitespace-nowrap"
+                                                data-sort="size"
+                                            >
+                                                Size <span class="sort-indicator text-[10px] opacity-60"></span>
+                                            </th>
+                                            <th
+                                                class="px-6 py-3 text-left font-mono text-xs w-48 hidden md:table-cell cursor-pointer hover:text-white select-none transition-colors whitespace-nowrap"
+                                                data-sort="modified"
+                                            >
+                                                Modified <span class="sort-indicator text-[10px] opacity-60"></span>
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody
@@ -936,111 +1095,6 @@
                                     </tbody>
                                 </table>
                             </div>
-
-                            <!-- File Actions Bar -->
-                            <div
-                                id="fileOperations"
-                                class="p-4 border-t border-white/10 bg-black/40 flex flex-wrap gap-3 hidden"
-                            >
-                                <!-- Added disabled:opacity-50 disabled:cursor-not-allowed to buttons below -->
-                                <button
-                                    id="downloadFile"
-                                    class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    Download
-                                </button>
-
-                                <button
-                                    id="deleteItem"
-                                    class="inline-flex items-center justify-center px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    Delete
-                                </button>
-
-                                <div class="flex gap-2 flex-1 justify-end">
-                                    <input
-                                        type="text"
-                                        id="renameInput"
-                                        placeholder="New filename..."
-                                        class="px-3 py-1 bg-gray-900 border border-gray-700 rounded text-sm disabled:opacity-50"
-                                    />
-                                    <button
-                                        id="renameItem"
-                                        class="px-4 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/30 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        Rename
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Create Folder -->
-                        <div class="mt-4 flex flex-wrap gap-2">
-                            <input
-                                type="text"
-                                id="newFolderName"
-                                placeholder="New folder name"
-                                class="w-full sm:w-auto sm:flex-1 px-3 py-2 bg-black/40 border border-gray-700 rounded-lg text-sm focus:border-pink-500 transition-colors min-w-[200px]"
-                            />
-                            <button
-                                id="createFolder"
-                                class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors whitespace-nowrap"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Create Folder
-                            </button>
-                        </div>
-
-                        <!-- Drop Zone -->
-                        <div
-                            id="dropZone"
-                            class="mt-4 p-4 border-2 border-dashed border-gray-700 rounded-xl hover:border-pink-500/50 hover:bg-pink-500/5 transition-all text-center group"
-                        >
-                            <div class="text-center">
-                                <svg
-                                    class="w-10 h-10 mx-auto mb-2 text-pink-500/70"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-width="2"
-                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                    />
-                                </svg>
-                                <p class="text-gray-400">Drag and drop files here to upload</p>
-                            </div>
-                        </div>
-
-                        <!-- File Upload Controls -->
-                        <div class="mt-4 flex flex-wrap items-center gap-2">
-                            <input type="file" id="fileUpload" class="hidden" name="files" multiple />
-                            <label
-                                for="fileUpload"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors cursor-pointer"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Choose File
-                            </label>
-                            <span id="selectedFileName" class="text-gray-400 text-sm">No file chosen</span>
-                            <button
-                                id="uploadFile"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-width="2"
-                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                    />
-                                </svg>
-                                Upload
-                            </button>
                         </div>
                     </div>
                 </section>
