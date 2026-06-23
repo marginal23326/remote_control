@@ -1,9 +1,19 @@
+use axum::http::{HeaderMap, header};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
+
+pub fn is_authenticated(headers: &HeaderMap, secret: &str) -> bool {
+    headers
+        .get(header::COOKIE)
+        .and_then(|h| h.to_str().ok())
+        .and_then(extract_token_from_cookie)
+        .map(|token| verify_jwt(token, secret))
+        .unwrap_or(false)
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
