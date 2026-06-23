@@ -1,10 +1,10 @@
-use crate::state::SharedState;
+use crate::services::files::FileManager;
 use crate::utils::error::{AppError, AppResult};
 use anyhow::anyhow;
 use axum::{
     Json,
     body::Body,
-    extract::{Multipart, Query, State},
+    extract::{Multipart, Query},
     http::{HeaderMap, header},
     response::{IntoResponse, Response},
 };
@@ -113,15 +113,13 @@ fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf
 
 // --- HANDLERS ---
 
-pub async fn list_files_handler(State(state): State<SharedState>, Query(q): Query<ListQuery>) -> Response {
-    let files = state.files.clone();
-
+pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
     let result = tokio::task::spawn_blocking(move || {
         if let Some(path) = q.path {
             if path.is_empty() {
-                Ok(json!(files.get_drives()))
+                Ok(json!(FileManager::get_drives()))
             } else {
-                match files.list_directory(&path) {
+                match FileManager::list_directory(&path) {
                     Ok(entries) => Ok(json!(entries)),
                     Err(e) => {
                         let is_access_error = e.to_string().to_lowercase().contains("access");
@@ -134,7 +132,7 @@ pub async fn list_files_handler(State(state): State<SharedState>, Query(q): Quer
                 }
             }
         } else {
-            Ok(json!(files.get_drives()))
+            Ok(json!(FileManager::get_drives()))
         }
     })
     .await
@@ -146,55 +144,43 @@ pub async fn list_files_handler(State(state): State<SharedState>, Query(q): Quer
     }
 }
 
-pub async fn create_folder_handler(
-    State(state): State<SharedState>,
-    Json(payload): Json<ActionPayload>,
-) -> AppResult<Json<Value>> {
+pub async fn create_folder_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
     let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) else {
         return Err(AppError::BadRequest("Missing parentPath or folderName".to_string()));
     };
 
-    let files = state.files.clone();
-    tokio::task::spawn_blocking(move || files.create_folder(&parent, &name))
+    tokio::task::spawn_blocking(move || FileManager::create_folder(&parent, &name))
         .await
         .map_err(|e| anyhow!("Task failed: {}", e))??;
 
     Ok(Json(json!({"status": "success"})))
 }
 
-pub async fn delete_handler(
-    State(state): State<SharedState>,
-    Json(payload): Json<ActionPayload>,
-) -> AppResult<Json<Value>> {
+pub async fn delete_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
     let Some(paths) = payload.paths else {
         return Err(AppError::BadRequest("Missing paths".to_string()));
     };
 
-    let files = state.files.clone();
-    tokio::task::spawn_blocking(move || files.delete_items(paths))
+    tokio::task::spawn_blocking(move || FileManager::delete_items(paths))
         .await
         .map_err(|e| anyhow!("Task failed: {}", e))??;
 
     Ok(Json(json!({"status": "success"})))
 }
 
-pub async fn rename_handler(
-    State(state): State<SharedState>,
-    Json(payload): Json<ActionPayload>,
-) -> AppResult<Json<Value>> {
+pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
     let (Some(old), Some(new)) = (payload.old_path, payload.new_name) else {
         return Err(AppError::BadRequest("Missing oldPath or newName".to_string()));
     };
 
-    let files = state.files.clone();
-    tokio::task::spawn_blocking(move || files.rename_item(&old, &new))
+    tokio::task::spawn_blocking(move || FileManager::rename_item(&old, &new))
         .await
         .map_err(|e| anyhow!("Task failed: {}", e))??;
 
     Ok(Json(json!({"status": "success"})))
 }
 
-pub async fn upload_handler(State(_state): State<SharedState>, mut multipart: Multipart) -> AppResult<Json<Value>> {
+pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> {
     let mut target_dir = None;
     let mut temp_files: Vec<(String, TempFileGuard)> = Vec::new();
     let mut uploaded_count = 0;
@@ -276,10 +262,7 @@ impl Drop for TempFileGuard {
     }
 }
 
-pub async fn download_handler(
-    State(_state): State<SharedState>,
-    Form(payload): Form<DownloadForm>,
-) -> AppResult<Response> {
+pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Response> {
     let paths = payload.paths;
     if paths.is_empty() {
         return Err(AppError::BadRequest("No files selected".to_string()));

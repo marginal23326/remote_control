@@ -56,20 +56,17 @@ pub struct AudioConfig {
 // --- HANDLERS ---
 
 pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<SharedState>) {
-    let input = state.input.clone();
-    if let Err(err) = apply_mouse_event(input.as_ref(), data).await {
+    if let Err(err) = apply_mouse_event(&state.input, data).await {
         tracing::error!("Input mouse event failed: {err:#}");
     }
 }
 
 pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<SharedState>) {
-    let input = state.input.clone();
-
     let result = match data {
-        KeyboardEvent::Text { text } => input.type_text(&text).await,
+        KeyboardEvent::Text { text } => state.input.type_text(&text).await,
         KeyboardEvent::Shortcut { shortcut, modifiers } => {
             let mods = modifiers.unwrap_or_default();
-            input.send_shortcut(&shortcut, mods).await
+            state.input.send_shortcut(&shortcut, mods).await
         }
     };
 
