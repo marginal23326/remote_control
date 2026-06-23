@@ -9,7 +9,7 @@ use crate::api::{
     tasks::{get_process_details_handler, kill_process_handler},
 };
 use crate::state::SharedState;
-use crate::utils::auth::{extract_token_from_cookie, verify_jwt};
+use crate::utils::auth::is_authenticated;
 use axum::{
     Router,
     extract::{DefaultBodyLimit, Request, State},
@@ -21,16 +21,6 @@ use axum::{
 use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
 
-// New handler for the root path "/"
-fn is_authenticated(state: &SharedState, headers: &axum::http::HeaderMap) -> bool {
-    headers
-        .get(header::COOKIE)
-        .and_then(|h| h.to_str().ok())
-        .and_then(extract_token_from_cookie)
-        .map(|token| verify_jwt(token, &state.config.jwt_secret))
-        .unwrap_or(false)
-}
-
 async fn serve_no_cache(file: &str, req: Request) -> Response {
     let mut res = ServeFile::new(file).try_call(req).await.unwrap().into_response();
     res.headers_mut().insert(
@@ -41,7 +31,7 @@ async fn serve_no_cache(file: &str, req: Request) -> Response {
 }
 
 async fn index_handler(State(state): State<SharedState>, req: Request) -> Response {
-    if is_authenticated(&state, req.headers()) {
+    if is_authenticated(req.headers(), &state.config.jwt_secret) {
         serve_no_cache("static/dist/index.html", req).await
     } else {
         Redirect::to("/login").into_response()
@@ -49,7 +39,7 @@ async fn index_handler(State(state): State<SharedState>, req: Request) -> Respon
 }
 
 async fn login_page_handler(State(state): State<SharedState>, req: Request) -> Response {
-    if is_authenticated(&state, req.headers()) {
+    if is_authenticated(req.headers(), &state.config.jwt_secret) {
         Redirect::to("/").into_response()
     } else {
         serve_no_cache("static/dist/login.html", req).await
