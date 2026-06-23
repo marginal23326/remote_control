@@ -104,9 +104,9 @@ impl FileManager {
         entries.sort_by(|a, b| {
             b.is_dir.cmp(&a.is_dir).then_with(|| {
                 a.name
-                    .chars()
-                    .map(|c| c.to_ascii_lowercase())
-                    .cmp(b.name.chars().map(|c| c.to_ascii_lowercase()))
+                    .bytes()
+                    .map(|b| b.to_ascii_lowercase())
+                    .cmp(b.name.bytes().map(|b| b.to_ascii_lowercase()))
             })
         });
 
