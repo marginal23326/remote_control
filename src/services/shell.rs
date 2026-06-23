@@ -13,29 +13,24 @@ pub struct ShellSession {
 }
 
 pub struct ShellManager {
-    // Map of SessionID -> Active Shell Data
     sessions: HashMap<String, ShellSession>,
-    pty_system: Box<dyn PtySystem + Send>,
 }
 
 impl ShellManager {
     pub fn new() -> Self {
         Self {
             sessions: HashMap::new(),
-            // Load the native PTY backend (ConPTY on Windows)
-            pty_system: Box::new(NativePtySystem::default()),
         }
     }
 
-    pub fn create_session(&mut self, session_id: String, cols: u16, rows: u16, socket: SocketRef) -> Result<()> {
-        // 1. Configure the PTY
+    pub fn create_session(session_id: String, cols: u16, rows: u16, socket: SocketRef) -> Result<ShellSession> {
         let size = PtySize {
             rows,
             cols,
             pixel_width: 0,
             pixel_height: 0,
         };
-        let pair = self.pty_system.openpty(size)?;
+        let pair = NativePtySystem::default().openpty(size)?;
 
         let cmd = CommandBuilder::new(default_shell());
         let mut child = pair.slave.spawn_command(cmd)?;
@@ -112,16 +107,15 @@ impl ShellManager {
             }
         });
 
-        self.sessions.insert(
-            session_id,
-            ShellSession {
-                master: pair.master,
-                input_tx,
-                killer,
-            },
-        );
+        Ok(ShellSession {
+            master: pair.master,
+            input_tx,
+            killer,
+        })
+    }
 
-        Ok(())
+    pub fn add_session(&mut self, session_id: String, session: ShellSession) {
+        self.sessions.insert(session_id, session);
     }
 
     pub fn write_to_shell(&mut self, session_id: &str, data: &str) -> Result<()> {
