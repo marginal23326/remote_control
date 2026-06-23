@@ -68,7 +68,7 @@ impl AudioManager {
         *self.server_owner.lock() = None;
 
         if let Some(handle) = self.server_thread.lock().take() {
-            tokio::task::block_in_place(move || {
+            tokio::task::spawn_blocking(move || {
                 let _ = handle.join();
             });
         }
@@ -114,7 +114,7 @@ impl AudioManager {
         *self.client_owner.lock() = None;
 
         if let Some(handle) = self.client_thread.lock().take() {
-            tokio::task::block_in_place(move || {
+            tokio::task::spawn_blocking(move || {
                 let _ = handle.join();
             });
         }
