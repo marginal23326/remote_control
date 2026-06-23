@@ -314,8 +314,7 @@ pub async fn download_handler(State(_state): State<SharedState>, uri: Uri) -> Ap
         let mut zip = zip::ZipWriter::new(file);
 
         let options = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Stored)
-            .unix_permissions(0o755);
+            .compression_method(zip::CompressionMethod::Stored);
 
         let path_bufs: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
         let common_parent = find_common_parent(&path_bufs);
