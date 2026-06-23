@@ -5,6 +5,7 @@ use xkeysym::Keysym;
 use super::keymap::shortcut_keysym;
 use crate::services::screen::linux::portal_session;
 
+#[derive(Clone)]
 pub struct InputManager;
 
 impl InputManager {

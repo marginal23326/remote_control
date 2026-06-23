@@ -8,6 +8,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
+#[derive(Clone)]
 pub struct InputManager;
 
 impl InputManager {

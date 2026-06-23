@@ -582,7 +582,7 @@ impl ScreenManager {
         webrtcbin: &gst::Element,
         cmd_rx: &crossbeam_channel::Receiver<GstCommand>,
         socket: socketioxide::extract::SocketRef,
-        input: Arc<crate::services::input::InputManager>,
+        input: crate::services::input::InputManager,
         runtime: tokio::runtime::Handle,
     ) -> tokio::task::JoinHandle<()> {
         let wtc = webrtcbin.clone();
@@ -660,57 +660,54 @@ impl ScreenManager {
 
     fn setup_input_data_channels(
         webrtcbin: &gst::Element,
-        input: Arc<crate::services::input::InputManager>,
+        input: crate::services::input::InputManager,
         runtime: tokio::runtime::Handle,
     ) -> tokio::task::JoinHandle<()> {
         let (move_tx, mut move_rx) = tokio::sync::watch::channel::<Option<crate::services::input::MouseEvent>>(None);
         let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel::<crate::services::input::MouseEvent>();
 
-        let input_handle = runtime.spawn({
-            let input = input.clone();
-            async move {
-                let mut move_open = true;
-                let mut control_open = true;
-                let mut last_low_latency_seq = 0u64;
+        let input_handle = runtime.spawn(async move {
+            let mut move_open = true;
+            let mut control_open = true;
+            let mut last_low_latency_seq = 0u64;
 
-                loop {
-                    if !move_open && !control_open {
-                        break;
+            loop {
+                if !move_open && !control_open {
+                    break;
+                }
+
+                tokio::select! {
+                    biased;
+
+                    event = control_rx.recv(), if control_open => {
+                        if let Some(event) = event {
+                            if let Err(err) =
+                                crate::services::input::apply_mouse_event(&input, event).await
+                            {
+                                tracing::error!("Input data channel control event failed: {err:#}");
+                            }
+                        } else {
+                            control_open = false;
+                        }
                     }
 
-                    tokio::select! {
-                        biased;
-
-                        event = control_rx.recv(), if control_open => {
-                            if let Some(event) = event {
-                                if let Err(err) =
-                                    crate::services::input::apply_mouse_event(input.as_ref(), event).await
-                                {
-                                    tracing::error!("Input data channel control event failed: {err:#}");
-                                }
-                            } else {
-                                control_open = false;
-                            }
+                    changed = move_rx.changed(), if move_open => {
+                        if changed.is_err() {
+                            move_open = false;
+                            continue;
                         }
-
-                        changed = move_rx.changed(), if move_open => {
-                            if changed.is_err() {
-                                move_open = false;
-                                continue;
+                        let event = move_rx.borrow_and_update().clone();
+                        if let Some(event) = event {
+                            if let Some(seq) = event.seq {
+                                if seq <= last_low_latency_seq {
+                                    continue;
+                                }
+                                last_low_latency_seq = seq;
                             }
-                            let event = move_rx.borrow_and_update().clone();
-                            if let Some(event) = event {
-                                if let Some(seq) = event.seq {
-                                    if seq <= last_low_latency_seq {
-                                        continue;
-                                    }
-                                    last_low_latency_seq = seq;
-                                }
-                                if let Err(err) =
-                                    crate::services::input::apply_mouse_event(input.as_ref(), event).await
-                                {
-                                    tracing::error!("Input data channel low-latency event failed: {err:#}");
-                                }
+                            if let Err(err) =
+                                crate::services::input::apply_mouse_event(&input, event).await
+                            {
+                                tracing::error!("Input data channel low-latency event failed: {err:#}");
                             }
                         }
                     }

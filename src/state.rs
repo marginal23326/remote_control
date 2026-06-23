@@ -1,6 +1,5 @@
 use crate::config::AppConfig;
 use crate::services::audio::AudioManager;
-use crate::services::files::FileManager;
 use crate::services::input::InputManager;
 use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
@@ -17,10 +16,9 @@ pub struct AppState {
     pub config: Arc<AppConfig>,
     pub sys: Arc<RwLock<System>>,
     pub networks: Arc<RwLock<Networks>>,
-    pub input: Arc<InputManager>,
+    pub input: InputManager,
     pub shell: Arc<Mutex<ShellManager>>,
     pub screen: Arc<ScreenManager>,
-    pub files: Arc<FileManager>,
     pub tasks: Arc<TaskManager>,
     pub audio: Arc<AudioManager>,
     pub wan_info: Arc<OnceCell<WanInfo>>,
@@ -37,7 +35,6 @@ impl AppState {
         let input = InputManager::new();
         let shell = ShellManager::new();
         let screen = ScreenManager::new();
-        let files = FileManager::new();
         let tasks = TaskManager::new(sys_shared.clone());
         let audio = AudioManager::new();
 
@@ -45,10 +42,9 @@ impl AppState {
             config: Arc::new(config),
             sys: sys_shared,
             networks: Arc::new(RwLock::new(networks)),
-            input: Arc::new(input),
+            input,
             shell: Arc::new(Mutex::new(shell)),
             screen: Arc::new(screen),
-            files: Arc::new(files),
             tasks: Arc::new(tasks),
             audio: Arc::new(audio),
             wan_info: Arc::new(OnceCell::new()),

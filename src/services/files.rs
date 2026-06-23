@@ -23,14 +23,11 @@ pub struct DriveEntry {
     pub drive_type: u8,
 }
 
+#[derive(Clone)]
 pub struct FileManager;
 
 impl FileManager {
-    pub fn new() -> Self {
-        Self
-    }
-
-    pub fn get_drives(&self) -> Vec<DriveEntry> {
+    pub fn get_drives() -> Vec<DriveEntry> {
         let disks = Disks::new_with_refreshed_list();
 
         disks
@@ -48,12 +45,12 @@ impl FileManager {
     }
 
     /// Helper to check if we have read access to a directory
-    fn check_dir_access(&self, path: &Path) -> bool {
+    fn check_dir_access(path: &Path) -> bool {
         // Try to read the directory. If it fails, we assume no access.
         fs::read_dir(path).is_ok()
     }
 
-    pub fn list_directory(&self, path_str: &str) -> Result<Vec<FileEntry>> {
+    pub fn list_directory(path_str: &str) -> Result<Vec<FileEntry>> {
         let path = Path::new(path_str);
 
         if !path.exists() {
@@ -87,7 +84,7 @@ impl FileManager {
             // Check access for subdirectories
             let mut no_access = false;
             if is_dir {
-                no_access = !self.check_dir_access(&full_path_buf);
+                no_access = !Self::check_dir_access(&full_path_buf);
             }
 
             entries.push(FileEntry {
@@ -113,13 +110,13 @@ impl FileManager {
         Ok(entries)
     }
 
-    pub fn create_folder(&self, parent: &str, name: &str) -> Result<()> {
+    pub fn create_folder(parent: &str, name: &str) -> Result<()> {
         let path = Path::new(parent).join(name);
         fs::create_dir(path)?;
         Ok(())
     }
 
-    pub fn delete_items(&self, paths: Vec<String>) -> Result<Vec<String>> {
+    pub fn delete_items(paths: Vec<String>) -> Result<Vec<String>> {
         let mut failed = Vec::new();
         for p in paths {
             let path = Path::new(&p);
@@ -140,7 +137,7 @@ impl FileManager {
         Ok(vec![])
     }
 
-    pub fn rename_item(&self, old: &str, new_name: &str) -> Result<()> {
+    pub fn rename_item(old: &str, new_name: &str) -> Result<()> {
         let old_path = Path::new(old);
         let parent = old_path.parent().ok_or_else(|| anyhow!("Invalid path"))?;
         let new_path = parent.join(new_name);
