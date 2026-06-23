@@ -9,18 +9,14 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::Form;
-use futures_util::Stream;
 use mime_guess::from_path;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::io::Seek;
+use std::path::Path;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio_util::io::ReaderStream;
-use uuid::Uuid;
 
 // --- DATA STRUCTURES ---
 
@@ -43,32 +39,6 @@ pub struct ActionPayload {
     folder_name: Option<String>,
     old_path: Option<String>,
     new_name: Option<String>,
-}
-
-pub struct DeleteOnDropStream<S> {
-    pub inner: S,
-    pub path: PathBuf,
-}
-
-impl<S: Stream + Unpin> Stream for DeleteOnDropStream<S> {
-    type Item = S::Item;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.inner).poll_next(cx)
-    }
-}
-
-impl<S> Drop for DeleteOnDropStream<S> {
-    fn drop(&mut self) {
-        let path = self.path.clone();
-        // Spawn a background task to delete the file
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            if let Err(e) = tokio::fs::remove_file(&path).await {
-                tracing::error!("Failed to delete temp file {:?}: {}", path, e);
-            }
-        });
-    }
 }
 
 fn systime_to_zip_datetime(systime: std::time::SystemTime) -> Option<zip::DateTime> {
@@ -182,7 +152,7 @@ pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
 
 pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> {
     let mut target_dir = None;
-    let mut temp_files: Vec<(String, TempFileGuard)> = Vec::new();
+    let mut temp_files: Vec<(String, tempfile::TempPath)> = Vec::new();
     let mut uploaded_count = 0;
 
     while let Ok(Some(mut field)) = multipart.next_field().await {
@@ -199,27 +169,27 @@ pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> 
                 .unwrap_or_else(|| std::ffi::OsStr::new("uploaded_file"))
                 .to_string_lossy()
                 .into_owned();
-            let temp_uuid = Uuid::new_v4();
-            let temp_path = std::env::temp_dir().join(format!("upload_{}", temp_uuid));
 
-            let temp_guard = TempFileGuard {
-                path: temp_path,
-                disarmed: false,
+            let named_temp = match tokio::task::spawn_blocking(tempfile::NamedTempFile::new).await {
+                Ok(Ok(ntf)) => ntf,
+                _ => continue,
             };
 
-            if let Ok(mut file) = File::create(&temp_guard.path).await {
-                let mut success = true;
+            let (std_file, temp_path) = named_temp.into_parts();
+            let mut file = File::from_std(std_file);
 
-                while let Ok(Some(chunk)) = field.chunk().await {
-                    if file.write_all(&chunk).await.is_err() {
-                        success = false;
-                        break;
-                    }
+            let mut success = true;
+            while let Ok(Some(chunk)) = field.chunk().await {
+                if file.write_all(&chunk).await.is_err() {
+                    success = false;
+                    break;
                 }
+            }
 
-                if success {
-                    temp_files.push((file_name, temp_guard));
-                }
+            if success {
+                let _ = file.flush().await;
+                drop(file);
+                temp_files.push((file_name, temp_path));
             }
         }
     }
@@ -229,37 +199,28 @@ pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> 
 
     let _ = tokio::fs::create_dir_all(final_dir).await;
 
-    for (name, mut guard) in temp_files {
+    for (name, temp_path) in temp_files {
         let dest_path = final_dir.join(&name);
-        match tokio::fs::rename(&guard.path, &dest_path).await {
-            Ok(_) => {
-                uploaded_count += 1;
-                guard.disarmed = true;
+
+        let res = tokio::task::spawn_blocking(move || -> std::io::Result<()> {
+            match temp_path.persist(&dest_path) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    std::fs::copy(&e.path, &dest_path)?;
+                    Ok(())
+                }
             }
-            Err(_) => match tokio::fs::copy(&guard.path, &dest_path).await {
-                Ok(_) => uploaded_count += 1,
-                Err(e) => tracing::error!("Failed to save file {}: {}", name, e),
-            },
+        })
+        .await;
+
+        if let Ok(Ok(_)) = res {
+            uploaded_count += 1;
+        } else {
+            tracing::error!("Failed to save file {}", name);
         }
     }
 
     Ok(Json(json!({"status": "success", "count": uploaded_count})))
-}
-
-struct TempFileGuard {
-    path: PathBuf,
-    disarmed: bool,
-}
-
-impl Drop for TempFileGuard {
-    fn drop(&mut self) {
-        if !self.disarmed {
-            let path = self.path.clone();
-            tokio::spawn(async move {
-                let _ = tokio::fs::remove_file(path).await;
-            });
-        }
-    }
 }
 
 pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Response> {
@@ -268,7 +229,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         return Err(AppError::BadRequest("No files selected".to_string()));
     }
 
-    // Single file download (No changes needed here usually, unless you want to log it)
+    // Single file download
     if paths.len() == 1 {
         let path_str = &paths[0];
         let path = Path::new(path_str);
@@ -298,22 +259,11 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         }
     }
 
-    let zip_filename = format!("download_{}.zip", Uuid::new_v4());
-    let zip_path = std::env::temp_dir().join(&zip_filename);
-    let zip_path_clone = zip_path.clone();
+    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<std::fs::File> {
+        let temp_file = tempfile::tempfile()?;
+        let mut zip = zip::ZipWriter::new(temp_file);
 
-    let mut cleanup_guard = TempFileGuard {
-        path: zip_path.clone(),
-        disarmed: false,
-    };
-
-    // Create the Zip in a blocking task
-    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-        let file = std::fs::File::create(&zip_path_clone)?;
-        let mut zip = zip::ZipWriter::new(file);
-
-        let options = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Stored);
+        let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
         let path_bufs: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
         let common_parent = find_common_parent(&path_bufs);
@@ -345,24 +295,19 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
                 }
             }
         }
-        zip.finish()?;
-        Ok(())
+
+        let mut temp_file = zip.finish()?;
+        temp_file.seek(std::io::SeekFrom::Start(0))?;
+
+        Ok(temp_file)
     })
     .await;
 
-    result.map_err(|e| anyhow!("Task failed: {}", e))??;
+    let temp_file = result.map_err(|e| anyhow!("Task failed: {}", e))??;
 
-    let file = File::open(&zip_path).await?;
+    let file = File::from_std(temp_file);
     let stream = ReaderStream::new(file);
-
-    cleanup_guard.disarmed = true;
-
-    let wrapped_stream = DeleteOnDropStream {
-        inner: stream,
-        path: zip_path,
-    };
-
-    let body = Body::from_stream(wrapped_stream);
+    let body = Body::from_stream(stream);
 
     let mut headers = HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, "application/zip".parse().unwrap());

@@ -63,6 +63,7 @@ hostname = "0.4"
 crossbeam-channel = "0.5"
 crossbeam-queue = "0.3"
 fast_image_resize = "6"
+tempfile = "3"
 
 # --- GStreamer ---
 gstreamer = "0.25"
