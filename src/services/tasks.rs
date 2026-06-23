@@ -1,6 +1,9 @@
 use anyhow::{Result, anyhow};
+#[cfg(target_os = "windows")]
+use parking_lot::Mutex;
+use parking_lot::RwLock;
 use serde::Serialize;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 
 #[derive(Serialize, Clone)]
@@ -73,7 +76,7 @@ pub struct TaskManager {
     sys: Arc<RwLock<System>>,
     last_refresh: RwLock<std::time::Instant>,
     #[cfg(target_os = "windows")]
-    cpu_tracker: std::sync::Mutex<CpuTracker>,
+    cpu_tracker: Mutex<CpuTracker>,
 }
 
 impl TaskManager {
@@ -86,27 +89,25 @@ impl TaskManager {
                     .unwrap(),
             ),
             #[cfg(target_os = "windows")]
-            cpu_tracker: std::sync::Mutex::new(CpuTracker::new()),
+            cpu_tracker: Mutex::new(CpuTracker::new()),
         }
     }
 
     #[cfg(target_os = "windows")]
     pub fn cpu_usage(&self) -> f32 {
-        self.cpu_tracker.lock().unwrap().sample()
+        self.cpu_tracker.lock().sample()
     }
 
     pub fn get_processes(&self) -> Vec<ProcessDTO> {
-        if let Ok(mut last) = self.last_refresh.write()
-            && last.elapsed() > std::time::Duration::from_millis(1500)
         {
-            self.sys
-                .write()
-                .unwrap()
-                .refresh_processes(ProcessesToUpdate::All, true);
-            *last = std::time::Instant::now();
+            let mut last = self.last_refresh.write();
+            if last.elapsed() > std::time::Duration::from_millis(1500) {
+                self.sys.write().refresh_processes(ProcessesToUpdate::All, true);
+                *last = std::time::Instant::now();
+            }
         }
 
-        let sys = self.sys.read().unwrap();
+        let sys = self.sys.read();
         let mut result: Vec<ProcessDTO> = Vec::new();
 
         for (pid, proc_info) in sys.processes() {
@@ -165,7 +166,7 @@ impl TaskManager {
     }
 
     pub fn get_process_details(&self, pid: u32) -> Result<ProcessDetailsDTO> {
-        let sys = self.sys.read().unwrap();
+        let sys = self.sys.read();
         let proc = sys
             .process(Pid::from_u32(pid))
             .ok_or_else(|| anyhow!("Process not found"))?;
@@ -199,7 +200,7 @@ impl TaskManager {
     }
 
     pub fn kill_process(&self, pid: u32) -> Result<()> {
-        let sys = self.sys.read().unwrap();
+        let sys = self.sys.read();
         if let Some(proc) = sys.process(Pid::from_u32(pid))
             && proc.kill()
         {

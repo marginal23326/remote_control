@@ -1,6 +1,7 @@
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
@@ -270,7 +271,7 @@ impl ScreenManager {
             return Err(anyhow::anyhow!("Stream is already active on another client"));
         }
 
-        *self.owner_id.lock().unwrap() = Some(socket.id.to_string());
+        *self.owner_id.lock() = Some(socket.id.to_string());
 
         let mut startup_guard = StreamGuard {
             is_running: self.is_running.clone(),
@@ -282,15 +283,15 @@ impl ScreenManager {
         let encoder_info = detect_encoder();
         let encoder_str = encoder_info.pipeline_str;
         let min_dim = encoder_info.min_dim;
-        *self.encoder_type.lock().unwrap() = encoder_info.name.to_string();
-        *self.encoder_property_constraints.lock().unwrap() = encoder_info
+        *self.encoder_type.lock() = encoder_info.name.to_string();
+        *self.encoder_property_constraints.lock() = encoder_info
             .property_constraints
             .iter()
             .map(|(k, v)| (k.to_string(), v.clone()))
             .collect();
 
         {
-            let mut s = self.settings.lock().unwrap();
+            let mut s = self.settings.lock();
             if s.encoder_properties.is_empty() {
                 s.encoder_properties = encoder_info
                     .default_properties
@@ -348,10 +349,10 @@ impl ScreenManager {
             .by_name("enc")
             .ok_or_else(|| anyhow::anyhow!("Encoder not found"))?;
 
-        let default_bitrate = self.settings.lock().unwrap().bitrate;
+        let default_bitrate = self.settings.lock().bitrate;
         encoder.set_property_from_str("bitrate", &default_bitrate.to_string());
 
-        let encoder_properties = self.settings.lock().unwrap().encoder_properties.clone();
+        let encoder_properties = self.settings.lock().encoder_properties.clone();
         apply_encoder_properties(&encoder, &encoder_properties);
 
         pipeline
@@ -413,7 +414,7 @@ impl ScreenManager {
                 let portal = linux::portal_session();
                 portal.open_pipewire_remote().await
             }?;
-            *self.native_size.lock().unwrap() = pw_size;
+            *self.native_size.lock() = pw_size;
 
             let is_running_cap = is_running.clone();
             let settings_cap = settings.clone();
@@ -515,7 +516,7 @@ impl ScreenManager {
                     break;
                 }
 
-                let scale_pct = settings_enc.lock().unwrap().resolution_percentage;
+                let scale_pct = settings_enc.lock().resolution_percentage;
 
                 let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
                 let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
@@ -570,7 +571,7 @@ impl ScreenManager {
         });
 
         inner.emit_handle = Some(emit_handle);
-        *self.inner.lock().unwrap() = Some(inner);
+        *self.inner.lock() = Some(inner);
 
         startup_guard.success = true;
 
@@ -783,9 +784,9 @@ impl ScreenManager {
 
     pub fn stop_stream(&self) {
         self.is_running.store(false, Ordering::SeqCst);
-        *self.owner_id.lock().unwrap() = None;
+        *self.owner_id.lock() = None;
 
-        if let Some(state) = self.inner.lock().unwrap().take() {
+        if let Some(state) = self.inner.lock().take() {
             let _ = state.cmd_tx.send(GstCommand::Stop);
 
             let _ = state.pipeline.set_state(gst::State::Null);
@@ -805,7 +806,7 @@ impl ScreenManager {
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) {
-        if self.owner_id.lock().unwrap().as_deref() == Some(owner_id) {
+        if self.owner_id.lock().as_deref() == Some(owner_id) {
             self.stop_stream();
         }
     }
@@ -815,29 +816,29 @@ impl ScreenManager {
         let resolution = resolution.clamp(5, 100);
 
         {
-            let mut s = self.settings.lock().unwrap();
+            let mut s = self.settings.lock();
             s.bitrate = bitrate;
             s.resolution_percentage = resolution;
         }
 
-        if let Some(state) = self.inner.lock().unwrap().as_ref() {
+        if let Some(state) = self.inner.lock().as_ref() {
             state.encoder.set_property_from_str("bitrate", &bitrate.to_string());
         }
     }
 
     pub fn set_target_fps(&self, fps: u64) {
-        let mut s = self.settings.lock().unwrap();
+        let mut s = self.settings.lock();
         s.target_fps = fps.clamp(1, s.max_fps);
     }
 
     pub fn set_encoder_properties(&self, properties: HashMap<String, String>) -> Vec<String> {
-        let rejected = if let Some(state) = self.inner.lock().unwrap().as_ref() {
+        let rejected = if let Some(state) = self.inner.lock().as_ref() {
             apply_encoder_properties(&state.encoder, &properties)
         } else {
             Vec::new()
         };
         {
-            let mut s = self.settings.lock().unwrap();
+            let mut s = self.settings.lock();
             s.encoder_properties = properties;
             for key in &rejected {
                 s.encoder_properties.remove(key);

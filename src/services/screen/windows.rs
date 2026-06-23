@@ -1,5 +1,6 @@
+use parking_lot::Mutex;
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
@@ -43,7 +44,7 @@ pub(crate) async fn start_os_capture(
     native_size: Arc<Mutex<(i32, i32)>>,
 ) -> anyhow::Result<()> {
     unsafe {
-        *native_size.lock().unwrap() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+        *native_size.lock() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
     }
 
     let monitor = Monitor::primary().map_err(|e| anyhow::anyhow!("No primary monitor found: {}", e))?;
@@ -148,7 +149,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         }
 
         let (target_fps, max_fps) = {
-            let s = self.ctx.settings.lock().unwrap();
+            let s = self.ctx.settings.lock();
             (s.target_fps, s.max_fps)
         };
 
@@ -165,7 +166,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         if width != self.ctx.last_width || height != self.ctx.last_height {
             self.ctx.last_width = width;
             self.ctx.last_height = height;
-            *self.ctx.native_size.lock().unwrap() = (width as i32, height as i32);
+            *self.ctx.native_size.lock() = (width as i32, height as i32);
         }
 
         let mut buffer = self

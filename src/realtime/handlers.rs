@@ -83,7 +83,7 @@ pub async fn handle_shell_create(
     Data(data): Data<ShellCreateEvent>,
     State(state): State<SharedState>,
 ) {
-    let mut shell_manager = state.shell.lock().unwrap();
+    let mut shell_manager = state.shell.lock();
 
     if let Some(old_session) = socket.extensions.get::<ActiveShellMarker>() {
         shell_manager.close_session(&old_session.0);
@@ -109,14 +109,14 @@ pub async fn handle_shell_create(
 }
 
 pub async fn handle_shell_input(Data(data): Data<ShellInputEvent>, State(state): State<SharedState>) {
-    let mut shell_manager = state.shell.lock().unwrap();
+    let mut shell_manager = state.shell.lock();
     if let Err(e) = shell_manager.write_to_shell(&data.session_id, &data.command) {
         tracing::error!("Shell write error: {}", e);
     }
 }
 
 pub async fn handle_shell_resize(Data(data): Data<ShellResizeEvent>, State(state): State<SharedState>) {
-    let mut shell_manager = state.shell.lock().unwrap();
+    let mut shell_manager = state.shell.lock();
     if let Err(e) = shell_manager.resize_shell(&data.session_id, data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
     }
@@ -127,7 +127,7 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
         task.handle.abort();
     }
 
-    let mut shell_manager = state.shell.lock().unwrap();
+    let mut shell_manager = state.shell.lock();
     if let Some(session) = socket.extensions.remove::<ActiveShellMarker>() {
         shell_manager.close_session(&session.0);
     } else {
@@ -167,7 +167,7 @@ pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<Share
             let data_res = tokio::task::spawn_blocking(move || {
                 let processes = state_bg.tasks.get_processes();
 
-                let mut sys = state_bg.sys.write().unwrap();
+                let mut sys = state_bg.sys.write();
 
                 #[cfg(target_os = "windows")]
                 let cpu_global = state_bg.tasks.cpu_usage();
@@ -282,7 +282,7 @@ pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(sta
         return;
     };
 
-    if let Some(inner) = state.screen.inner.lock().unwrap().as_ref() {
+    if let Some(inner) = state.screen.inner.lock().as_ref() {
         let _ = inner
             .cmd_tx
             .send(crate::services::screen::GstCommand::SetRemoteDescription(sdp_str));
@@ -293,7 +293,7 @@ pub async fn handle_webrtc_ice(Data(data): Data<serde_json::Value>, State(state)
     if let (Some(idx), Some(candidate)) = (
         data.get("sdp_mline_index").and_then(|v| v.as_u64()),
         data.get("candidate").and_then(|v| v.as_str()),
-    ) && let Some(inner) = state.screen.inner.lock().unwrap().as_ref()
+    ) && let Some(inner) = state.screen.inner.lock().as_ref()
     {
         let _ = inner.cmd_tx.send(crate::services::screen::GstCommand::AddIceCandidate {
             sdp_mline_index: idx as u32,

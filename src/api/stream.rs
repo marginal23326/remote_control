@@ -29,11 +29,11 @@ pub struct CurrentSettingsResponse {
 
 pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
-    let s = screen.settings.lock().unwrap();
-    let (native_width, native_height) = *screen.native_size.lock().unwrap();
-    let encoder_type = screen.encoder_type.lock().unwrap().clone();
+    let s = screen.settings.lock();
+    let (native_width, native_height) = *screen.native_size.lock();
+    let encoder_type = screen.encoder_type.lock().clone();
     let encoder_properties = s.encoder_properties.clone();
-    let encoder_property_constraints = screen.encoder_property_constraints.lock().unwrap().clone();
+    let encoder_property_constraints = screen.encoder_property_constraints.lock().clone();
 
     Json(CurrentSettingsResponse {
         bitrate: s.bitrate,
@@ -55,7 +55,7 @@ pub async fn update_settings_handler(
     let screen = state.screen.clone();
 
     let (current_bitrate, current_res) = {
-        let s = screen.settings.lock().unwrap();
+        let s = screen.settings.lock();
         (s.bitrate, s.resolution_percentage)
     };
 
