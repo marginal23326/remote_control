@@ -1,7 +1,7 @@
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use sysinfo::{Networks, ProcessesToUpdate, System};
+use sysinfo::{Networks, System};
 
 fn get_local_ip() -> String {
     if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0")
@@ -181,13 +181,6 @@ pub(crate) struct OsSpecificInfo {
 
 pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemBaseInfo {
     {
-        let mut sys = sys_lock.write();
-        sys.refresh_cpu_all();
-        sys.refresh_memory();
-        sys.refresh_processes(ProcessesToUpdate::All, true);
-    }
-
-    {
         let mut networks = net_lock.write();
         networks.refresh(true);
     }
@@ -218,9 +211,12 @@ pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc
 pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
     let sys_lock = state.sys.clone();
     let net_lock = state.networks.clone();
+    let tasks = state.tasks.clone();
 
     let (base, lan_ip, mac, username, pc_name, hostname, disk_total, disk_used, disk_free) =
         tokio::task::spawn_blocking(move || {
+            tasks.refresh_sysinfo_if_needed();
+
             let base = refresh_system_info(&sys_lock, &net_lock);
             let lan_ip = get_local_ip();
             let mac = get_mac_address(&net_lock);
