@@ -98,14 +98,23 @@ impl TaskManager {
         self.cpu_tracker.lock().sample()
     }
 
-    pub fn get_processes(&self) -> Vec<ProcessDTO> {
-        {
-            let mut last = self.last_refresh.write();
-            if last.elapsed() > std::time::Duration::from_millis(1500) {
-                self.sys.write().refresh_processes(ProcessesToUpdate::All, true);
-                *last = std::time::Instant::now();
-            }
+    pub fn refresh_sysinfo_if_needed(&self) {
+        let mut last = self.last_refresh.write();
+        if last.elapsed() > std::time::Duration::from_millis(1500) {
+            let mut sys = self.sys.write();
+
+            #[cfg(target_os = "linux")]
+            sys.refresh_cpu_usage();
+
+            sys.refresh_memory();
+            sys.refresh_processes(ProcessesToUpdate::All, true);
+
+            *last = std::time::Instant::now();
         }
+    }
+
+    pub fn get_processes(&self) -> Vec<ProcessDTO> {
+        self.refresh_sysinfo_if_needed();
 
         let sys = self.sys.read();
         let mut result: Vec<ProcessDTO> = Vec::new();
