@@ -31,13 +31,18 @@ fn is_authenticated(state: &SharedState, headers: &axum::http::HeaderMap) -> boo
         .unwrap_or(false)
 }
 
+async fn serve_no_cache(file: &str, req: Request) -> Response {
+    let mut res = ServeFile::new(file).try_call(req).await.unwrap().into_response();
+    res.headers_mut().insert(
+        header::CACHE_CONTROL,
+        "no-cache, no-store, must-revalidate".parse().unwrap(),
+    );
+    res
+}
+
 async fn index_handler(State(state): State<SharedState>, req: Request) -> Response {
     if is_authenticated(&state, req.headers()) {
-        ServeFile::new("static/dist/index.html")
-            .try_call(req)
-            .await
-            .unwrap()
-            .into_response()
+        serve_no_cache("static/dist/index.html", req).await
     } else {
         Redirect::to("/login").into_response()
     }
@@ -47,11 +52,7 @@ async fn login_page_handler(State(state): State<SharedState>, req: Request) -> R
     if is_authenticated(&state, req.headers()) {
         Redirect::to("/").into_response()
     } else {
-        ServeFile::new("static/dist/login.html")
-            .try_call(req)
-            .await
-            .unwrap()
-            .into_response()
+        serve_no_cache("static/dist/login.html", req).await
     }
 }
 
