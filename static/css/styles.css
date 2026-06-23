@@ -215,6 +215,18 @@ tbody tr:hover {
     background: rgba(255, 255, 255, 0.03);
 }
 
+@keyframes highlightFade {
+    0% {
+        background-color: rgba(250, 204, 21, 0.3);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+.row-highlight {
+    animation: highlightFade 1.5s ease-out forwards;
+}
+
 td {
     border-bottom: 1px solid rgba(255, 255, 255, 0.02);
 }
@@ -372,8 +384,4 @@ td {
     60% {
         transform: translate3d(4px, 0, 0);
     }
-}
-
-#dropZone > * {
-    pointer-events: none;
 }

@@ -2,14 +2,18 @@
 import { apiCall, SVG_TEMPLATES, CLASSES, formatFileSize, formatDate, BaseFileManager } from "./utils.js";
 import { LoadingButton } from "./dom.js";
 
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
+const escapeHtml = (str) => (str || "").replace(/[&<>"']/g, (m) => HTML_ESCAPES[m]);
+
 class FileManager extends BaseFileManager {
     constructor() {
         super();
         this.currentPath = "";
         this.currentFileList = [];
+        this.sortColumn = "name";
+        this.sortDirection = "asc";
         this.buttons = {};
         this.dropZone = null;
-        this.filteredRows = new Map();
         this.elements = {
             fileList: null,
             currentPath: null,
@@ -29,23 +33,13 @@ class FileManager extends BaseFileManager {
             deleteItem: "Deleting...",
             renameItem: "Renaming...",
             createFolder: "Creating...",
-            uploadFile: "Uploading...",
-            refresh: "Refreshing...",
+            refresh: "",
         };
 
         this.buttons = Object.fromEntries(
             Object.entries(buttonConfigs)
                 .map(([id, loadingText]) => {
                     const button = document.getElementById(id);
-                    if (id === "deleteItem" && button) {
-                        const label = button.textContent.trim();
-                        button.innerHTML = `
-                            <span class="inline-flex items-center gap-2">
-                                ${SVG_TEMPLATES.cross("w-4 h-4")}
-                                <span>${label}</span>
-                            </span>
-                        `;
-                    }
                     return button ? [id, new LoadingButton(button, loadingText)] : null;
                 })
                 .filter(Boolean),
@@ -65,6 +59,9 @@ class FileManager extends BaseFileManager {
         Array.from(files).forEach((file) => formData.append("files", file));
 
         if (isDropZone) this.dropZone.setLoading();
+        const uploadLabel = document.querySelector('label[for="fileUpload"] span');
+        const originalText = uploadLabel?.textContent || "Upload";
+        if (uploadLabel) uploadLabel.textContent = "Uploading...";
 
         try {
             await this.handleApiCall("/api/upload", "POST", formData, async () => {
@@ -72,20 +69,12 @@ class FileManager extends BaseFileManager {
                 const sep = this.getSeparator();
                 const highlightPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? "" : sep}${lastFile}`;
                 await this.listFiles(this.currentPath, highlightPath);
-
-                if (!isDropZone) {
-                    const fileInput = document.getElementById("fileUpload");
-                    if (fileInput) fileInput.value = "";
-                    const label = document.getElementById("selectedFileName");
-                    if (label) {
-                        label.textContent = "No file chosen";
-                        label.classList.remove("text-green-400");
-                        label.classList.add("text-gray-400");
-                    }
-                }
             });
         } finally {
             if (isDropZone) this.dropZone.reset();
+            if (uploadLabel) uploadLabel.textContent = originalText;
+            const fileInput = document.getElementById("fileUpload");
+            if (fileInput) fileInput.value = "";
         }
     }
 
@@ -109,22 +98,7 @@ class FileManager extends BaseFileManager {
             row.dataset.name = item.name;
         }
 
-        ["mouseover", "mouseout"].forEach((event) => {
-            row.addEventListener(event, () => {
-                row.dataset.hovered = event === "mouseover";
-                this.selectionManager.updateItemHover(row);
-            });
-        });
-
         return row;
-    }
-
-    createCell(content, colSpan = 1) {
-        const cell = document.createElement("td");
-        cell.classList.add(...CLASSES.cell);
-        cell.colSpan = colSpan;
-        cell.innerHTML = content;
-        return cell;
     }
 
     updateFileOperationsUI() {
@@ -132,18 +106,17 @@ class FileManager extends BaseFileManager {
 
         const elements = {
             operations: document.getElementById("fileOperations"),
+            renameGroup: document.getElementById("renameGroup"),
             download: document.getElementById("downloadFile"),
             delete: document.getElementById("deleteItem"),
             renameInput: document.getElementById("renameInput"),
-            renameButton: document.getElementById("renameItem"),
         };
 
         if (elements.operations) elements.operations.classList.toggle("hidden", !selectionCount);
+        if (elements.renameGroup) elements.renameGroup.classList.toggle("hidden", selectionCount !== 1);
 
         if (elements.download) elements.download.disabled = !selectionCount;
         if (elements.delete) elements.delete.disabled = !selectionCount;
-        if (elements.renameInput) elements.renameInput.disabled = selectionCount !== 1;
-        if (elements.renameButton) elements.renameButton.disabled = selectionCount !== 1;
 
         if (selectionCount === 1 && elements.renameInput) {
             const selectedItem = Array.from(this.selectionManager.selectedItems)[0];
@@ -155,89 +128,122 @@ class FileManager extends BaseFileManager {
 
     createUpDirectoryRow(path, onClick) {
         const upRow = this.createTableRow();
-        upRow.addEventListener("click", onClick);
-        upRow.appendChild(
-            this.createCell(`<div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div>`, 3),
-        );
+        upRow.onclick = onClick;
+        upRow.innerHTML = `<td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>`;
         return upRow;
     }
 
-    async updateFileList(items, highlightPath = null) {
-        const fragment = document.createDocumentFragment();
+    updateBreadcrumbs() {
+        const container = this.elements.currentPath;
+        if (!container) return;
+        container.innerHTML = "";
 
-        if (this.currentPath !== "") {
-            const upRow = this.createUpDirectoryRow(this.currentPath, () => this.listFiles(this.getParentPath()));
-            fragment.appendChild(upRow);
+        const path = this.currentPath;
+        const isWindows = path.includes("\\") || /^[A-Z]:/i.test(path);
+        const separator = isWindows ? "\\" : "/";
+
+        const createPartBtn = (text, targetPath, isActive) => {
+            const btn = document.createElement("button");
+            btn.className = `truncate flex-shrink-0 rounded px-1.5 py-0.5 text-sm transition-colors ${
+                isActive
+                    ? "text-gray-100 font-semibold max-w-[200px]"
+                    : "text-gray-300 hover:text-white hover:bg-white/10 max-w-[150px] cursor-pointer"
+            }`;
+            btn.textContent = text;
+            btn.title = text;
+            if (!isActive) {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.listFiles(targetPath);
+                });
+            }
+            return btn;
+        };
+
+        const chevron = `<svg class="w-3.5 h-3.5 text-gray-500 flex-shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+
+        if (!path || path === "/" || path === "") {
+            container.appendChild(createPartBtn(path === "" ? "This PC" : "/", path === "" ? "" : "/", true));
+            return;
         }
 
-        items.forEach((item) => {
-            const row = this.createTableRow(item, item.no_access ? CLASSES.noAccess : []);
+        const parts = path.split(separator).filter(Boolean);
+        container.appendChild(createPartBtn(isWindows ? "This PC" : "root", isWindows ? "" : "/", false));
 
-            if (item.is_dir) {
-                row.addEventListener("dblclick", () => this.listFiles(item.path));
-            }
-
-            const cells = [this.createItemNameCell(item)];
-
-            const dateStr = item.last_modified ? formatDate(item.last_modified) : "-";
-
-            if (item.is_dir) {
-                cells.push("-", dateStr);
+        let accumulated = "";
+        parts.forEach((part, index) => {
+            container.insertAdjacentHTML("beforeend", chevron);
+            if (isWindows) {
+                accumulated = accumulated ? `${accumulated.replace(/\\$/, "")}\\${part}` : part;
+                if (index === 0 && part.endsWith(":")) accumulated += "\\";
             } else {
-                cells.push(formatFileSize(item.size), dateStr);
+                accumulated += "/" + part;
             }
-
-            cells.forEach((content) => row.appendChild(this.createCell(content)));
-
-            if (highlightPath && item.path === highlightPath) {
-                row.classList.add(CLASSES.highlight);
-                setTimeout(() => row.classList.remove(CLASSES.highlight), 1500);
-            }
-
-            fragment.appendChild(row);
+            container.appendChild(createPartBtn(part, accumulated, index === parts.length - 1));
         });
 
-        this.elements.fileList.innerHTML = "";
-        this.elements.fileList.appendChild(fragment);
+        setTimeout(() => (container.scrollLeft = container.scrollWidth), 10);
+    }
 
+    async updateFileList(items, highlightPath = null) {
         this.currentFileList = items;
-        this.filteredRows.clear();
+
+        const sortedItems = [...items].sort((a, b) => {
+            if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+
+            const dirMultiplier = this.sortDirection === "asc" ? 1 : -1;
+
+            if (this.sortColumn === "name") {
+                return dirMultiplier * a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+            }
+
+            const key = this.sortColumn === "modified" ? "last_modified" : this.sortColumn;
+            const valA = a[key] ?? 0;
+            const valB = b[key] ?? 0;
+
+            return dirMultiplier * (valA - valB);
+        });
+
+        const upRow =
+            this.currentPath !== ""
+                ? `<tr data-up-row="true" data-is-dir="true" data-path="${escapeHtml(this.getParentPath())}" class="${CLASSES.row.join(" ")} ${CLASSES.defaultHover}"><td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`
+                : "";
+
+        this.elements.fileList.innerHTML =
+            upRow +
+            (sortedItems.length === 0
+                ? `<tr><td colspan="3" class="px-2 whitespace-nowrap"><div class="text-center text-gray-500 py-8 font-mono">Directory is empty</div></td></tr>`
+                : sortedItems
+                      .map((item) => {
+                          const dateStr = item.last_modified ? formatDate(item.last_modified) : "-";
+                          const highlight = highlightPath && item.path === highlightPath ? CLASSES.highlight : "";
+                          const accessCls = item.no_access ? CLASSES.noAccess : "";
+
+                          return `<tr data-path="${escapeHtml(item.path)}" data-is-dir="${item.is_dir}" data-name="${escapeHtml(item.name)}" class="${CLASSES.row.join(" ")} ${CLASSES.defaultHover} ${accessCls} ${highlight}">
+                    <td class="px-2 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
+                    <td class="px-2 whitespace-nowrap hidden sm:table-cell">${item.is_dir ? "-" : formatFileSize(item.size)}</td>
+                    <td class="px-2 whitespace-nowrap hidden md:table-cell">${dateStr}</td>
+                </tr>`;
+                      })
+                      .join(""));
+
         this.filterFiles(this.elements.searchInput?.value || "");
     }
 
     filterFiles(searchTerm) {
-        const normalizedSearch = searchTerm.toLowerCase();
-        if (!this.filteredRows.has(normalizedSearch)) {
-            const visibilityMap = new Map();
-            this.elements.fileList.querySelectorAll("tr[data-path]").forEach((row) => {
-                if (row.dataset.name) {
-                    const fileName = row.dataset.name.toLowerCase();
-                    visibilityMap.set(row, fileName.includes(normalizedSearch));
-                }
-            });
-            this.filteredRows.set(normalizedSearch, visibilityMap);
-        }
-
-        const visibilityMap = this.filteredRows.get(normalizedSearch);
-        visibilityMap.forEach((isVisible, row) => {
-            row.style.display = isVisible ? "" : "none";
+        const term = searchTerm.toLowerCase();
+        this.elements.fileList.querySelectorAll("tr[data-path]").forEach((row) => {
+            if (row.dataset.name) {
+                row.style.display = row.dataset.name.toLowerCase().includes(term) ? "" : "none";
+            }
         });
     }
 
     createItemNameCell(item) {
-        const escapeHtml = (str) => {
-            return (str || "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        };
-
         const iconTemplate = item.is_dir ? SVG_TEMPLATES.folder : SVG_TEMPLATES.file;
         const icon = item.is_dir && item.no_access ? iconTemplate("text-gray-500") : iconTemplate();
         const safeName = escapeHtml(item.name);
-        return `<div class="flex items-center gap-2">${icon}${safeName}</div>`;
+        return `<div class="flex items-center gap-2 truncate overflow-hidden">${icon}<span class="truncate block w-full" title="${safeName}">${safeName}</span></div>`;
     }
 
     getSeparator() {
@@ -246,18 +252,14 @@ class FileManager extends BaseFileManager {
 
     getParentPath() {
         const path = this.currentPath;
-
-        if (path.match(/^[A-Z]:\\$/) || path === "/") return "";
+        if (/^[A-Z]:\\$/i.test(path) || path === "/") return "";
 
         const cleaned = path.replace(/[\\/]$/, "");
-        const lastSlash = cleaned.lastIndexOf("/");
-        const lastBackslash = cleaned.lastIndexOf("\\");
-        const lastSep = Math.max(lastSlash, lastBackslash);
-
+        const lastSep = Math.max(cleaned.lastIndexOf("/"), cleaned.lastIndexOf("\\"));
         if (lastSep <= 0) return "/";
 
-        const sep = lastSep === lastSlash ? "/" : "\\";
-        return cleaned.substring(0, lastSep) + sep;
+        const parent = cleaned.substring(0, lastSep);
+        return /^[A-Z]:$/i.test(parent) ? parent + "\\" : parent;
     }
 
     async listFiles(path, highlightPath = null) {
@@ -267,10 +269,10 @@ class FileManager extends BaseFileManager {
 
         if (path !== this.currentPath) {
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Loading...</td></tr>`;
+            if (this.elements.searchInput) this.elements.searchInput.value = "";
         }
 
         try {
-            // Encode path components properly
             const response = await apiCall(`/api/files?path=${encodeURIComponent(path)}`);
 
             if (response.status === "error") {
@@ -281,26 +283,22 @@ class FileManager extends BaseFileManager {
                 fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
                 fileList.querySelector("td").textContent = errorMsg;
 
-                // Allow going back up even if current view failed
                 if (path !== "") {
                     const previousPath = this.currentPath;
                     const upRow = this.createUpDirectoryRow(path, () => this.listFiles(previousPath));
-                    // Prepend the back button so it's always available
                     fileList.insertBefore(upRow, fileList.firstChild);
                 }
                 return;
             }
 
             this.currentPath = path;
-            const currentPathEl = document.getElementById("currentPath");
-            if (currentPathEl) currentPathEl.textContent = `Current Path: ${this.currentPath}`;
+            this.updateBreadcrumbs();
 
             await this.updateFileList(response, highlightPath);
 
             this.selectionManager.notifyItemsUpdate();
         } catch (error) {
             console.error("Error listing files:", error);
-
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
             fileList.querySelector("td").textContent = `Error: ${error.message}`;
         }
@@ -355,9 +353,20 @@ class FileManager extends BaseFileManager {
     }
 
     initializeEventListeners() {
-        this.elements.fileList.addEventListener("click", () => {
+        this.elements.fileList.addEventListener("click", (e) => {
             setTimeout(() => this.updateFileOperationsUI(), 50);
+
+            const row = e.target.closest("tr");
+            if (row?.dataset.upRow) {
+                this.listFiles(row.dataset.path);
+            }
         });
+
+        this.elements.fileList.addEventListener("dblclick", (e) => {
+            const row = e.target.closest("tr");
+            if (row && row.dataset.isDir === "true") this.listFiles(row.dataset.path);
+        });
+
         const handleButtonClick = async (buttonId, action) => {
             const button = this.buttons[buttonId];
             if (button) {
@@ -377,16 +386,10 @@ class FileManager extends BaseFileManager {
             }),
         );
 
-        document.getElementById("uploadFile")?.addEventListener("click", () =>
-            handleButtonClick("uploadFile", async () => {
-                const fileInput = document.getElementById("fileUpload");
-                if (!fileInput?.files.length) {
-                    alert("Please select a file to upload");
-                    return;
-                }
-                await this.handleFileUpload(fileInput.files);
-            }),
-        );
+        document.getElementById("fileUpload")?.addEventListener("change", async (e) => {
+            if (!e.target.files.length) return;
+            await this.handleFileUpload(e.target.files);
+        });
 
         document.getElementById("deleteItem")?.addEventListener("click", () =>
             handleButtonClick("deleteItem", async () => {
@@ -444,15 +447,35 @@ class FileManager extends BaseFileManager {
             }),
         );
 
-        document.getElementById("fileUpload")?.addEventListener("change", function () {
-            const selectedFileName = document.getElementById("selectedFileName");
-            if (!selectedFileName) return;
+        // Class-based toggles for directory/edit transitions
+        const pathContainer = document.getElementById("pathContainer");
+        const pathInput = document.getElementById("pathInput");
 
-            selectedFileName.textContent =
-                this.files.length > 1 ? `${this.files.length} files selected` : this.files[0]?.name || "No file chosen";
-            selectedFileName.classList.toggle("text-gray-400", this.files.length === 0);
-            selectedFileName.classList.toggle("text-green-400", this.files.length > 0);
-        });
+        if (pathContainer && pathInput) {
+            pathContainer.addEventListener("click", () => {
+                if (pathContainer.classList.contains("editing")) return;
+                pathContainer.classList.add("editing");
+                pathInput.value = this.currentPath;
+                pathInput.focus();
+                pathInput.select();
+            });
+
+            pathInput.addEventListener("blur", () => {
+                pathContainer.classList.remove("editing");
+            });
+
+            pathInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    const newPath = pathInput.value.trim();
+                    pathInput.blur();
+                    if (newPath !== this.currentPath) {
+                        this.listFiles(newPath);
+                    }
+                } else if (e.key === "Escape") {
+                    pathInput.blur();
+                }
+            });
+        }
 
         const searchInput = document.getElementById("searchInput");
         if (searchInput) {
@@ -469,11 +492,44 @@ class FileManager extends BaseFileManager {
         }
     }
 
+    initializeSortListeners() {
+        document.querySelectorAll("#fileTable th[data-sort]").forEach((th) => {
+            th.addEventListener("mousedown", (e) => e.stopPropagation());
+
+            th.addEventListener("click", () => {
+                const sortField = th.dataset.sort;
+                if (this.sortColumn === sortField) {
+                    this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
+                } else {
+                    this.sortColumn = sortField;
+                    this.sortDirection = "asc";
+                }
+                this.updateSortIndicators();
+                this.updateFileList(this.currentFileList);
+                this.selectionManager.notifyItemsUpdate();
+            });
+        });
+        this.updateSortIndicators();
+    }
+
+    updateSortIndicators() {
+        document.querySelectorAll("#fileTable th[data-sort]").forEach((th) => {
+            const indicator = th.querySelector(".sort-indicator");
+            if (!indicator) return;
+            if (th.dataset.sort === this.sortColumn) {
+                indicator.textContent = this.sortDirection === "asc" ? " ▲" : " ▼";
+            } else {
+                indicator.textContent = "";
+            }
+        });
+    }
+
     initialize() {
         this.initializeElements();
         this.initializeButtons();
         this.dropZone = new DropZone("dropZone", this.handleFileUpload.bind(this));
         this.initializeEventListeners();
+        this.initializeSortListeners();
         super.initialize();
         this.listFiles(this.currentPath);
     }
@@ -482,7 +538,11 @@ class FileManager extends BaseFileManager {
 class DropZone {
     constructor(elementId, onUpload) {
         this.element = document.getElementById(elementId);
+        this.overlay = document.getElementById("dropOverlay");
+        this.promptEl = document.getElementById("dropPrompt");
+        this.spinnerEl = document.getElementById("dropSpinner");
         this.onUpload = onUpload;
+        this.dragCounter = 0;
         this.setupEventListeners();
     }
 
@@ -497,37 +557,49 @@ class DropZone {
             this.element.addEventListener(event, preventDefault),
         );
 
-        ["dragenter", "dragover"].forEach((event) => this.element.addEventListener(event, () => this.highlight()));
+        this.element.addEventListener("dragenter", () => {
+            this.dragCounter++;
+            if (this.dragCounter === 1) this.highlight();
+        });
 
-        ["dragleave", "drop"].forEach((event) => this.element.addEventListener(event, () => this.unhighlight()));
+        this.element.addEventListener("dragleave", () => {
+            this.dragCounter--;
+            if (this.dragCounter === 0) this.unhighlight();
+        });
 
-        this.element.addEventListener("drop", (e) => this.onUpload(e.dataTransfer.files, true));
+        this.element.addEventListener("drop", (e) => {
+            this.dragCounter = 0;
+            this.unhighlight();
+            this.onUpload(e.dataTransfer.files, true);
+        });
     }
 
     highlight() {
-        this.element.classList.add("bg-blue-500/20", "border-blue-700");
+        if (this.overlay) {
+            this.overlay.classList.remove("hidden");
+            requestAnimationFrame(() => this.overlay.classList.remove("opacity-0"));
+        }
+        this.element.classList.add("border-pink-500", "shadow-[0_0_15px_rgba(236,72,153,0.3)]");
     }
 
     unhighlight() {
-        this.element.classList.remove("bg-blue-500/20", "border-blue-700");
+        if (this.overlay) {
+            this.overlay.classList.add("opacity-0");
+            setTimeout(() => this.overlay.classList.add("hidden"), 200);
+        }
+        this.element.classList.remove("border-pink-500", "shadow-[0_0_15px_rgba(236,72,153,0.3)]");
     }
 
     setLoading() {
-        this.element.innerHTML = `
-            <div class="text-center">
-                ${SVG_TEMPLATES.spinner(10)}
-                <p class="text-gray-400">Uploading files...</p>
-            </div>
-        `;
+        if (this.promptEl) this.promptEl.classList.add("hidden");
+        if (this.spinnerEl) this.spinnerEl.classList.remove("hidden");
+        if (this.overlay) this.overlay.classList.remove("hidden", "opacity-0");
     }
 
     reset() {
-        this.element.innerHTML = `
-            <div class="text-center">
-                ${SVG_TEMPLATES.upload()}
-                <p class="text-gray-400">Drag and drop files here to upload</p>
-            </div>
-        `;
+        if (this.promptEl) this.promptEl.classList.remove("hidden");
+        if (this.spinnerEl) this.spinnerEl.classList.add("hidden");
+        this.unhighlight();
     }
 }
 

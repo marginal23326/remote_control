@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use jiff::Timestamp;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -11,7 +10,7 @@ pub struct FileEntry {
     pub path: String,
     pub is_dir: bool,
     pub size: u64,
-    pub last_modified: Option<String>,
+    pub last_modified: Option<i64>,
     pub no_access: bool,
 }
 
@@ -64,18 +63,19 @@ impl FileManager {
             let file_type = entry.file_type().ok();
             let metadata_res = entry.metadata();
 
-            // If we can't get metadata, use defaults
-            let (is_dir, len, modified_str) = if let Ok(meta) = metadata_res {
-                let date = meta
-                    .modified()
-                    .ok()
-                    .and_then(|t| Timestamp::try_from(t).ok())
-                    .map(|ts| ts.to_string());
-                (meta.is_dir(), meta.len(), date)
-            } else {
-                let is_dir = file_type.map(|ft| ft.is_dir()).unwrap_or(false);
-                (is_dir, 0, None)
-            };
+            let (is_dir, len, modified_millis) = metadata_res
+                .map(|meta| {
+                    let millis = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_millis() as i64);
+                    (meta.is_dir(), meta.len(), millis)
+                })
+                .unwrap_or_else(|_| {
+                    let is_dir = file_type.map(|ft| ft.is_dir()).unwrap_or(false);
+                    (is_dir, 0, None)
+                });
 
             let full_path_buf = entry.path();
             let full_path = full_path_buf.to_string_lossy().to_string();
@@ -92,7 +92,7 @@ impl FileManager {
                 path: full_path,
                 is_dir,
                 size: len,
-                last_modified: modified_str,
+                last_modified: modified_millis,
                 no_access,
             });
         }

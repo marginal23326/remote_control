@@ -58,7 +58,6 @@ uuid = { version = "1.19", features = ["v4"] }
 tokio-util = { version = "0.7", features = ["io"] }
 mime_guess = "2.0"
 time = { version = "0.3", default-features = false, features = ["std", "local-offset"] }
-jiff = { version = "0.2", default-features = false, features = ["std"] }
 hostname = "0.4"
 crossbeam-channel = "0.5"
 crossbeam-queue = "0.3"
