@@ -1982,6 +1982,7 @@ dependencies = [
  "jiff",
  "mime_guess",
  "minreq",
+ "parking_lot",
  "pipewire",
  "portable-pty",
  "regex",

@@ -1,9 +1,10 @@
+use parking_lot::Mutex;
 use std::fs;
 use std::os::fd::OwnedFd;
 use std::path::PathBuf;
 use std::process;
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicBool, Ordering},
 };
 use std::time::Duration;
@@ -124,15 +125,15 @@ pub(crate) fn run_pipewire_capture(
 
             if user_data.format.parse(param).is_ok() {
                 let size = user_data.format.size();
-                *user_data.native_size.lock().unwrap() = (size.width as i32, size.height as i32);
+                *user_data.native_size.lock() = (size.width as i32, size.height as i32);
 
                 let fr = user_data.format.framerate();
                 if fr.denom > 0 {
                     if let Some(fps_val) = fr.num.checked_div(fr.denom).filter(|&v| v > 0) {
-                        user_data.settings.lock().unwrap().max_fps = fps_val as u64;
+                        user_data.settings.lock().max_fps = fps_val as u64;
                     }
                 } else {
-                    user_data.settings.lock().unwrap().max_fps = fr.num.max(1) as u64;
+                    user_data.settings.lock().max_fps = fr.num.max(1) as u64;
                 }
             }
         })
@@ -149,7 +150,7 @@ pub(crate) fn run_pipewire_capture(
             };
 
             let (target_fps, max_fps) = {
-                let s = user_data.settings.lock().unwrap();
+                let s = user_data.settings.lock();
                 (s.target_fps, s.max_fps)
             };
             if !user_data.limiter.should_process(target_fps, max_fps) {
@@ -320,7 +321,7 @@ static ACTIVE_WINDOW_TITLE: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::ne
 
 #[allow(dead_code)]
 pub(crate) fn get_active_window_title() -> String {
-    ACTIVE_WINDOW_TITLE.lock().unwrap().clone()
+    ACTIVE_WINDOW_TITLE.lock().clone()
 }
 
 pub(crate) fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
@@ -334,7 +335,7 @@ pub(crate) fn run_active_window_title_poll(is_running: Arc<AtomicBool>) {
         }
     });
 
-    ACTIVE_WINDOW_TITLE.lock().unwrap().clear();
+    ACTIVE_WINDOW_TITLE.lock().clear();
 }
 
 async fn monitor_active_window(is_running: Arc<AtomicBool>) -> Result<()> {
@@ -399,7 +400,7 @@ async fn monitor_active_window(is_running: Arc<AtomicBool>) -> Result<()> {
         match tokio::time::timeout(Duration::from_millis(500), stream.next()).await {
             Ok(Some(Ok(message))) => {
                 if let Ok(title) = message.body().deserialize::<String>() {
-                    *ACTIVE_WINDOW_TITLE.lock().unwrap() = title;
+                    *ACTIVE_WINDOW_TITLE.lock() = title;
                 }
             }
             Ok(Some(Err(e))) => {

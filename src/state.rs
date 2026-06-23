@@ -5,7 +5,8 @@ use crate::services::input::InputManager;
 use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
 use crate::services::tasks::TaskManager;
-use std::sync::{Arc, Mutex, RwLock};
+use parking_lot::{Mutex, RwLock};
+use std::sync::Arc;
 use sysinfo::{Networks, System};
 use tokio::sync::OnceCell;
 
