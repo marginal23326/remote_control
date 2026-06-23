@@ -135,15 +135,17 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     }
 
     let socket_id = socket.id.to_string();
-    state.screen.disconnect_if_owner(&socket_id);
+    let was_screen_owner = state.screen.disconnect_if_owner(&socket_id);
     state.audio.disconnect_if_owner(&socket_id);
 
-    let input = state.input.clone();
-    tokio::spawn(async move {
-        let _ = input.click_mouse("left", false).await;
-        let _ = input.click_mouse("right", false).await;
-        let _ = input.click_mouse("middle", false).await;
-    });
+    if was_screen_owner {
+        let input = state.input.clone();
+        tokio::spawn(async move {
+            let _ = input.click_mouse("left", false).await;
+            let _ = input.click_mouse("right", false).await;
+            let _ = input.click_mouse("middle", false).await;
+        });
+    }
 }
 
 pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {

@@ -804,10 +804,12 @@ impl ScreenManager {
         });
     }
 
-    pub fn disconnect_if_owner(&self, owner_id: &str) {
-        if self.owner_id.lock().as_deref() == Some(owner_id) {
+    pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
+        let is_owner = self.owner_id.lock().as_deref() == Some(owner_id);
+        if is_owner {
             self.stop_stream();
         }
+        is_owner
     }
 
     pub fn update_settings(&self, bitrate: u32, resolution: u8) {
