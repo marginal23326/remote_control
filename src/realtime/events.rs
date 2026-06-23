@@ -6,6 +6,7 @@ use crate::realtime::handlers::{
 };
 use crate::state::SharedState;
 use crate::utils::auth::{extract_token_from_cookie, verify_jwt};
+use axum::http::header;
 use serde_json::json;
 use socketioxide::{
     SocketIo,
@@ -19,7 +20,7 @@ pub fn register(io: SocketIo) {
 
 async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     let headers = &socket.req_parts().headers;
-    let cookie_str = headers.get("cookie").and_then(|h| h.to_str().ok()).unwrap_or("");
+    let cookie_str = headers.get(header::COOKIE).and_then(|h| h.to_str().ok()).unwrap_or("");
 
     let is_authenticated = if let Some(token) = extract_token_from_cookie(cookie_str) {
         let config = &state.config;
