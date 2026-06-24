@@ -10,7 +10,7 @@
         <!-- Connection Overlay -->
         <div
             id="connectionOverlay"
-            class="connection-overlay fixed inset-0 z-[100] flex flex-col items-center justify-center"
+            class="connection-overlay fixed inset-0 z-100 flex flex-col items-center justify-center"
         >
             <div class="spinner mb-6"></div>
             <p id="connectionMessage" class="text-lg font-mono tracking-widest text-blue-400 animate-pulse">
@@ -218,7 +218,7 @@
             </nav>
 
             <!-- Main Content -->
-            <main class="min-h-[600px]">
+            <main class="min-h-0">
                 <!-- Stream Section -->
                 <section id="streamSection" class="section animate-in fade-in zoom-in-95 duration-300">
                     <div class="glass-card rounded-2xl p-6">
@@ -547,7 +547,7 @@
                                             />
                                         </div>
                                     </div>
-                                    <div class="pt-[4.5rem] flex gap-3">
+                                    <div class="pt-18 flex gap-3">
                                         <button
                                             id="startClientAudio"
                                             class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all"
@@ -609,272 +609,19 @@
                     id="keyboardSection"
                     class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
                 >
-                    <div class="glass-card rounded-2xl p-6">
-                        <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <span class="w-2 h-8 bg-orange-500 rounded-sm"></span>
+                    <div class="glass-card rounded-2xl p-6 max-w-4xl mx-auto">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <span class="w-2 h-8 bg-orange-500 rounded-sm shrink-0"></span>
                             INPUT EMULATION
                         </h2>
-
-                        <div class="grid lg:grid-cols-2 gap-6">
-                            <!-- Left Col: Macros & Text -->
-                            <div class="space-y-6">
-                                <!-- Clipboard Operations -->
-                                <div class="bg-black/20 p-5 rounded-xl border border-white/5">
-                                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
-                                        Clipboard Operations
-                                    </h3>
-                                    <div class="grid grid-cols-4 gap-3">
-                                        <button
-                                            class="action-btn py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600/30 hover:border-blue-500/50 hover:text-blue-400 hover:shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                                            data-key="copy"
-                                        >
-                                            CPY
-                                        </button>
-                                        <button
-                                            class="action-btn py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600/30 hover:border-blue-500/50 hover:text-blue-400 hover:shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                                            data-key="paste"
-                                        >
-                                            PST
-                                        </button>
-                                        <button
-                                            class="action-btn py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600/30 hover:border-blue-500/50 hover:text-blue-400 hover:shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                                            data-key="cut"
-                                        >
-                                            CUT
-                                        </button>
-                                        <button
-                                            class="action-btn py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600/30 hover:border-blue-500/50 hover:text-blue-400 hover:shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                                            data-key="undo"
-                                        >
-                                            UND
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Custom Shortcut (Restored) -->
-                                <div class="bg-black/20 p-5 rounded-xl border border-white/5 relative overflow-hidden">
-                                    <!-- Subtle background decoration -->
-                                    <div class="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                                        <svg
-                                            class="w-16 h-16 text-white"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-width="1"
-                                                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-                                            />
-                                        </svg>
-                                    </div>
-
-                                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
-                                        Command Sequence
-                                    </h3>
-
-                                    <!-- Modifier Toggles -->
-                                    <div class="flex gap-2 mb-4" id="modifierContainer">
-                                        <button
-                                            class="modifier-btn flex-1 py-2 text-xs font-mono font-bold border border-gray-700 bg-gray-900/50 text-gray-500 rounded transition-all duration-200 hover:border-gray-500 data-[active=true]:border-blue-500 data-[active=true]:bg-blue-600/20 data-[active=true]:text-blue-400 data-[active=true]:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                                            data-modifier="ctrl"
-                                        >
-                                            CTRL
-                                        </button>
-                                        <button
-                                            class="modifier-btn flex-1 py-2 text-xs font-mono font-bold border border-gray-700 bg-gray-900/50 text-gray-500 rounded transition-all duration-200 hover:border-gray-500 data-[active=true]:border-blue-500 data-[active=true]:bg-blue-600/20 data-[active=true]:text-blue-400 data-[active=true]:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                                            data-modifier="win"
-                                        >
-                                            WIN
-                                        </button>
-                                        <button
-                                            class="modifier-btn flex-1 py-2 text-xs font-mono font-bold border border-gray-700 bg-gray-900/50 text-gray-500 rounded transition-all duration-200 hover:border-gray-500 data-[active=true]:border-blue-500 data-[active=true]:bg-blue-600/20 data-[active=true]:text-blue-400 data-[active=true]:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                                            data-modifier="alt"
-                                        >
-                                            ALT
-                                        </button>
-                                        <button
-                                            class="modifier-btn flex-1 py-2 text-xs font-mono font-bold border border-gray-700 bg-gray-900/50 text-gray-500 rounded transition-all duration-200 hover:border-gray-500 data-[active=true]:border-blue-500 data-[active=true]:bg-blue-600/20 data-[active=true]:text-blue-400 data-[active=true]:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                                            data-modifier="shift"
-                                        >
-                                            SHIFT
-                                        </button>
-                                    </div>
-
-                                    <!-- Key Input & Send -->
-                                    <div class="flex gap-3">
-                                        <input
-                                            type="text"
-                                            id="customKey"
-                                            class="flex-1 px-4 py-2.5 bg-black/40 border border-gray-700 rounded-lg text-gray-200 font-mono text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
-                                            placeholder="KEY (e.g. f12, delete)"
-                                        />
-                                        <button
-                                            id="sendCustomShortcut"
-                                            class="px-5 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg font-bold font-mono tracking-wide transition-all shadow-lg hover:shadow-blue-500/20"
-                                        >
-                                            EXEC
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Text Injection -->
-                                <div class="bg-black/20 p-5 rounded-xl border border-white/5">
-                                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
-                                        Text Injection
-                                    </h3>
-                                    <div class="space-y-3">
-                                        <textarea
-                                            id="textInput"
-                                            class="w-full p-4 h-24 rounded-lg bg-black/40 border border-gray-700 text-gray-200 font-mono text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all resize-none"
-                                            placeholder=">> Type sequence to transmit..."
-                                        ></textarea>
-                                        <button
-                                            id="sendText"
-                                            class="w-full py-3 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 rounded-lg font-bold tracking-wide transition-all uppercase hover:shadow-[0_0_15px_rgba(249,115,22,0.2)]"
-                                        >
-                                            Transmit Data
-                                        </button>
-                                    </div>
-                                </div>
+                        <div class="flex flex-col gap-4">
+                            <!-- Top Row: Functional Zones -->
+                            <div class="flex flex-col lg:flex-row items-stretch gap-4">
+                                <div id="tileCommandCenter" class="flex-[1.2] min-w-[300px]"></div>
+                                <div id="tileNavActions" class="flex-[0.8] min-w-[250px]"></div>
                             </div>
-
-                            <!-- Right Col: Navigation & Keys -->
-                            <div class="bg-black/20 p-5 rounded-xl border border-white/5 flex flex-col h-full">
-                                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-8">
-                                    Navigation Cluster
-                                </h3>
-
-                                <!-- Arrow Pad -->
-                                <div class="flex flex-col items-center gap-2 mb-10 flex-1 justify-center">
-                                    <button
-                                        class="w-16 h-16 rounded-xl bg-gray-800/80 border border-gray-700 text-2xl text-gray-400 hover:bg-blue-600 hover:border-blue-500 hover:text-white transition-all shadow-lg active:scale-95 active:shadow-inner"
-                                        data-key="up"
-                                    >
-                                        <svg
-                                            class="w-6 h-6 mx-auto"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M5 10l7-7m0 0l7 7m-7-7v18"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <div class="flex gap-2">
-                                        <button
-                                            class="w-16 h-16 rounded-xl bg-gray-800/80 border border-gray-700 text-2xl text-gray-400 hover:bg-blue-600 hover:border-blue-500 hover:text-white transition-all shadow-lg active:scale-95 active:shadow-inner"
-                                            data-key="left"
-                                        >
-                                            <svg
-                                                class="w-6 h-6 mx-auto"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                                                />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            class="w-16 h-16 rounded-xl bg-gray-800/80 border border-gray-700 text-2xl text-gray-400 hover:bg-blue-600 hover:border-blue-500 hover:text-white transition-all shadow-lg active:scale-95 active:shadow-inner"
-                                            data-key="down"
-                                        >
-                                            <svg
-                                                class="w-6 h-6 mx-auto"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                                                />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            class="w-16 h-16 rounded-xl bg-gray-800/80 border border-gray-700 text-2xl text-gray-400 hover:bg-blue-600 hover:border-blue-500 hover:text-white transition-all shadow-lg active:scale-95 active:shadow-inner"
-                                            data-key="right"
-                                        >
-                                            <svg
-                                                class="w-6 h-6 mx-auto"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- System Keys Grid -->
-                                <div class="grid grid-cols-4 gap-3">
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="escape"
-                                    >
-                                        ESC
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="tab"
-                                    >
-                                        TAB
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="win"
-                                    >
-                                        WIN
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="alt"
-                                    >
-                                        ALT
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="enter"
-                                    >
-                                        ENT
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="backspace"
-                                    >
-                                        BKSP
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="delete"
-                                    >
-                                        DEL
-                                    </button>
-                                    <button
-                                        class="action-btn py-3 text-xs font-bold rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-all"
-                                        data-key="space"
-                                    >
-                                        SPC
-                                    </button>
-                                </div>
-                            </div>
+                            <!-- Bottom Row: Text -->
+                            <div id="tileText"></div>
                         </div>
                     </div>
                 </section>
@@ -902,7 +649,7 @@
                                         type="text"
                                         id="newFolderName"
                                         placeholder="Folder name"
-                                        class="w-32 lg:w-40 px-3 py-2 bg-black/40 border border-gray-700 rounded-l-lg !rounded-r-none text-sm focus:border-pink-500 transition-colors"
+                                        class="w-32 lg:w-40 px-3 py-2 bg-black/40 border border-gray-700 rounded-l-lg rounded-r-none! text-sm focus:border-pink-500 transition-colors"
                                     />
                                     <button
                                         id="createFolder"
@@ -954,7 +701,7 @@
 
                         <!-- Secondary Bar: Path & Contextual Operations -->
                         <div
-                            class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 bg-black/20 py-2 px-3 rounded-lg border border-white/5 min-h-[56px]"
+                            class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 bg-black/20 py-2 px-3 rounded-lg border border-white/5 min-h-14"
                         >
                             <!-- Path Input with Tailind-native class hiding strategies -->
                             <div

@@ -6,6 +6,7 @@ import { AudioManager } from "./modules/audio.js";
 import { initializeStream, updateSettingsDisplay } from "./modules/stream.js";
 import { InteractiveShell } from "./modules/shell.js";
 import { initializeFileManagement } from "./modules/file.js";
+import { renderInputSection } from "./modules/input-render.js";
 import { initializeInputHandlers } from "./modules/input.js";
 import { updateSystemInfo } from "./modules/system.js";
 import { apiCall } from "./modules/utils.js";
@@ -38,6 +39,14 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
     }
 }
 
+// Global interceptor to prevent browser scroll-jumping on tab clicks
+document.addEventListener("click", (e) => {
+    const tab = e.target.closest(".nav-tab");
+    if (tab) {
+        e.preventDefault();
+    }
+});
+
 (async function () {
     const socket = initializeSocketIO(updateUIBasedOnAuthentication);
 
@@ -50,6 +59,7 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
     // Initialize different parts of the application
     initializeStream(sessionId, socket);
     initializeFileManagement();
+    renderInputSection();
     initializeInputHandlers(socket);
     initializeTaskManager(socket);
 

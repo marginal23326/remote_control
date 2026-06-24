@@ -15,11 +15,21 @@ const SHORTCUT_MAP = {
 function initializeInputHandlers(socket) {
     // 1. Helper to send keyboard events
     function emitKeyboardEvent(type, payload) {
-        // console.log("Emitting keyboard event:", type, payload);
         socket.emit("keyboard_event", {
             type: type,
             ...payload,
         });
+    }
+
+    // Helper to collect currently active modifiers if sticky mode is enabled
+    function getActiveModifiers() {
+        const stickyToggle = document.getElementById("stickyToggle");
+        if (stickyToggle && !stickyToggle.checked) {
+            return [];
+        }
+        return Array.from(document.querySelectorAll(".modifier-btn"))
+            .filter((btn) => btn.getAttribute("data-active") === "true")
+            .map((btn) => btn.dataset.modifier);
     }
 
     // 2. Handle Standard Shortcut Buttons (Grid buttons like "Copy", "Up", "Esc")
@@ -38,7 +48,7 @@ function initializeInputHandlers(socket) {
             // Case A: Abstract command (e.g., "copy")
             if (SHORTCUT_MAP[rawKey]) {
                 key = SHORTCUT_MAP[rawKey].key;
-                modifiers = SHORTCUT_MAP[rawKey].modifiers;
+                modifiers = [...SHORTCUT_MAP[rawKey].modifiers];
             }
             // Case B: Combined keys (e.g., "alt+tab", "win+d")
             else if (rawKey.includes("+")) {
@@ -46,8 +56,10 @@ function initializeInputHandlers(socket) {
                 key = parts.pop(); // The last part is the main key
                 modifiers = parts; // The rest are modifiers
             }
-            // Case C: Single key (e.g., "up", "home", "win")
-            // 'key' is already set to rawKey, modifiers is empty.
+
+            // Merge default key modifiers with globally active sticky modifiers
+            const activeMods = getActiveModifiers();
+            modifiers = Array.from(new Set([...modifiers, ...activeMods]));
 
             emitKeyboardEvent("shortcut", {
                 shortcut: key,
@@ -56,9 +68,9 @@ function initializeInputHandlers(socket) {
         });
     });
 
-    // 3. Text Input Handling (Updated for new HTML structure)
+    // 3. Text Input Handling
     const textInput = document.getElementById("textInput");
-    const sendTextButton = document.getElementById("sendText"); // Specific ID in new HTML
+    const sendTextButton = document.getElementById("sendText");
 
     if (sendTextButton && textInput) {
         const sendText = () => {
@@ -88,38 +100,79 @@ function initializeInputHandlers(socket) {
         });
     }
 
-    // 4. Custom Shortcut Builder (Updated for new UI toggles)
+    // 4. Custom Shortcut Builder & Modifier Toggles
     const customKeyInput = document.getElementById("customKey");
     const sendCustomButton = document.getElementById("sendCustomShortcut");
     const modifierButtons = document.querySelectorAll(".modifier-btn");
+    const stickyToggle = document.getElementById("stickyToggle");
 
-    // Toggle logic for modifier buttons
+    // Toggle logic / immediate emittance logic for modifier buttons
     modifierButtons.forEach((button) => {
         button.addEventListener("click", () => {
-            // Toggle data-active attribute for CSS styling
-            const isActive = button.getAttribute("data-active") === "true";
-            button.setAttribute("data-active", !isActive);
+            const isSticky = stickyToggle && stickyToggle.checked;
+
+            if (isSticky) {
+                // Sticky Mode is ON: Toggle held state
+                const isActive = button.getAttribute("data-active") === "true";
+                button.setAttribute("data-active", !isActive);
+
+                const led = button.querySelector(".mod-led");
+                if (led) {
+                    led.classList.toggle("bg-gray-700/50", isActive);
+                    led.classList.toggle("bg-blue-400", !isActive);
+                    led.classList.toggle("shadow-[0_0_5px_rgba(96,165,250,0.8)]", !isActive);
+                }
+            } else {
+                // Sticky Mode is OFF: Transmit key immediately
+                emitKeyboardEvent("shortcut", {
+                    shortcut: button.dataset.modifier,
+                    modifiers: [],
+                });
+
+                // Normal click animation
+                button.classList.add("bg-blue-600", "text-white", "border-blue-500");
+                setTimeout(() => {
+                    button.classList.remove("bg-blue-600", "text-white", "border-blue-500");
+                }, 150);
+            }
         });
     });
+
+    // Handle Sticky Toggle Switch Changes
+    if (stickyToggle) {
+        stickyToggle.addEventListener("change", (e) => {
+            const isSticky = e.target.checked;
+
+            // Show/Hide LED indicators
+            document.querySelectorAll(".mod-led").forEach((led) => {
+                led.classList.toggle("hidden", !isSticky);
+            });
+
+            // Reset active states if Sticky Mode is disabled
+            if (!isSticky) {
+                modifierButtons.forEach((btn) => {
+                    btn.removeAttribute("data-active");
+                    const led = btn.querySelector(".mod-led");
+                    if (led) {
+                        led.className =
+                            "mod-led w-1.5 h-1.5 rounded-full bg-gray-700/50 transition-all duration-150 hidden";
+                    }
+                });
+            }
+        });
+    }
 
     if (sendCustomButton && customKeyInput) {
         sendCustomButton.addEventListener("click", () => {
             const key = customKeyInput.value.toLowerCase().trim();
+            const activeModifiers = getActiveModifiers();
 
-            // Gather active modifiers
-            const activeModifiers = Array.from(modifierButtons)
-                .filter((btn) => btn.getAttribute("data-active") === "true")
-                .map((btn) => btn.dataset.modifier);
-
-            // Only send if we have a key OR at least one modifier
             if (key.length > 0 || activeModifiers.length > 0) {
                 emitKeyboardEvent("shortcut", {
                     shortcut: key,
                     modifiers: activeModifiers,
                 });
 
-                // Reset UI after send? Optional.
-                // Let's keep modifiers active for repeated commands, but clear text input.
                 customKeyInput.value = "";
 
                 // Visual feedback
@@ -136,7 +189,6 @@ function initializeInputHandlers(socket) {
     let isScrolling = false;
     let isDragging = false;
 
-    // Track Ctrl key for modifying mouse behavior
     document.addEventListener("keydown", (event) => {
         if (event.key === "Control") isCtrlPressed = true;
     });
@@ -145,31 +197,23 @@ function initializeInputHandlers(socket) {
         if (event.key === "Control") isCtrlPressed = false;
     });
 
-    // Reset states when window loses focus
     window.addEventListener("blur", () => {
         isCtrlPressed = false;
         isDragging = false;
     });
 
     if (streamUI.view) {
-        // Prevent default browser dragging of the image
         streamUI.view.addEventListener("dragstart", (event) => event.preventDefault());
 
-        // Mouse Wheel
         streamUI.view.addEventListener("wheel", (event) => {
             event.preventDefault();
-            // dy direction: negative for up (away from user), positive for down
             sendMouseEvent("scroll", event, { dx: 0, dy: -Math.sign(event.deltaY) });
         });
 
-        // --- Touch Handling ---
         streamUI.view.addEventListener("touchstart", (event) => {
             event.preventDefault();
-
-            // Two finger touch = Scroll
             if (event.touches.length === 2) {
                 if (touchStarted) {
-                    // Cancel any pending click if we switch to scroll
                     touchStarted = false;
                     sendMouseEvent("click", event.touches[0], { button: "left", pressed: false });
                 }
@@ -178,7 +222,6 @@ function initializeInputHandlers(socket) {
                 return;
             }
 
-            // One finger touch = Left Click Down
             if (event.touches.length === 1 && !isScrolling) {
                 touchStarted = true;
                 sendMouseEvent("click", event.touches[0], { button: "left", pressed: true });
@@ -187,12 +230,9 @@ function initializeInputHandlers(socket) {
 
         streamUI.view.addEventListener("touchmove", (event) => {
             event.preventDefault();
-
             if (event.touches.length === 2 && isScrolling && initialTouchY !== null) {
                 const currentTouchY = event.touches[1].clientY;
                 const deltaY = initialTouchY - currentTouchY;
-
-                // Threshold to prevent jitter
                 if (Math.abs(deltaY) > 5) {
                     sendMouseEvent("scroll", event.touches[0], { dx: 0, dy: -Math.sign(deltaY) });
                     initialTouchY = currentTouchY;
@@ -207,16 +247,12 @@ function initializeInputHandlers(socket) {
 
         streamUI.view.addEventListener("touchend", (event) => {
             event.preventDefault();
-
             if (event.touches.length === 0) {
                 isScrolling = false;
                 initialTouchY = null;
             }
-
-            // Lift finger = Left Click Up
             if (touchStarted && event.touches.length === 0) {
                 touchStarted = false;
-                // Use changedTouches to get the position where the finger left
                 sendMouseEvent("click", event.changedTouches[0], { button: "left", pressed: false });
             }
         });
@@ -225,17 +261,14 @@ function initializeInputHandlers(socket) {
             event.preventDefault();
             isScrolling = false;
             initialTouchY = null;
-
             if (touchStarted) {
                 touchStarted = false;
                 sendMouseEvent("click", event.changedTouches[0], { button: "left", pressed: false });
             }
         });
 
-        // --- Mouse Handling ---
         streamUI.view.addEventListener("mousemove", (event) => {
             event.preventDefault();
-            // Only send move events if dragging or holding Ctrl
             if (isDragging || isCtrlPressed) {
                 sendMouseEvent("move", event);
             }
@@ -245,7 +278,6 @@ function initializeInputHandlers(socket) {
             event.preventDefault();
             const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
             sendMouseEvent("click", event, { button, pressed: true });
-
             if (button === "left") isDragging = true;
         });
 
@@ -254,10 +286,8 @@ function initializeInputHandlers(socket) {
                 if (event.target === streamUI.view) {
                     event.preventDefault();
                 }
-
                 const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
                 sendMouseEvent("click", event, { button, pressed: false });
-
                 if (button === "left") isDragging = false;
             }
         });
@@ -267,18 +297,11 @@ function initializeInputHandlers(socket) {
 
     function sendMouseEvent(type, event, options = {}) {
         if (!streamActive) return;
-
-        // Normalize coordinates
         const clientX = event.clientX;
         const clientY = event.clientY;
-
         const dimensions = calculateStreamDimensions();
-
-        // Calculate position relative to the stream container
         const relativeX = clientX - dimensions.container.left - dimensions.offsetX;
         const relativeY = clientY - dimensions.container.top - dimensions.offsetY;
-
-        // Scale to native resolution
         const x = Math.max(0, Math.min(dimensions.nativeWidth, relativeX * dimensions.scaleX));
         const y = Math.max(0, Math.min(dimensions.nativeHeight, relativeY * dimensions.scaleY));
 
