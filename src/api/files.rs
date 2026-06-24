@@ -267,9 +267,20 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
 
                 let mut headers = HeaderMap::new();
                 headers.insert(header::CONTENT_TYPE, mime.as_ref().parse().unwrap());
+
+                let encoded: String = filename
+                    .bytes()
+                    .map(|b| {
+                        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
+                            (b as char).to_string()
+                        } else {
+                            format!("%{:02X}", b)
+                        }
+                    })
+                    .collect();
                 headers.insert(
                     header::CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"{}\"", filename)
+                    format!("attachment; filename*=UTF-8''{}", encoded)
                         .parse()
                         .unwrap_or_else(|_| "attachment".parse().unwrap()),
                 );
