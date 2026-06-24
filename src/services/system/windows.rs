@@ -106,9 +106,22 @@ fn parse_disk_info(output: &str) -> String {
 }
 
 fn get_windows_product_name() -> Option<String> {
+    let product_name = read_reg_sz("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName")?;
+    let current_build = read_reg_sz("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentBuild")
+        .and_then(|s| s.parse::<u32>().ok());
+
+    let os_name = match current_build {
+        Some(build) if build >= 22000 => product_name.replace("Windows 10", "Windows 11"),
+        _ => product_name,
+    };
+
+    Some(os_name)
+}
+
+fn read_reg_sz(subkey: &str, value: &str) -> Option<String> {
     unsafe {
-        let subkey = HSTRING::from("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
-        let value = HSTRING::from("ProductName");
+        let subkey = HSTRING::from(subkey);
+        let value = HSTRING::from(value);
         let mut buffer = [0u16; 256];
         let mut size = (buffer.len() * 2) as u32;
 
