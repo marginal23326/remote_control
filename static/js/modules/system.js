@@ -11,8 +11,7 @@ async function updateSystemInfo() {
         `Processor (CPU): ${info.processor}`,
         `CPU Cores: ${info.cpu_cores}`,
         `CPU Threads: ${info.cpu_threads}`,
-        `CPU Base Speed: ${info.cpu_base_speed}`,
-        `CPU Max Speed: ${info.cpu_max_speed}`,
+        `CPU Speed: ${info.cpu_base_speed} base / ${info.cpu_max_speed} max`,
         `Memory (RAM): ${info.memory}`,
         `Video Card (GPU): ${Array.isArray(info.gpu) ? info.gpu.join(", ") : info.gpu}`,
         `Monitors: ${Array.isArray(info.monitors) ? info.monitors.join(", ") : info.monitors}`,
@@ -34,9 +33,7 @@ async function updateSystemInfo() {
         `Firewall: ${info.firewall}`,
         `Time Zone: ${info.timezone}`,
         `Country: ${info.country}`,
-        `Disk Total: ${info.disk_total}`,
-        `Disk Used: ${info.disk_used}`,
-        `Disk Free: ${info.disk_free}`,
+        `System Drive: ${info.disk_total} total / ${info.disk_used} used / ${info.disk_free} free`,
         `Active Processes: ${info.active_processes}`,
     ].join("\n");
 
