@@ -1,5 +1,5 @@
 - On the frontend, errors are largely bubble-up alerts (alert(error.message)) or something. A unified UI notification system or overlay manager or something would improve the UX when API calls or something fail. Implement a clean/minimal and correctly desgined/architectured solution for this feature/UX fix.
 - Text should be typed using paste when sent.
 - A toggle on the stream section to intercept all client keyboard events and send it to the server.
-- A more compact input section UI/UX.
 - gzipped assets should be sent from the server.
+- make screenshot work

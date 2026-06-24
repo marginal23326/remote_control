@@ -146,6 +146,7 @@ button.control-button,
     font-weight: 600;
     letter-spacing: 0.02em;
     transition: all 0.2s;
+    outline: none;
 }
 
 button.control-button:active {
