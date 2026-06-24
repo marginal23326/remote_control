@@ -138,6 +138,10 @@ impl FileManager {
     }
 
     pub fn rename_item(old: &str, new_name: &str) -> Result<()> {
+        if new_name.contains(['/', '\\']) {
+            return Err(anyhow!("Invalid file name"));
+        }
+
         let old_path = Path::new(old);
         let parent = old_path.parent().ok_or_else(|| anyhow!("Invalid path"))?;
         let new_path = parent.join(new_name);
