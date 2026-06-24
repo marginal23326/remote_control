@@ -66,14 +66,14 @@ impl ShellManager {
                                 let s = std::str::from_utf8(&leftover[..valid]).unwrap();
                                 let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
 
-                                leftover = leftover[valid..].to_vec();
+                                leftover.drain(..valid);
                                 continue;
                             }
 
                             if let Some(err_len) = e.error_len() {
                                 let _ = socket_clone
                                     .emit("shell_output", &json!({ "session_id": sid, "output": "\u{FFFD}" }));
-                                leftover = leftover[err_len..].to_vec();
+                                leftover.drain(..err_len);
                                 continue;
                             } else {
                                 break;
