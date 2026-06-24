@@ -152,8 +152,8 @@ pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
 
 pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> {
     let mut target_dir = None;
-    let mut temp_files: Vec<(String, tempfile::TempPath)> = Vec::new();
     let mut uploaded_count = 0;
+    let mut dir_created = false;
 
     while let Ok(Some(mut field)) = multipart.next_field().await {
         let name = field.name().unwrap_or("").to_string();
@@ -163,6 +163,13 @@ pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> 
                 target_dir = Some(txt);
             }
         } else if name == "files" {
+            let Some(ref dir_str) = target_dir else {
+                return Err(AppError::BadRequest(
+                    "Field 'path' must precede 'files' in the request payload".to_string(),
+                ));
+            };
+            let dir_path = std::path::Path::new(dir_str.as_str());
+
             let raw_file_name = field.file_name().unwrap_or("uploaded_file");
             let file_name = std::path::Path::new(raw_file_name)
                 .file_name()
@@ -170,53 +177,69 @@ pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> 
                 .to_string_lossy()
                 .into_owned();
 
-            let named_temp = match tokio::task::spawn_blocking(tempfile::NamedTempFile::new).await {
+            if !dir_created {
+                if let Err(e) = tokio::fs::create_dir_all(dir_path).await {
+                    tracing::error!("Failed to create directory {}: {}", dir_str, e);
+                    continue;
+                }
+                dir_created = true;
+            }
+
+            let named_temp = match tokio::task::spawn_blocking({
+                let dir_path = dir_path.to_path_buf();
+                move || {
+                    tempfile::Builder::new()
+                        .prefix(".upload_")
+                        .suffix(".part")
+                        .tempfile_in(dir_path)
+                }
+            })
+            .await
+            {
                 Ok(Ok(ntf)) => ntf,
                 _ => continue,
             };
 
             let (std_file, temp_path) = named_temp.into_parts();
-            let mut file = File::from_std(std_file);
+            let dest_path = dir_path.join(&file_name);
 
-            let mut success = true;
-            while let Ok(Some(chunk)) = field.chunk().await {
-                if file.write_all(&chunk).await.is_err() {
-                    success = false;
-                    break;
+            let mut file = tokio::fs::File::from_std(std_file);
+
+            let mut success = false;
+            loop {
+                match field.chunk().await {
+                    Ok(Some(chunk)) => {
+                        if file.write_all(&chunk).await.is_err() {
+                            break;
+                        }
+                    }
+                    Ok(None) => {
+                        success = true;
+                        break;
+                    }
+                    Err(e) => {
+                        tracing::error!("Upload stream interrupted: {}", e);
+                        break;
+                    }
                 }
             }
 
-            if success {
-                let _ = file.flush().await;
+            if success && file.flush().await.is_ok() {
                 drop(file);
-                temp_files.push((file_name, temp_path));
-            }
-        }
-    }
 
-    let final_dir_str = target_dir.unwrap_or_else(|| ".".to_string());
-    let final_dir = Path::new(&final_dir_str);
-
-    let _ = tokio::fs::create_dir_all(final_dir).await;
-
-    for (name, temp_path) in temp_files {
-        let dest_path = final_dir.join(&name);
-
-        let res = tokio::task::spawn_blocking(move || -> std::io::Result<()> {
-            match temp_path.persist(&dest_path) {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    std::fs::copy(&e.path, &dest_path)?;
-                    Ok(())
+                let dest = dest_path.clone();
+                match tokio::task::spawn_blocking(move || temp_path.persist(dest)).await {
+                    Ok(Ok(_)) => {
+                        uploaded_count += 1;
+                    }
+                    Ok(Err(e)) => {
+                        tracing::error!("Failed to persist temp file to {:?}: {}", dest_path, e);
+                    }
+                    Err(e) => {
+                        tracing::error!("Thread pool task failed during rename: {}", e);
+                    }
                 }
             }
-        })
-        .await;
-
-        if let Ok(Ok(_)) = res {
-            uploaded_count += 1;
-        } else {
-            tracing::error!("Failed to save file {}", name);
         }
     }
 
