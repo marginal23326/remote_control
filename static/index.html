@@ -6,11 +6,11 @@
         <title>Remote Interface</title>
     </head>
 
-    <body class="min-h-screen text-gray-100 selection:bg-blue-500 selection:text-white">
+    <body class="min-h-[100dvh] text-gray-100 selection:bg-blue-500 selection:text-white">
         <!-- Connection Overlay -->
         <div
             id="connectionOverlay"
-            class="connection-overlay fixed inset-0 z-100 flex flex-col items-center justify-center"
+            class="connection-overlay fixed inset-0 z-50 flex flex-col items-center justify-center"
         >
             <div class="spinner mb-6"></div>
             <p id="connectionMessage" class="text-lg font-mono tracking-widest text-blue-400 animate-pulse">
@@ -50,7 +50,7 @@
 
                 <button
                     id="logoutButton"
-                    class="hidden group px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-all duration-300"
+                    class="hidden group px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
                 >
                     <span class="flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@
                             <li>
                                 <a
                                     href="#streamSection"
-                                    class="nav-link nav-tab active group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab active group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -93,7 +93,7 @@
                             <li>
                                 <a
                                     href="#audioSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -113,7 +113,7 @@
                             <li>
                                 <a
                                     href="#shellSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -134,7 +134,7 @@
                             <li>
                                 <a
                                     href="#keyboardSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -154,7 +154,7 @@
                             <li>
                                 <a
                                     href="#fileSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -174,7 +174,7 @@
                             <li>
                                 <a
                                     href="#processSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -195,7 +195,7 @@
                             <li>
                                 <a
                                     href="#systemSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all"
+                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
                                 >
                                     <svg
                                         class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -248,7 +248,7 @@
                                 <div class="flex rounded-lg bg-black/30 p-1 border border-white/5">
                                     <button
                                         id="startStream"
-                                        class="p-2 rounded hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400 transition-colors"
+                                        class="p-2 rounded hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400 transition-all active:scale-95"
                                         title="Initialize Stream"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,7 +261,7 @@
                                     </button>
                                     <button
                                         id="stopStream"
-                                        class="p-2 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                                        class="p-2 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-all active:scale-95"
                                         title="Terminate Stream"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,7 +277,7 @@
                                 <div class="flex rounded-lg bg-black/30 p-1 border border-white/5">
                                     <button
                                         id="screenshot"
-                                        class="p-2 rounded hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-colors"
+                                        class="p-2 rounded hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-all active:scale-95"
                                         title="Capture Frame"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,7 +295,7 @@
                                     </button>
                                     <button
                                         id="fullscreenBtn"
-                                        class="p-2 rounded hover:bg-purple-500/20 text-gray-400 hover:text-purple-400 transition-colors"
+                                        class="p-2 rounded hover:bg-purple-500/20 text-gray-400 hover:text-purple-400 transition-all active:scale-95"
                                         title="Maximize Viewport"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -501,13 +501,13 @@
                                     <div class="pt-2 flex gap-3">
                                         <button
                                             id="startServerAudio"
-                                            class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all"
+                                            class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
                                         >
                                             ACTIVATE
                                         </button>
                                         <button
                                             id="stopServerAudio"
-                                            class="flex-1 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-all"
+                                            class="flex-1 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
                                         >
                                             TERMINATE
                                         </button>
@@ -550,13 +550,13 @@
                                     <div class="pt-18 flex gap-3">
                                         <button
                                             id="startClientAudio"
-                                            class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all"
+                                            class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
                                         >
                                             ACTIVATE
                                         </button>
                                         <button
                                             id="stopClientAudio"
-                                            class="flex-1 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-all"
+                                            class="flex-1 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
                                         >
                                             TERMINATE
                                         </button>
@@ -581,13 +581,13 @@
                             <div class="flex gap-2">
                                 <button
                                     id="startShellBtn"
-                                    class="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded font-mono text-sm transition-all"
+                                    class="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded font-mono text-sm transition-all active:scale-[0.96]"
                                 >
                                     INITIALIZE
                                 </button>
                                 <button
                                     id="restartShellBtn"
-                                    class="hidden px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded font-mono text-sm transition-all"
+                                    class="hidden px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded font-mono text-sm transition-all active:scale-[0.96]"
                                 >
                                     REBOOT
                                 </button>
@@ -680,7 +680,7 @@
 
                                 <button
                                     id="refresh"
-                                    class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors shadow-sm cursor-pointer"
+                                    class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg transition-all shadow-sm cursor-pointer active:scale-95"
                                     title="Refresh"
                                 >
                                     <svg
@@ -911,7 +911,7 @@
                         <div id="endTaskContainer" class="mt-4 flex justify-end hidden">
                             <button
                                 id="endTaskButton"
-                                class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-6 py-2 rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.2)] transition-all uppercase font-bold tracking-wide"
+                                class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-6 py-2 rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.2)] transition-all uppercase font-bold tracking-wide active:scale-[0.98]"
                             >
                                 Kill Process
                             </button>
