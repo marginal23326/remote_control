@@ -6,7 +6,7 @@ A Rust-based remote desktop application with screen streaming, remote input, she
 
 **Rust:** https://rustup.rs
 
-**Linux (Fedora):**
+**Linux (Fedora, KDE Plasma on Wayland only):**
 
 ```bash
 sudo dnf install pipewire wireplumber xdg-desktop-portal xdg-desktop-portal-kde pipewire-devel pkgconf alsa-lib-devel clang cmake nasm
