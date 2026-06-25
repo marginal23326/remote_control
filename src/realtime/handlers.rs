@@ -258,12 +258,12 @@ pub async fn handle_stop_client_audio(socket: SocketRef, State(state): State<Sha
 }
 
 pub async fn handle_client_audio_data(
-    Data(data): Data<Vec<u8>>,
+    Data(data): Data<bytes::Bytes>,
     State(state): State<SharedState>,
     ack: socketioxide::extract::AckSender,
 ) {
     let audio = &state.audio;
-    audio.process_client_audio(data);
+    audio.process_client_audio(data.to_vec());
     let _ = ack.send(&json!({"status": "ok"}));
 }
 
