@@ -1,5 +1,19 @@
 - On the frontend, errors are largely bubble-up alerts (alert(error.message)) or something. A unified UI notification system or overlay manager or something would improve the UX when API calls or something fail. Implement a clean/minimal and correctly desgined/architectured solution for this feature/UX fix.
-- Text should be typed using paste when sent.
-- A toggle on the stream section to intercept all client keyboard events and send it to the server.
+No indicator on UI of errors/warnings like (and the warning is useless to log as the error immediately follows it):
+2026-06-25T20:42:00.590501Z  WARN remote_control::services::screen: start_stream: already running
+2026-06-25T20:42:00.590525Z ERROR remote_control::realtime::handlers: Failed to start stream: Stream is already active on another client
+
+Sometime this can occur (though not sure what caused it):
+2026-06-25T20:32:04.016007Z ERROR remote_control::services::screen: Pipeline bus error: Could not write to resource.
+2026-06-25T20:32:04.016029Z ERROR remote_control::services::screen:   Debug: ../ext/sctp/gstsctpenc.c(898): on_sctp_association_state_changed (): /GstPipeline:pipeline29/GstWebRTCBin:webrtc/GstSctpEnc:sctpenc28:
+SCTP association went into error state
+
+and sometimes:
+(se:26216): gupnp-control-point-WARNING **: 02:43:00.564: Failed to GET http://192.168.0.1:1900/gatedesc.xml: Timed out, retrying in 5 seconds
+
+and verify if usage of 'stun:stun.l.google.com:19302' is good.
+
 - gzipped assets should be sent from the server.
+- Text should be typed using paste when sent.
 - make screenshot work
+- A toggle on the stream section to intercept all client keyboard events and send it to the server.
