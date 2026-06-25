@@ -5,8 +5,6 @@ class AudioManager {
         this.audioContext = null;
         this.currentStream = null;
         this.workletNode = null;
-        this.audioQueue = [];
-        this.isProcessingAudio = false;
 
         // Default format mapping until Rust handshakes
         this.audioFormat = { rate: 48000, channels: 1, format: "int16" };
@@ -170,31 +168,9 @@ class AudioManager {
 
         this.workletNode.port.onmessage = (event) => {
             if (event.data.type === "pcmData") {
-                if (this.audioQueue.length > 50) {
-                    this.audioQueue.shift();
-                }
-
-                this.audioQueue.push(event.data.pcmData);
-
-                if (!this.isProcessingAudio) {
-                    this.processAudioQueue();
-                }
+                this.socket.emit("client_audio_data", event.data.pcmData);
             }
         };
-    }
-
-    async processAudioQueue() {
-        if (this.audioQueue.length === 0) {
-            this.isProcessingAudio = false;
-            return;
-        }
-
-        this.isProcessingAudio = true;
-        const audioData = this.audioQueue.shift();
-
-        this.socket.emit("client_audio_data", audioData, () => {
-            this.processAudioQueue();
-        });
     }
 
     handleServerAudioData(data) {
@@ -272,8 +248,6 @@ class AudioManager {
             this.workletNode.port.close();
             this.workletNode = null;
         }
-        this.audioQueue = [];
-        this.isProcessingAudio = false;
     }
 
     cleanup() {
