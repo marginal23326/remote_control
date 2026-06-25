@@ -3,8 +3,9 @@ use crate::state::SharedState;
 use serde::Deserialize;
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
-use tokio::task::AbortHandle;
-use tokio::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+pub static ACTIVE_WATCHERS: AtomicUsize = AtomicUsize::new(0);
 
 // --- DATA STRUCTURES ---
 
@@ -43,9 +44,7 @@ pub struct ShellResizeEvent {
 struct ActiveShellMarker(String);
 
 #[derive(Debug, Clone)]
-struct TaskPollTask {
-    handle: AbortHandle,
-}
+struct TaskPollMarker;
 
 #[derive(Deserialize, Debug)]
 pub struct AudioConfig {
@@ -125,8 +124,8 @@ pub async fn handle_shell_resize(Data(data): Data<ShellResizeEvent>, State(state
 }
 
 pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedState>) {
-    if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
-        task.handle.abort();
+    if socket.extensions.remove::<TaskPollMarker>().is_some() {
+        ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
     }
 
     let mut shell_manager = state.shell.lock();
@@ -150,75 +149,17 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     }
 }
 
-pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<SharedState>) {
-    // 1. Check if a task is already running for this socket and abort it to prevent duplicates
-    if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
-        task.handle.abort();
+pub async fn handle_task_poll_start(socket: SocketRef) {
+    if socket.extensions.insert(TaskPollMarker).is_none() {
+        ACTIVE_WATCHERS.fetch_add(1, Ordering::SeqCst);
+        socket.join("task_watchers");
     }
-
-    let socket_clone = socket.clone();
-    let state_clone = state.clone();
-
-    // 2. Spawn the task and get the JoinHandle
-    let join_handle = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(2));
-
-        loop {
-            interval.tick().await;
-
-            let state_bg = state_clone.clone();
-
-            let data_res = tokio::task::spawn_blocking(move || {
-                let processes = state_bg.tasks.get_processes();
-
-                let (cpu_global, mem_pct) = {
-                    let sys = state_bg.sys.read();
-
-                    #[cfg(target_os = "windows")]
-                    let cpu = state_bg.tasks.cpu_usage();
-                    #[cfg(target_os = "linux")]
-                    let cpu = sys.global_cpu_usage();
-
-                    let total_mem = sys.total_memory() as f64;
-                    let used_mem = sys.used_memory() as f64;
-                    let pct = if total_mem > 0.0 {
-                        (used_mem / total_mem) * 100.0
-                    } else {
-                        0.0
-                    };
-
-                    (cpu, pct)
-                };
-
-                json!({
-                    "processes": processes,
-                    "total_cpu_usage": cpu_global,
-                    "total_memory_percentage": mem_pct
-                })
-            })
-            .await;
-
-            // If emit fails (socket closed or blocking task panicked), break the loop
-            if let Ok(data) = data_res {
-                if socket_clone.emit("task_list", &data).is_err() {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-    });
-
-    // 3. Store the AbortHandle in the socket extensions
-    socket.extensions.insert(TaskPollTask {
-        handle: join_handle.abort_handle(),
-    });
 }
 
 pub async fn handle_task_poll_stop(socket: SocketRef) {
-    // Retrieve the handle from extensions and abort the task
-    if let Some(task) = socket.extensions.remove::<TaskPollTask>() {
-        task.handle.abort();
+    if socket.extensions.remove::<TaskPollMarker>().is_some() {
+        ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
+        socket.leave("task_watchers");
     }
 }
 
