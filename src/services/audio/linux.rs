@@ -123,8 +123,7 @@ pub(crate) fn server_loop(
     let thread_queue = capture_queue.clone();
 
     thread::spawn(move || {
-        let chunk_size = 1024;
-        let mut pcm = Vec::with_capacity(chunk_size * 2);
+        let mut pcm = Vec::new();
 
         while thread_running.load(Ordering::SeqCst) {
             if wake_rx.recv().is_err() {
@@ -133,11 +132,11 @@ pub(crate) fn server_loop(
 
             while let Some(sample) = thread_queue.pop() {
                 pcm.extend_from_slice(&sample.to_le_bytes());
+            }
 
-                if pcm.len() >= chunk_size * 2 {
-                    let _ = socket_clone.emit("server_audio_data", &pcm);
-                    pcm.clear();
-                }
+            if !pcm.is_empty() {
+                let _ = socket_clone.emit("server_audio_data", &pcm);
+                pcm.clear();
             }
         }
 
