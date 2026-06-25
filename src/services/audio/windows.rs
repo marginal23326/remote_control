@@ -56,8 +56,7 @@ pub(crate) fn server_loop(
     audio_client.start_stream().map_err(|e| e.to_string())?;
 
     let mut sample_queue = VecDeque::new();
-    let chunksize = 1024;
-    let mut pcm = Vec::with_capacity(chunksize * 2);
+    let mut pcm = Vec::new();
 
     loop {
         if !is_running.load(Ordering::SeqCst) {
@@ -69,11 +68,12 @@ pub(crate) fn server_loop(
             break;
         }
 
-        while sample_queue.len() >= blockalign * chunksize {
+        let frame_count = sample_queue.len() / blockalign;
+        if frame_count > 0 {
             pcm.clear();
 
             let flat_slice = sample_queue.make_contiguous();
-            let process_bytes = blockalign * chunksize;
+            let process_bytes = frame_count * blockalign;
 
             for frame in flat_slice[..process_bytes].chunks_exact(blockalign) {
                 let mut sum = 0.0;
