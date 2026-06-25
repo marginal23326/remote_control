@@ -5,6 +5,8 @@ class AudioManager {
         this.audioContext = null;
         this.currentStream = null;
         this.workletNode = null;
+        this.serverAudioWorker = null;
+        this.audioWorkletModulePromise = null;
 
         // Default format mapping until Rust handshakes
         this.audioFormat = { rate: 48000, channels: 1, format: "int16" };
@@ -46,6 +48,7 @@ class AudioManager {
             if (this.audioContext.sampleRate !== sampleRate) {
                 await this.audioContext.close();
                 this.audioContext = null;
+                this.audioWorkletModulePromise = null;
             }
         }
 
@@ -65,11 +68,24 @@ class AudioManager {
             if (this.workletNode) {
                 this.cleanupWorklet();
             }
-            await this.audioContext.audioWorklet.addModule("/static/js/modules/audio-worklet-processor.js");
+            await this.ensureAudioWorkletModule();
         } catch (e) {
             console.error("Failed to add audio worklet module:", e);
             throw e;
         }
+    }
+
+    async ensureAudioWorkletModule() {
+        if (!this.audioWorkletModulePromise) {
+            this.audioWorkletModulePromise = this.audioContext.audioWorklet
+                .addModule("/static/js/modules/audio-worklet-processor.js")
+                .catch((error) => {
+                    this.audioWorkletModulePromise = null;
+                    throw error;
+                });
+        }
+
+        await this.audioWorkletModulePromise;
     }
 
     async startAudioStream(type, settings = {}) {
@@ -129,24 +145,21 @@ class AudioManager {
                     const rateInput = document.getElementById("serverAudioRate");
                     if (rateInput) rateInput.value = info.rate;
 
+                    if (this.playbackNode || this.serverAudioWorker) {
+                        this.cleanupServerPlayback();
+                    }
+
                     if (this.audioContext && this.audioContext.sampleRate !== info.rate) {
                         await this.audioContext.close();
                         this.audioContext = null;
+                        this.audioWorkletModulePromise = null;
                     }
                     await this.ensureAudioContext(info.rate);
 
-                    if (this.playbackNode) {
-                        try {
-                            this.playbackNode.disconnect();
-                        } catch (e) {
-                            console.warn("Error disconnecting old playback node:", e);
-                        }
-                        this.playbackNode = null;
-                    }
-
-                    await this.audioContext.audioWorklet.addModule("/static/js/modules/audio-worklet-processor.js");
+                    await this.ensureAudioWorkletModule();
                     this.playbackNode = new AudioWorkletNode(this.audioContext, "server-audio-playback-processor");
                     this.playbackNode.connect(this.audioContext.destination);
+                    this.ensureServerAudioWorker();
                 });
 
                 this.socket.on("server_audio_data", this.handleServerAudioData);
@@ -173,43 +186,40 @@ class AudioManager {
         };
     }
 
-    handleServerAudioData(data) {
-        if (!this.playbackNode) return;
+    ensureServerAudioWorker() {
+        if (this.serverAudioWorker) return;
 
+        this.serverAudioWorker = new Worker("/static/js/modules/server-audio-converter-worker.js");
+        this.serverAudioWorker.onmessage = (event) => {
+            const { type, samples } = event.data;
+
+            if (type === "pcm") {
+                if (!this.playbackNode) return;
+                this.playbackNode.port.postMessage({ type: "pcm", samples }, [samples.buffer]);
+            }
+        };
+        this.serverAudioWorker.postMessage({ type: "format", format: this.audioFormat });
+    }
+
+    handleServerAudioData(data) {
         let buffer;
         if (data instanceof ArrayBuffer) {
             buffer = data;
-        } else if (data && data.buffer instanceof ArrayBuffer) {
-            buffer = data.buffer;
+        } else if (ArrayBuffer.isView(data)) {
+            buffer =
+                data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+                    ? data.buffer
+                    : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
         } else if (Array.isArray(data)) {
             buffer = new Uint8Array(data).buffer;
         } else {
             return;
         }
 
-        const view = new DataView(buffer);
-        const format = this.audioFormat.format;
-        const channels = this.audioFormat.channels;
+        if (buffer.byteLength === 0) return;
 
-        let bytesPerSample = format === "float32" ? 4 : 2;
-        let frameSize = bytesPerSample * channels;
-        let frameCount = Math.floor(buffer.byteLength / frameSize);
-
-        if (frameCount === 0) return;
-
-        const float32Samples = new Float32Array(frameCount);
-
-        for (let i = 0; i < frameCount; i++) {
-            let sum = 0;
-            for (let c = 0; c < channels; c++) {
-                const offset = i * frameSize + c * bytesPerSample;
-                let val = format === "float32" ? view.getFloat32(offset, true) : view.getInt16(offset, true) / 32768.0;
-                sum += val;
-            }
-            float32Samples[i] = sum / channels;
-        }
-
-        this.playbackNode.port.postMessage({ type: "pcm", samples: float32Samples }, [float32Samples.buffer]);
+        this.ensureServerAudioWorker();
+        this.serverAudioWorker.postMessage({ type: "pcm", buffer }, [buffer]);
     }
 
     async stopAudioStream(type, isResetting = false) {
@@ -224,10 +234,7 @@ class AudioManager {
         } else if (type === "server") {
             this.socket.off("server_audio_data", this.handleServerAudioData);
             this.socket.off("server_audio_format");
-            if (this.playbackNode) {
-                this.playbackNode.disconnect();
-                this.playbackNode = null;
-            }
+            this.cleanupServerPlayback();
         }
 
         this.streamActive[type] = false;
@@ -235,6 +242,7 @@ class AudioManager {
         if (!isResetting && !this.streamActive["server"] && !this.streamActive["client"] && this.audioContext) {
             await this.audioContext.close();
             this.audioContext = null;
+            this.audioWorkletModulePromise = null;
         }
     }
 
@@ -250,8 +258,22 @@ class AudioManager {
         }
     }
 
+    cleanupServerPlayback() {
+        if (this.playbackNode) {
+            this.playbackNode.disconnect();
+            this.playbackNode.port.close();
+            this.playbackNode = null;
+        }
+
+        if (this.serverAudioWorker) {
+            this.serverAudioWorker.terminate();
+            this.serverAudioWorker = null;
+        }
+    }
+
     cleanup() {
         this.cleanupWorklet();
+        this.cleanupServerPlayback();
     }
 
     initializeEventListeners() {
