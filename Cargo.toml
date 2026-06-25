@@ -40,6 +40,7 @@ sha2 = "0.11"
 # --- Utilities ---
 thiserror = "2.0"
 anyhow = "1.0"
+bytes = "1"
 regex = "1"
 walkdir = "2"
 parking_lot = "0.12"

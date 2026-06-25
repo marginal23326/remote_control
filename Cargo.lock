@@ -1930,6 +1930,7 @@ dependencies = [
  "axum",
  "axum-extra",
  "base64",
+ "bytes",
  "crossbeam-channel",
  "crossbeam-queue",
  "fast_image_resize",
