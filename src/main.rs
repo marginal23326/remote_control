@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. Initialize Socket.IO
     let (socket_layer, io) = SocketIo::builder().with_state(state.clone()).build_layer();
 
-    realtime::events::register(io);
+    realtime::events::register(io, state.clone());
 
     // 4. Create Web Router
     let app = api::router::create_router(state.clone()).layer(socket_layer);

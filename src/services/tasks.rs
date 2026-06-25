@@ -119,6 +119,9 @@ impl TaskManager {
         let sys = self.sys.read();
         let mut result: Vec<ProcessDTO> = Vec::new();
 
+        #[cfg(target_os = "linux")]
+        let mut line_buf = String::with_capacity(64);
+
         for (pid, proc_info) in sys.processes() {
             let pid_u32 = pid.as_u32();
 
@@ -131,13 +134,18 @@ impl TaskManager {
             #[cfg(target_os = "linux")]
             {
                 let status_path = format!("/proc/{}/status", pid_u32);
-                if let Ok(content) = std::fs::read_to_string(&status_path) {
+                if let Ok(file) = std::fs::File::open(&status_path) {
+                    use std::io::BufRead;
+                    let mut reader = std::io::BufReader::with_capacity(128, file);
                     let mut tgid = None;
-                    for line in content.lines() {
-                        if line.starts_with("Tgid:") {
-                            tgid = line.split_whitespace().nth(1).and_then(|s| s.parse::<u32>().ok());
+
+                    line_buf.clear();
+                    while reader.read_line(&mut line_buf).unwrap_or(0) > 0 {
+                        if let Some(rest) = line_buf.strip_prefix("Tgid:") {
+                            tgid = rest.trim().parse::<u32>().ok();
                             break;
                         }
+                        line_buf.clear();
                     }
 
                     if let Some(t) = tgid

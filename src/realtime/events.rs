@@ -13,8 +13,63 @@ use socketioxide::{
 };
 use tracing::{info, warn};
 
-pub fn register(io: SocketIo) {
+#[derive(serde::Serialize)]
+struct TaskPayload {
+    processes: Vec<crate::services::tasks::ProcessDTO>,
+    total_cpu_usage: f32,
+    total_memory_percentage: f64,
+}
+
+pub fn register(io: SocketIo, state: SharedState) {
     io.ns("/", on_connect);
+
+    let io_clone = io.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+
+        loop {
+            interval.tick().await;
+
+            if crate::realtime::handlers::ACTIVE_WATCHERS.load(std::sync::atomic::Ordering::SeqCst) == 0 {
+                continue;
+            }
+
+            let state_bg = state.clone();
+            let data_res = tokio::task::spawn_blocking(move || {
+                let processes = state_bg.tasks.get_processes();
+
+                let (cpu_global, mem_pct) = {
+                    let sys = state_bg.sys.read();
+
+                    #[cfg(target_os = "windows")]
+                    let cpu = state_bg.tasks.cpu_usage();
+                    #[cfg(target_os = "linux")]
+                    let cpu = sys.global_cpu_usage();
+
+                    let total_mem = sys.total_memory() as f64;
+                    let used_mem = sys.used_memory() as f64;
+                    let pct = if total_mem > 0.0 {
+                        (used_mem / total_mem) * 100.0
+                    } else {
+                        0.0
+                    };
+
+                    (cpu, pct)
+                };
+
+                TaskPayload {
+                    processes,
+                    total_cpu_usage: cpu_global,
+                    total_memory_percentage: mem_pct,
+                }
+            })
+            .await;
+
+            if let Ok(data) = data_res {
+                let _ = io_clone.to("task_watchers").emit("task_list", &data).await;
+            }
+        }
+    });
 }
 
 async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
