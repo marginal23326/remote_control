@@ -25,10 +25,9 @@ pub(crate) fn server_loop(
     let mut audio_client = device.get_iaudioclient().map_err(|e| e.to_string())?;
     let mix_format = audio_client.get_mixformat().map_err(|e| e.to_string())?;
 
-    let (_, min_time) = audio_client.get_device_period().unwrap_or((0, 0));
     let mode = StreamMode::EventsShared {
         autoconvert: false,
-        buffer_duration_hns: min_time,
+        buffer_duration_hns: 0,
     };
 
     audio_client
