@@ -13,7 +13,7 @@ class AudioManager {
         this.playbackNode = null;
 
         this.currentSettings = {
-            server: { rate: 48000, chunk: 4096 },
+            server: { rate: 48000 },
             client: { rate: 48000, chunk: 512 },
         };
         this.streamActive = {
@@ -281,7 +281,6 @@ class AudioManager {
             const settings = {
                 source: document.getElementById("audioSourceSelect").value,
                 rate: parseInt(document.getElementById("serverAudioRate").value),
-                chunk: parseInt(document.getElementById("serverAudioChunk").value),
             };
             await this.startAudioStream("server", settings);
         });
