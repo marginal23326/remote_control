@@ -257,14 +257,9 @@ pub async fn handle_stop_client_audio(socket: SocketRef, State(state): State<Sha
     state.audio.stop_client_playback_if_owner(&socket.id.to_string());
 }
 
-pub async fn handle_client_audio_data(
-    Data(data): Data<bytes::Bytes>,
-    State(state): State<SharedState>,
-    ack: socketioxide::extract::AckSender,
-) {
+pub async fn handle_client_audio_data(Data(data): Data<bytes::Bytes>, State(state): State<SharedState>) {
     let audio = &state.audio;
     audio.process_client_audio(data.to_vec());
-    let _ = ack.send(&json!({"status": "ok"}));
 }
 
 pub async fn handle_start_stream(socket: SocketRef, State(state): State<SharedState>) {
