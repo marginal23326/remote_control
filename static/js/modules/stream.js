@@ -398,10 +398,15 @@ async function updateStreamSettings(includeEncoderProps = false) {
     };
 
     if (includeEncoderProps) {
-        payload.encoder_properties = readEncoderPropsFromDOM();
+        const encoderProps = readEncoderPropsFromDOM();
+        if (encoderProps === null) return;
+        payload.encoder_properties = encoderProps;
     }
 
     const response = await apiCall("/api/stream/settings", "POST", payload);
+    if (response.rejected_properties?.length) {
+        alert(`Invalid encoder properties: ${response.rejected_properties.join(", ")}`);
+    }
     updateSettingsDisplay(response);
 }
 
@@ -524,7 +529,8 @@ function readEncoderPropsFromDOM() {
     });
     encoderProperties = props;
     if (warnings.length) {
-        console.warn("Encoder property validation warnings:", warnings);
+        alert(warnings.join("\n"));
+        return null;
     }
     return props;
 }
@@ -581,7 +587,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const applyBtn = document.getElementById("applyEncoderProps");
     if (applyBtn) {
         applyBtn.addEventListener("click", () => {
-            readEncoderPropsFromDOM();
             updateStreamSettings(true);
         });
     }

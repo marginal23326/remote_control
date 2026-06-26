@@ -829,14 +829,15 @@ impl ScreenManager {
         s.target_fps = fps.clamp(1, s.max_fps);
     }
 
-    pub fn set_encoder_properties(&self, properties: HashMap<String, String>) {
+    pub fn set_encoder_properties(&self, properties: HashMap<String, String>) -> Vec<String> {
         {
             let mut s = self.settings.lock();
             s.encoder_properties = properties.clone();
         }
         if let Some(state) = self.inner.lock().as_ref() {
-            apply_encoder_properties(&state.encoder, &properties);
+            return apply_encoder_properties(&state.encoder, &properties);
         }
+        Vec::new()
     }
 }
 
@@ -853,7 +854,8 @@ mod windows;
 #[allow(unused_imports)]
 use windows::{get_active_window_title, get_display_native_size, get_max_fps, start_os_capture};
 
-fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String, String>) {
+fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String, String>) -> Vec<String> {
+    let mut rejected = Vec::new();
     for (key, value) in properties {
         tracing::trace!("Setting encoder property {key}={value}");
         let result = std::panic::catch_unwind(|| {
@@ -861,8 +863,10 @@ fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String,
         });
         if result.is_err() {
             tracing::warn!("Unknown encoder property: {key}");
+            rejected.push(key.clone());
         }
     }
+    rejected
 }
 
 fn detect_max_fps() -> u64 {
