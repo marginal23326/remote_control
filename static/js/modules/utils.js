@@ -629,4 +629,7 @@ class BaseTaskManager extends UIManager {
     }
 }
 
-export { apiCall, formatFileSize, formatDate, SVG_TEMPLATES, CLASSES, BaseFileManager, BaseTaskManager };
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
+const escapeHtml = (str) => (str || "").replace(/[&<>"']/g, (m) => HTML_ESCAPES[m]);
+
+export { apiCall, formatFileSize, formatDate, SVG_TEMPLATES, CLASSES, BaseFileManager, BaseTaskManager, escapeHtml };
