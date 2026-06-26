@@ -15,6 +15,11 @@ async function apiCall(endpoint, method = "GET", data = null) {
 
     const response = await fetch(endpoint, options);
 
+    if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+    }
+
     if (!response.ok) {
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
