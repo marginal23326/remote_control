@@ -12,6 +12,14 @@ const SHORTCUT_MAP = {
     selectall: { key: "a", modifiers: ["ctrl"] },
 };
 
+function parseShortcutInput(input) {
+    if (input.includes("+")) {
+        const parts = input.split("+");
+        return { key: parts.pop(), modifiers: parts };
+    }
+    return { key: input, modifiers: [] };
+}
+
 function initializeInputHandlers(socket) {
     // 1. Helper to send keyboard events
     function emitKeyboardEvent(type, payload) {
@@ -51,10 +59,10 @@ function initializeInputHandlers(socket) {
                 modifiers = [...SHORTCUT_MAP[rawKey].modifiers];
             }
             // Case B: Combined keys (e.g., "alt+tab", "win+d")
-            else if (rawKey.includes("+")) {
-                const parts = rawKey.split("+");
-                key = parts.pop(); // The last part is the main key
-                modifiers = parts; // The rest are modifiers
+            else {
+                const parsed = parseShortcutInput(rawKey);
+                key = parsed.key;
+                modifiers = parsed.modifiers;
             }
 
             // Merge default key modifiers with globally active sticky modifiers
@@ -164,8 +172,12 @@ function initializeInputHandlers(socket) {
 
     if (sendCustomButton && customKeyInput) {
         sendCustomButton.addEventListener("click", () => {
-            const key = customKeyInput.value.toLowerCase().trim();
+            let key = customKeyInput.value.toLowerCase().trim();
             const activeModifiers = getActiveModifiers();
+
+            const parsed = parseShortcutInput(key);
+            key = parsed.key;
+            activeModifiers.push(...parsed.modifiers);
 
             if (key.length > 0 || activeModifiers.length > 0) {
                 emitKeyboardEvent("shortcut", {
