@@ -25,6 +25,8 @@ pub struct CurrentSettingsResponse {
     pub encoder_type: String,
     pub encoder_properties: HashMap<String, String>,
     pub encoder_property_constraints: HashMap<String, EncoderPropertyConstraint>,
+    #[serde(default)]
+    pub rejected_properties: Vec<String>,
 }
 
 pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<CurrentSettingsResponse> {
@@ -45,6 +47,7 @@ pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<Curr
         encoder_type,
         encoder_properties,
         encoder_property_constraints,
+        rejected_properties: Vec::new(),
     })
 }
 
@@ -68,11 +71,16 @@ pub async fn update_settings_handler(
         screen.set_target_fps(fps);
     }
 
-    if let Some(props) = payload.encoder_properties {
-        screen.set_encoder_properties(props);
-    }
+    let rejected = if let Some(props) = payload.encoder_properties {
+        screen.set_encoder_properties(props)
+    } else {
+        Vec::new()
+    };
 
-    get_settings_handler(State(state)).await
+    let Json(mut settings) = get_settings_handler(State(state)).await;
+    settings.rejected_properties = rejected;
+
+    Json(settings)
 }
 
 pub async fn stop_stream_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
