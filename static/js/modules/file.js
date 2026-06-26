@@ -448,6 +448,11 @@ class FileManager extends BaseFileManager {
                 e.target.value = e.target.value.replace(/[/\\]/g, "");
             }
         });
+        document.getElementById("renameInput")?.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                document.getElementById("renameItem")?.click();
+            }
+        });
         // Class-based toggles for directory/edit transitions
         const pathContainer = document.getElementById("pathContainer");
         const pathInput = document.getElementById("pathInput");
