@@ -1,11 +1,11 @@
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
-    MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
-    MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_DELETE,
-    VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12,
-    VK_HOME, VK_INSERT, VK_LEFT, VK_LWIN, VK_MENU, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SHIFT, VK_SNAPSHOT,
-    VK_SPACE, VK_TAB, VK_UP,
+    INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+    KEYEVENTF_SCANCODE, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC, MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE,
+    MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
+    MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL,
+    MOUSEINPUT, MapVirtualKeyW, SendInput, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE,
+    VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_HOME, VK_INSERT, VK_LEFT,
+    VK_LWIN, VK_MENU, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_TAB, VK_UP,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
@@ -123,7 +123,7 @@ impl InputManager {
         for modifier in modifiers {
             let vk = self.map_key_to_vk(&modifier);
             if vk.0 != 0 {
-                self.send_key_event(vk, None, false);
+                self.send_key_event(vk, false);
                 mod_vks.push(vk);
             }
         }
@@ -131,33 +131,58 @@ impl InputManager {
         if !key.is_empty() {
             let vk = self.map_key_to_vk(key);
             if vk.0 != 0 {
-                self.send_key_event(vk, None, false);
-                self.send_key_event(vk, None, true);
+                self.send_key_event(vk, false);
+                self.send_key_event(vk, true);
             }
         }
 
         for vk in mod_vks.into_iter().rev() {
-            self.send_key_event(vk, None, true);
+            self.send_key_event(vk, true);
         }
         Ok(())
     }
 
-    fn send_key_event(&self, vk: VIRTUAL_KEY, scan_code: Option<u16>, key_up: bool) {
+    fn is_extended_key(vk: u16) -> bool {
+        matches!(
+            vk,
+            0x21   // VK_PRIOR (Page Up)
+            | 0x22 // VK_NEXT (Page Down)
+            | 0x23 // VK_END
+            | 0x24 // VK_HOME
+            | 0x25 // VK_LEFT
+            | 0x26 // VK_UP
+            | 0x27 // VK_RIGHT
+            | 0x28 // VK_DOWN
+            | 0x2C // VK_SNAPSHOT (Print Screen)
+            | 0x2D // VK_INSERT
+            | 0x2E // VK_DELETE
+            | 0x5B // VK_LWIN
+            | 0x5C // VK_RWIN
+            | 0x5D // VK_APPS
+            | 0x6F // VK_DIVIDE
+            | 0x90 // VK_NUMLOCK
+        )
+    }
+
+    fn send_key_event(&self, vk: VIRTUAL_KEY, key_up: bool) {
         let mut flags = if key_up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) };
 
-        let w_scan = if let Some(sc) = scan_code {
-            flags |= KEYEVENTF_UNICODE;
-            sc
-        } else {
-            0
-        };
+        let sc = unsafe { MapVirtualKeyW(vk.0 as u32, MAPVK_VK_TO_VSC) } as u16;
+        let use_scan_code = sc != 0;
+
+        if use_scan_code {
+            flags |= KEYEVENTF_SCANCODE;
+            if Self::is_extended_key(vk.0) {
+                flags |= KEYEVENTF_EXTENDEDKEY;
+            }
+        }
 
         let input = INPUT {
             r#type: INPUT_KEYBOARD,
             Anonymous: INPUT_0 {
                 ki: KEYBDINPUT {
-                    wVk: vk,
-                    wScan: w_scan,
+                    wVk: if use_scan_code { VIRTUAL_KEY(0) } else { vk },
+                    wScan: sc,
                     dwFlags: flags,
                     time: 0,
                     dwExtraInfo: 0,
