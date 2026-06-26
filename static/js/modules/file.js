@@ -1,9 +1,6 @@
 // static/js/modules/file.js
-import { apiCall, SVG_TEMPLATES, CLASSES, formatFileSize, formatDate, BaseFileManager } from "./utils.js";
+import { apiCall, SVG_TEMPLATES, CLASSES, formatFileSize, formatDate, BaseFileManager, escapeHtml } from "./utils.js";
 import { LoadingButton } from "./dom.js";
-
-const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
-const escapeHtml = (str) => (str || "").replace(/[&<>"']/g, (m) => HTML_ESCAPES[m]);
 
 class FileManager extends BaseFileManager {
     constructor() {
