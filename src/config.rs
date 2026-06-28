@@ -16,6 +16,7 @@ pub struct AppConfig {
     pub password_hash: String,
     pub jwt_secret: String,
     pub port: u16,
+    pub stun_server: Option<String>,
 }
 
 // Default used only for internal fallback
@@ -26,6 +27,7 @@ impl Default for AppConfig {
             password_hash: "".to_string(),
             jwt_secret: "".to_string(),
             port: 5000,
+            stun_server: None,
         }
     }
 }
@@ -34,46 +36,50 @@ pub struct ConfigManager;
 
 impl ConfigManager {
     pub async fn load() -> Result<AppConfig> {
-        if Path::new(CONFIG_FILE).exists() {
+        let mut config = if Path::new(CONFIG_FILE).exists() {
             let content = fs::read_to_string(CONFIG_FILE).await?;
-            let config: AppConfig = serde_json::from_str(&content)?;
-            return Ok(config);
-        }
-
-        println!("\n=== First Time Setup ===");
-        println!("No configuration found. Please create your admin credentials.\n");
-
-        let username = Self::prompt_input("Enter username: ")?;
-        let password = Self::prompt_password()?;
-        let port_str = Self::prompt_input("Enter port (default 5000): ")?;
-
-        let port = if port_str.is_empty() {
-            5000
+            serde_json::from_str(&content)?
         } else {
-            port_str.parse::<u16>().unwrap_or(5000)
+            println!("\n=== First Time Setup ===");
+            println!("No configuration found. Please create your admin credentials.\n");
+
+            let username = Self::prompt_input("Enter username: ")?;
+            let password = Self::prompt_password()?;
+            let port_str = Self::prompt_input("Enter port (default 5000): ")?;
+
+            let port = if port_str.is_empty() {
+                5000
+            } else {
+                port_str.parse::<u16>().unwrap_or(5000)
+            };
+
+            println!("\nGenerating security keys...");
+            let salt = Uuid::new_v4().as_bytes().to_vec();
+            let hash = Sha256::new()
+                .chain_update(&salt)
+                .chain_update(password.as_bytes())
+                .finalize();
+            let password_hash = format!("{}:{}", BASE64.encode(&salt), BASE64.encode(hash));
+            let jwt_secret = Uuid::new_v4().to_string();
+
+            let config = AppConfig {
+                username,
+                password_hash,
+                jwt_secret,
+                port,
+                stun_server: None,
+            };
+
+            let json = serde_json::to_string_pretty(&config)?;
+            fs::write(CONFIG_FILE, json).await?;
+            println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
+
+            config
         };
 
-        println!("\nGenerating security keys...");
-        let salt = Uuid::new_v4().as_bytes().to_vec();
-        let hash = Sha256::new()
-            .chain_update(&salt)
-            .chain_update(password.as_bytes())
-            .finalize();
-        let password_hash = format!("{}:{}", BASE64.encode(&salt), BASE64.encode(hash));
-        let jwt_secret = Uuid::new_v4().to_string();
-
-        let config = AppConfig {
-            username,
-            password_hash,
-            jwt_secret,
-            port,
-        };
-
-        // Save to file
-        let json = serde_json::to_string_pretty(&config)?;
-        fs::write(CONFIG_FILE, json).await?;
-
-        println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
+        if let Ok(env_stun) = std::env::var("STUN_SERVER") {
+            config.stun_server = Some(env_stun);
+        }
 
         Ok(config)
     }

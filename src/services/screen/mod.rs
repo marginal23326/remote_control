@@ -369,6 +369,7 @@ impl ScreenManager {
             socket_signal,
             state.input.clone(),
             tokio::runtime::Handle::current(),
+            state.config.stun_server.clone(),
         );
 
         let is_running = self.is_running.clone();
@@ -582,10 +583,15 @@ impl ScreenManager {
         socket: socketioxide::extract::SocketRef,
         input: crate::services::input::InputManager,
         runtime: tokio::runtime::Handle,
+        stun_server: Option<String>,
     ) -> tokio::task::JoinHandle<()> {
         let wtc = webrtcbin.clone();
 
-        webrtcbin.set_property_from_str("stun-server", "stun://stun.l.google.com:19302");
+        if let Some(stun) = stun_server
+            && !stun.is_empty()
+        {
+            webrtcbin.set_property_from_str("stun-server", &stun);
+        }
 
         {
             let socket_nego = socket.clone();

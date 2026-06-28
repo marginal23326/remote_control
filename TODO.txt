@@ -11,8 +11,6 @@ SCTP association went into error state
 and sometimes:
 (se:26216): gupnp-control-point-WARNING **: 02:43:00.564: Failed to GET http://192.168.0.1:1900/gatedesc.xml: Timed out, retrying in 5 seconds
 
-and verify if usage of 'stun:stun.l.google.com:19302' is good.
-
 - gzipped assets should be sent from the server.
 - Text should be typed using paste when sent.
 - make screenshot work

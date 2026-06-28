@@ -27,6 +27,7 @@ pub struct CurrentSettingsResponse {
     pub encoder_property_constraints: HashMap<String, EncoderPropertyConstraint>,
     #[serde(default)]
     pub rejected_properties: Vec<String>,
+    pub stun_server: Option<String>,
 }
 
 pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<CurrentSettingsResponse> {
@@ -48,6 +49,7 @@ pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<Curr
         encoder_properties,
         encoder_property_constraints,
         rejected_properties: Vec::new(),
+        stun_server: state.config.stun_server.clone(),
     })
 }
 
