@@ -26,6 +26,11 @@ pub struct ListQuery {
 }
 
 #[derive(Deserialize)]
+pub struct UploadQuery {
+    path: String,
+}
+
+#[derive(Deserialize)]
 pub struct DownloadForm {
     #[serde(default, rename = "paths[]")]
     paths: Vec<String>,
@@ -164,26 +169,15 @@ pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
     Ok(Json(json!({"status": "success"})))
 }
 
-pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> {
-    let mut target_dir = None;
+pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Multipart) -> AppResult<Json<Value>> {
+    let dir_path = std::path::Path::new(&query.path);
     let mut uploaded_count = 0;
     let mut dir_created = false;
 
     while let Ok(Some(mut field)) = multipart.next_field().await {
         let name = field.name().unwrap_or("").to_string();
 
-        if name == "path" {
-            if let Ok(txt) = field.text().await {
-                target_dir = Some(txt);
-            }
-        } else if name == "files" {
-            let Some(ref dir_str) = target_dir else {
-                return Err(AppError::BadRequest(
-                    "Field 'path' must precede 'files' in the request payload".to_string(),
-                ));
-            };
-            let dir_path = std::path::Path::new(dir_str.as_str());
-
+        if name == "files" {
             let raw_file_name = field.file_name().unwrap_or("uploaded_file");
             let file_name = std::path::Path::new(raw_file_name)
                 .file_name()
@@ -193,7 +187,7 @@ pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> 
 
             if !dir_created {
                 if let Err(e) = tokio::fs::create_dir_all(dir_path).await {
-                    tracing::error!("Failed to create directory {}: {}", dir_str, e);
+                    tracing::error!("Failed to create directory {}: {}", query.path, e);
                     continue;
                 }
                 dir_created = true;

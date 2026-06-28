@@ -97,7 +97,6 @@ class FileManager extends BaseFileManager {
         }
 
         const formData = new FormData();
-        formData.append("path", this.currentPath);
         Array.from(files).forEach((file) => formData.append("files", file));
 
         if (isDropZone) this.dropZone.setLoading();
@@ -105,7 +104,8 @@ class FileManager extends BaseFileManager {
         if (uploadLabel) uploadLabel.textContent = "Uploading...";
 
         try {
-            await this.handleApiCall("/api/upload", "POST", formData, async () => {
+            const encodedPath = encodeURIComponent(this.currentPath);
+            await this.handleApiCall(`/api/upload?path=${encodedPath}`, "POST", formData, async () => {
                 const lastFile = files[files.length - 1].name;
                 const sep = this.getSeparator();
                 const scrollToPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? "" : sep}${lastFile}`;
