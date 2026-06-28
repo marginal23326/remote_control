@@ -17,12 +17,10 @@ use linux as backend;
 use windows as backend;
 
 pub struct AudioManager {
-    server_is_running: Arc<AtomicBool>,
-    server_thread: Mutex<Option<thread::JoinHandle<()>>>,
+    server_thread: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
     server_owner: Mutex<Option<String>>,
 
-    client_is_running: Arc<AtomicBool>,
-    client_thread: Mutex<Option<thread::JoinHandle<()>>>,
+    client_thread: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
     client_owner: Mutex<Option<String>>,
     client_audio_buffer: Arc<ArrayQueue<f32>>,
 }
@@ -36,10 +34,8 @@ impl AudioManager {
         pipewire::init();
 
         Self {
-            server_is_running: Arc::new(AtomicBool::new(false)),
             server_thread: Mutex::new(None),
             server_owner: Mutex::new(None),
-            client_is_running: Arc::new(AtomicBool::new(false)),
             client_thread: Mutex::new(None),
             client_owner: Mutex::new(None),
             client_audio_buffer: Arc::new(ArrayQueue::new(48000 * 2)),
@@ -50,24 +46,26 @@ impl AudioManager {
         self.stop_server_stream();
 
         *self.server_owner.lock() = Some(socket.id.to_string());
-        self.server_is_running.store(true, Ordering::SeqCst);
-        let is_running = self.server_is_running.clone();
+        let is_running = Arc::new(AtomicBool::new(true));
 
-        let handle = thread::spawn(move || {
-            if let Err(e) = backend::server_loop(socket, source, rate, is_running) {
-                tracing::error!("Server audio capture error: {}", e);
-            }
-        });
+        let handle = {
+            let is_running = is_running.clone();
+            thread::spawn(move || {
+                if let Err(e) = backend::server_loop(socket, source, rate, is_running) {
+                    tracing::error!("Server audio capture error: {}", e);
+                }
+            })
+        };
 
-        *self.server_thread.lock() = Some(handle);
+        *self.server_thread.lock() = Some((handle, is_running));
         Ok(())
     }
 
     pub fn stop_server_stream(&self) {
-        self.server_is_running.store(false, Ordering::SeqCst);
         *self.server_owner.lock() = None;
 
-        if let Some(handle) = self.server_thread.lock().take() {
+        if let Some((handle, is_running)) = self.server_thread.lock().take() {
+            is_running.store(false, Ordering::SeqCst);
             tokio::task::spawn_blocking(move || {
                 let _ = handle.join();
             });
@@ -84,17 +82,19 @@ impl AudioManager {
         self.stop_client_playback();
 
         *self.client_owner.lock() = Some(owner_id);
-        self.client_is_running.store(true, Ordering::SeqCst);
-        let is_running = self.client_is_running.clone();
+        let is_running = Arc::new(AtomicBool::new(true));
         let queue = self.client_audio_buffer.clone();
 
-        let handle = thread::spawn(move || {
-            if let Err(e) = backend::client_loop(rate, is_running, queue) {
-                tracing::error!("Client audio playback error: {}", e);
-            }
-        });
+        let handle = {
+            let is_running = is_running.clone();
+            thread::spawn(move || {
+                if let Err(e) = backend::client_loop(rate, is_running, queue) {
+                    tracing::error!("Client audio playback error: {}", e);
+                }
+            })
+        };
 
-        *self.client_thread.lock() = Some(handle);
+        *self.client_thread.lock() = Some((handle, is_running));
         Ok(())
     }
 
@@ -110,10 +110,10 @@ impl AudioManager {
     }
 
     pub fn stop_client_playback(&self) {
-        self.client_is_running.store(false, Ordering::SeqCst);
         *self.client_owner.lock() = None;
 
-        if let Some(handle) = self.client_thread.lock().take() {
+        if let Some((handle, is_running)) = self.client_thread.lock().take() {
+            is_running.store(false, Ordering::SeqCst);
             tokio::task::spawn_blocking(move || {
                 let _ = handle.join();
             });
