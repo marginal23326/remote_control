@@ -79,10 +79,4 @@ class LoadingButton {
     }
 }
 
-export {
-    disableInteractiveElements,
-    enableInteractiveElements,
-    showConnectionOverlay,
-    hideConnectionOverlay,
-    LoadingButton,
-};
+export { showConnectionOverlay, hideConnectionOverlay, LoadingButton };

@@ -271,11 +271,6 @@ class AudioManager {
         }
     }
 
-    cleanup() {
-        this.cleanupWorklet();
-        this.cleanupServerPlayback();
-    }
-
     initializeEventListeners() {
         document.getElementById("startServerAudio").addEventListener("click", async () => {
             const settings = {
