@@ -634,10 +634,7 @@ export {
     initializeStream,
     streamUI,
     updateSettingsDisplay,
-    updateStreamSettings,
-    setAutoFPS,
     streamActive,
-    isFullscreen,
     calculateStreamDimensions,
     sendMouseEventOverDataChannel,
 };

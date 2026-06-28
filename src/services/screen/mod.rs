@@ -267,7 +267,6 @@ impl ScreenManager {
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .is_err()
         {
-            tracing::warn!("start_stream: already running");
             return Err(anyhow::anyhow!("Stream is already active on another client"));
         }
 
