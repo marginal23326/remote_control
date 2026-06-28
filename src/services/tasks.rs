@@ -4,7 +4,7 @@ use parking_lot::Mutex;
 use parking_lot::RwLock;
 use serde::Serialize;
 use std::sync::Arc;
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 #[derive(Serialize, Clone)]
 pub struct ProcessDTO {
@@ -107,7 +107,11 @@ impl TaskManager {
             sys.refresh_cpu_usage();
 
             sys.refresh_memory();
-            sys.refresh_processes(ProcessesToUpdate::All, true);
+            sys.refresh_processes_specifics(
+                ProcessesToUpdate::All,
+                true,
+                ProcessRefreshKind::nothing().with_memory().with_cpu().without_tasks(),
+            );
 
             *last = std::time::Instant::now();
         }
@@ -119,9 +123,6 @@ impl TaskManager {
         let sys = self.sys.read();
         let mut result: Vec<ProcessDTO> = Vec::new();
 
-        #[cfg(target_os = "linux")]
-        let mut line_buf = String::with_capacity(64);
-
         for (pid, proc_info) in sys.processes() {
             let pid_u32 = pid.as_u32();
 
@@ -130,31 +131,6 @@ impl TaskManager {
             }
 
             let mut mem_mb = proc_info.memory() as f64 / 1024.0 / 1024.0;
-
-            #[cfg(target_os = "linux")]
-            {
-                let status_path = format!("/proc/{}/status", pid_u32);
-                if let Ok(file) = std::fs::File::open(&status_path) {
-                    use std::io::BufRead;
-                    let mut reader = std::io::BufReader::with_capacity(128, file);
-                    let mut tgid = None;
-
-                    line_buf.clear();
-                    while reader.read_line(&mut line_buf).unwrap_or(0) > 0 {
-                        if let Some(rest) = line_buf.strip_prefix("Tgid:") {
-                            tgid = rest.trim().parse::<u32>().ok();
-                            break;
-                        }
-                        line_buf.clear();
-                    }
-
-                    if let Some(t) = tgid
-                        && t != pid_u32
-                    {
-                        continue;
-                    }
-                }
-            }
 
             let mut cpu = proc_info.cpu_usage();
             if cpu.is_nan() {
