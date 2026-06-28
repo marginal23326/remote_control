@@ -105,7 +105,10 @@ class FileManager extends BaseFileManager {
 
         try {
             const encodedPath = encodeURIComponent(this.currentPath);
-            await this.handleApiCall(`/api/upload?path=${encodedPath}`, "POST", formData, async () => {
+            await this.handleApiCall(`/api/upload?path=${encodedPath}`, "POST", formData, async (res) => {
+                if (res.count !== files.length) {
+                    alert(`Warning: Only ${res.count} of ${files.length} files were uploaded successfully.`);
+                }
                 const lastFile = files[files.length - 1].name;
                 const sep = this.getSeparator();
                 const scrollToPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? "" : sep}${lastFile}`;
