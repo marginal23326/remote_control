@@ -83,6 +83,20 @@ fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf
 
 // --- HANDLERS ---
 
+pub async fn check_access_handler(Json(mut paths): Json<Vec<String>>) -> Response {
+    let result = tokio::task::spawn_blocking(move || {
+        paths.truncate(200);
+        paths
+            .into_iter()
+            .filter(|p| std::fs::read_dir(std::path::Path::new(p)).is_err())
+            .collect::<Vec<String>>()
+    })
+    .await
+    .unwrap_or_default();
+
+    Json(result).into_response()
+}
+
 pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
     let result = tokio::task::spawn_blocking(move || {
         if let Some(path) = q.path {
@@ -200,6 +214,7 @@ pub async fn upload_handler(mut multipart: Multipart) -> AppResult<Json<Value>> 
                 _ => continue,
             };
 
+            // into_parts() gives TempPath which retains the Drop guard that auto-deletes the file.
             let (std_file, temp_path) = named_temp.into_parts();
             let dest_path = dir_path.join(&file_name);
 

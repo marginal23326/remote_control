@@ -7,6 +7,8 @@ class FileManager extends BaseFileManager {
         super();
         this.currentPath = "";
         this.currentFileList = [];
+        this.filteredList = [];
+        this.collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
         this.sortColumn = "name";
         this.sortDirection = "asc";
         this.buttons = {};
@@ -15,13 +17,46 @@ class FileManager extends BaseFileManager {
             fileList: null,
             currentPath: null,
             searchInput: null,
+            scrollContainer: null,
         };
+        this.rowHeight = 21;
+        this.rowHeightNeedsUpdate = true;
+        this.buffer = 15;
+        this.accessCache = new Map();
+        this.accessQueue = new Set();
+        this.accessCheckTimer = null;
+        this.resizeObserver = null;
+        this.lastRenderedRange = { start: -1, end: -1 };
+        this.ticking = false;
+        this.isLoading = false;
+        this.scrollToPath = null;
     }
 
     initializeElements() {
         this.elements.fileList = document.getElementById("fileList");
         this.elements.currentPath = document.getElementById("currentPath");
         this.elements.searchInput = document.getElementById("searchInput");
+        this.elements.scrollContainer = this.elements.fileList.closest(".overflow-auto");
+
+        if (this.elements.scrollContainer) {
+            this.elements.scrollContainer.addEventListener("scroll", () => {
+                if (!this.ticking) {
+                    window.requestAnimationFrame(() => {
+                        this.renderViewport();
+                        this.ticking = false;
+                    });
+                    this.ticking = true;
+                }
+            });
+
+            this.resizeObserver = new ResizeObserver(() => {
+                if (this.filteredList.length > 0) {
+                    this.rowHeightNeedsUpdate = true;
+                    window.requestAnimationFrame(() => this.renderViewport(true));
+                }
+            });
+            this.resizeObserver.observe(this.elements.scrollContainer);
+        }
     }
 
     initializeButtons() {
@@ -37,7 +72,17 @@ class FileManager extends BaseFileManager {
             Object.entries(buttonConfigs)
                 .map(([id, loadingText]) => {
                     const button = document.getElementById(id);
-                    return button ? [id, new LoadingButton(button, loadingText)] : null;
+                    if (button) {
+                        button.classList.add(
+                            "inline-flex",
+                            "items-center",
+                            "justify-center",
+                            "gap-1.5",
+                            "whitespace-nowrap",
+                        );
+                        return [id, new LoadingButton(button, loadingText)];
+                    }
+                    return null;
                 })
                 .filter(Boolean),
         );
@@ -57,19 +102,18 @@ class FileManager extends BaseFileManager {
 
         if (isDropZone) this.dropZone.setLoading();
         const uploadLabel = document.querySelector('label[for="fileUpload"] span');
-        const originalText = uploadLabel?.textContent || "Upload";
         if (uploadLabel) uploadLabel.textContent = "Uploading...";
 
         try {
             await this.handleApiCall("/api/upload", "POST", formData, async () => {
                 const lastFile = files[files.length - 1].name;
                 const sep = this.getSeparator();
-                const highlightPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? "" : sep}${lastFile}`;
-                await this.listFiles(this.currentPath, highlightPath);
+                const scrollToPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? "" : sep}${lastFile}`;
+                await this.listFiles(this.currentPath, scrollToPath);
             });
         } finally {
             if (isDropZone) this.dropZone.reset();
-            if (uploadLabel) uploadLabel.textContent = originalText;
+            if (uploadLabel) uploadLabel.textContent = "Upload";
             const fileInput = document.getElementById("fileUpload");
             if (fileInput) fileInput.value = "";
         }
@@ -86,20 +130,8 @@ class FileManager extends BaseFileManager {
         }
     }
 
-    createTableRow(item, additionalClasses = []) {
-        const row = document.createElement("tr");
-        row.classList.add(...CLASSES.row, ...additionalClasses, CLASSES.defaultHover);
-        if (item) {
-            row.dataset.path = item.path;
-            row.dataset.isDir = item.is_dir.toString();
-            row.dataset.name = item.name;
-        }
-
-        return row;
-    }
-
     updateFileOperationsUI() {
-        const selectionCount = this.selectionManager.selectedItems.size;
+        const selectionCount = this.selectionManager?.selectedIds?.size || 0;
 
         const elements = {
             operations: document.getElementById("fileOperations"),
@@ -116,18 +148,12 @@ class FileManager extends BaseFileManager {
         if (elements.delete) elements.delete.disabled = !selectionCount;
 
         if (selectionCount === 1 && elements.renameInput) {
-            const selectedItem = Array.from(this.selectionManager.selectedItems)[0];
-            if (selectedItem.dataset.name) elements.renameInput.value = selectedItem.dataset.name;
+            const selectedId = Array.from(this.selectionManager.selectedIds)[0];
+            const fileItem = this.currentFileList.find((f) => f.path === selectedId);
+            if (fileItem) elements.renameInput.value = fileItem.name;
         } else if (elements.renameInput) {
             elements.renameInput.value = "";
         }
-    }
-
-    createUpDirectoryRow(path, onClick) {
-        const upRow = this.createTableRow();
-        upRow.onclick = onClick;
-        upRow.innerHTML = `<td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>`;
-        return upRow;
     }
 
     updateBreadcrumbs() {
@@ -157,7 +183,7 @@ class FileManager extends BaseFileManager {
             return btn;
         };
 
-        const chevron = `<svg class="w-3.5 h-3.5 text-gray-500 flex-shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+        const chevron = `<svg class="w-3.5 h-3.5 text-gray-500 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
 
         if (!path || path === "/" || path === "") {
             container.appendChild(createPartBtn(path === "" ? "This PC" : "/", path === "" ? "" : "/", true));
@@ -179,68 +205,204 @@ class FileManager extends BaseFileManager {
             container.appendChild(createPartBtn(part, accumulated, index === parts.length - 1));
         });
 
-        setTimeout(() => (container.scrollLeft = container.scrollWidth), 10);
+        requestAnimationFrame(() => (container.scrollLeft = container.scrollWidth));
     }
 
-    async updateFileList(items, highlightPath = null) {
-        this.currentFileList = items;
+    async updateFileList(items, scrollToPath = null) {
+        this.currentFileList = items.map((item) => ({
+            ...item,
+            _safePath: escapeHtml(item.path),
+            _safeName: escapeHtml(item.name),
+            _nameLower: item.name.toLowerCase(),
+            _formattedSize: item.is_dir ? "-" : formatFileSize(item.size),
+            _formattedDate: item.last_modified ? formatDate(item.last_modified) : "-",
+        }));
 
-        const sortedItems = [...items].sort((a, b) => {
+        this.scrollToPath = scrollToPath;
+        this.applySortAndFilter();
+    }
+
+    applySortAndFilter(resetScroll = false) {
+        const term = (this.elements.searchInput?.value || "").toLowerCase();
+        let list = this.currentFileList.filter((item) => !term || item._nameLower.includes(term));
+
+        const dirMul = this.sortDirection === "asc" ? 1 : -1;
+        list.sort((a, b) => {
             if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
 
-            const dirMultiplier = this.sortDirection === "asc" ? 1 : -1;
-
             if (this.sortColumn === "name") {
-                return dirMultiplier * a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+                return dirMul * this.collator.compare(a.name, b.name);
             }
 
             const key = this.sortColumn === "modified" ? "last_modified" : this.sortColumn;
-            const valA = a[key] ?? 0;
-            const valB = b[key] ?? 0;
-
-            return dirMultiplier * (valA - valB);
+            return dirMul * ((a[key] ?? 0) - (b[key] ?? 0));
         });
 
-        const upRow =
-            this.currentPath !== ""
-                ? `<tr data-up-row="true" data-is-dir="true" data-path="${escapeHtml(this.getParentPath())}" class="${CLASSES.row.join(" ")} ${CLASSES.defaultHover}"><td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`
-                : "";
+        if (this.currentPath !== "") {
+            const parent = this.getParentPath();
+            list.unshift({
+                isUpRow: true,
+                path: parent,
+                is_dir: true,
+                name: "..",
+                _safePath: escapeHtml(parent),
+                _safeName: "..",
+                _formattedSize: "-",
+                _formattedDate: "-",
+            });
+        }
 
-        this.elements.fileList.innerHTML =
-            upRow +
-            (sortedItems.length === 0
-                ? `<tr><td colspan="3" class="px-2 whitespace-nowrap"><div class="text-center text-gray-500 py-8 font-mono">Directory is empty</div></td></tr>`
-                : sortedItems
-                      .map((item) => {
-                          const dateStr = item.last_modified ? formatDate(item.last_modified) : "-";
-                          const highlight = highlightPath && item.path === highlightPath ? CLASSES.highlight : "";
-                          const accessCls = item.no_access ? CLASSES.noAccess : "";
+        this.filteredList = list;
 
-                          return `<tr data-path="${escapeHtml(item.path)}" data-is-dir="${item.is_dir}" data-name="${escapeHtml(item.name)}" class="${CLASSES.row.join(" ")} ${CLASSES.defaultHover} ${accessCls} ${highlight}">
-                    <td class="px-2 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
-                    <td class="px-2 whitespace-nowrap hidden sm:table-cell">${item.is_dir ? "-" : formatFileSize(item.size)}</td>
-                    <td class="px-2 whitespace-nowrap hidden md:table-cell">${dateStr}</td>
-                </tr>`;
-                      })
-                      .join(""));
+        this.renderViewport(true);
 
-        this.filterFiles(this.elements.searchInput?.value || "");
+        if (this.elements.scrollContainer) {
+            if (this.scrollToPath && this.rowHeight > 0) {
+                const index = this.filteredList.findIndex((i) => i.path === this.scrollToPath);
+                if (index !== -1) {
+                    const targetScroll = index * this.rowHeight;
+                    const containerHeight = this.elements.scrollContainer.clientHeight;
+                    const currentScroll = this.elements.scrollContainer.scrollTop;
+
+                    if (
+                        targetScroll < currentScroll ||
+                        targetScroll > currentScroll + containerHeight - this.rowHeight
+                    ) {
+                        this.elements.scrollContainer.scrollTop = Math.max(0, targetScroll - containerHeight / 2);
+                    }
+                }
+                this.scrollToPath = null;
+            } else if (resetScroll) {
+                this.elements.scrollContainer.scrollTop = 0;
+            }
+        }
     }
 
-    filterFiles(searchTerm) {
-        const term = searchTerm.toLowerCase();
-        this.elements.fileList.querySelectorAll("tr[data-path]").forEach((row) => {
-            if (row.dataset.name) {
-                row.style.display = row.dataset.name.toLowerCase().includes(term) ? "" : "none";
+    renderViewport(force = false) {
+        if (!this.elements.scrollContainer || this.isLoading) return;
+
+        if (this.rowHeightNeedsUpdate) {
+            const firstRealRow = this.elements.fileList.querySelector(`tr[data-path]`);
+            if (firstRealRow) {
+                const measured = firstRealRow.getBoundingClientRect().height;
+                if (measured > 0) {
+                    this.rowHeight = measured;
+                    this.rowHeightNeedsUpdate = false;
+                }
             }
-        });
+        }
+
+        const containerHeight = this.elements.scrollContainer.clientHeight || 500;
+        const scrollTop = this.elements.scrollContainer.scrollTop;
+
+        const totalItems = this.filteredList.length;
+        const totalHeight = totalItems * this.rowHeight;
+
+        let startIndex = Math.floor(scrollTop / this.rowHeight) - this.buffer;
+        let endIndex = Math.floor((scrollTop + containerHeight) / this.rowHeight) + this.buffer;
+
+        startIndex = Math.max(0, startIndex);
+        endIndex = Math.min(totalItems, endIndex);
+
+        if (!force && startIndex === this.lastRenderedRange.start && endIndex === this.lastRenderedRange.end) {
+            return;
+        }
+        this.lastRenderedRange = { start: startIndex, end: endIndex };
+
+        const paddingTop = startIndex * this.rowHeight;
+        const paddingBottom = Math.max(0, totalHeight - endIndex * this.rowHeight);
+
+        let html = "";
+        if (paddingTop > 0) {
+            html += `<tr style="height: ${paddingTop}px" class="virtual-spacer"><td colspan="3" style="padding:0; border:0; height: ${paddingTop}px"></td></tr>`;
+        }
+
+        for (let i = startIndex; i < endIndex; i++) {
+            const item = this.filteredList[i];
+            if (!item) continue;
+
+            if (item.isUpRow) {
+                html += `<tr data-up-row="true" data-is-dir="true" data-path="${item._safePath}" class="${CLASSES.row} ${CLASSES.defaultHover}">
+                    <td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>
+                </tr>`;
+                continue;
+            }
+
+            const cachedAccess = this.accessCache.get(item.path);
+            const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
+
+            if (item.is_dir && cachedAccess === undefined) {
+                this.queueAccessCheck(item.path);
+            }
+
+            const selectedCls = this.selectionManager
+                ? this.selectionManager.getItemClasses(item.path)
+                : CLASSES.defaultHover;
+
+            html += `<tr data-path="${item._safePath}" data-is-dir="${item.is_dir}" data-name="${item._safeName}" class="${CLASSES.row} ${selectedCls} ${accessCls}" style="height: ${this.rowHeight}px">
+                <td class="px-2 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
+                <td class="px-2 whitespace-nowrap hidden sm:table-cell">${item._formattedSize}</td>
+                <td class="px-2 whitespace-nowrap hidden md:table-cell">${item._formattedDate}</td>
+            </tr>`;
+        }
+
+        if (totalItems === 0 || (totalItems === 1 && this.filteredList[0].isUpRow)) {
+            html += `<tr><td colspan="3" class="px-2 whitespace-nowrap"><div class="text-center text-gray-500 py-8 font-mono">Directory is empty</div></td></tr>`;
+        }
+
+        if (paddingBottom > 0) {
+            html += `<tr style="height: ${paddingBottom}px" class="virtual-spacer"><td colspan="3" style="padding:0; border:0; height: ${paddingBottom}px"></td></tr>`;
+        }
+
+        this.elements.fileList.innerHTML = html;
+    }
+
+    queueAccessCheck(path) {
+        this.accessQueue.add(path);
+        if (this.accessCheckTimer) clearTimeout(this.accessCheckTimer);
+        this.accessCheckTimer = setTimeout(() => this.processAccessQueue(), 100);
+    }
+
+    async processAccessQueue() {
+        if (this.accessQueue.size === 0) return;
+
+        const { start, end } = this.lastRenderedRange;
+        const visiblePaths = new Set(
+            this.filteredList
+                .slice(Math.max(0, start), end)
+                .filter((i) => i.is_dir)
+                .map((i) => i.path),
+        );
+
+        const batch = Array.from(this.accessQueue).filter((p) => visiblePaths.has(p));
+        this.accessQueue.clear();
+
+        if (batch.length === 0) return;
+
+        try {
+            const inaccessible = await apiCall(`/api/files/check-access`, "POST", batch);
+            const inaccessibleSet = new Set(inaccessible);
+
+            for (const path of batch) {
+                const accessible = !inaccessibleSet.has(path);
+                this.accessCache.set(path, accessible);
+
+                if (!accessible) {
+                    const row = this.elements.fileList.querySelector(`tr[data-path=${CSS.escape(path)}]`);
+                    if (row) {
+                        row.classList.add(CLASSES.noAccess);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to check directory access:", e);
+        }
     }
 
     createItemNameCell(item) {
         const iconTemplate = item.is_dir ? SVG_TEMPLATES.folder : SVG_TEMPLATES.file;
-        const icon = item.is_dir && item.no_access ? iconTemplate("text-gray-500") : iconTemplate();
-        const safeName = escapeHtml(item.name);
-        return `<div class="flex items-center gap-2 truncate overflow-hidden">${icon}<span class="truncate block w-full" title="${safeName}">${safeName}</span></div>`;
+        const icon = item.is_dir ? iconTemplate("text-blue-400") : iconTemplate();
+        return `<div class="flex items-center gap-2 truncate overflow-hidden">${icon}<span class="truncate block w-full" title="${item._safeName}">${item._safeName}</span></div>`;
     }
 
     getSeparator() {
@@ -259,18 +421,33 @@ class FileManager extends BaseFileManager {
         return /^[A-Z]:$/i.test(parent) ? parent + "\\" : parent;
     }
 
-    async listFiles(path, highlightPath = null) {
+    async listFiles(path, scrollToPath = null) {
         this.clearSelection();
+        this.accessCache.clear();
+        this.accessQueue.clear();
+        if (this.accessCheckTimer) {
+            clearTimeout(this.accessCheckTimer);
+            this.accessCheckTimer = null;
+        }
+        this.scrollToPath = null;
+        this.lastRenderedRange = { start: -1, end: -1 };
         this.updateFileOperationsUI();
         const fileList = document.getElementById("fileList");
 
-        if (path !== this.currentPath) {
+        this.isLoading = true;
+
+        const isSamePath = path === this.currentPath;
+
+        if (!isSamePath) {
+            this.currentFileList = [];
+            this.filteredList = [];
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Loading...</td></tr>`;
             if (this.elements.searchInput) this.elements.searchInput.value = "";
         }
 
         try {
             const response = await apiCall(`/api/files?path=${encodeURIComponent(path)}`);
+            this.isLoading = false;
 
             if (response.status === "error") {
                 const errorMsg = response.no_access
@@ -282,8 +459,8 @@ class FileManager extends BaseFileManager {
 
                 if (path !== "") {
                     const previousPath = this.currentPath;
-                    const upRow = this.createUpDirectoryRow(path, () => this.listFiles(previousPath));
-                    fileList.insertBefore(upRow, fileList.firstChild);
+                    const upHtml = `<tr data-up-row="true" data-path="${escapeHtml(previousPath)}" class="${CLASSES.row} ${CLASSES.defaultHover}"><td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`;
+                    fileList.insertAdjacentHTML("afterbegin", upHtml);
                 }
                 return;
             }
@@ -291,20 +468,17 @@ class FileManager extends BaseFileManager {
             this.currentPath = path;
             this.updateBreadcrumbs();
 
-            await this.updateFileList(response, highlightPath);
-
-            this.selectionManager.notifyItemsUpdate();
+            await this.updateFileList(response, scrollToPath);
         } catch (error) {
+            this.isLoading = false;
             console.error("Error listing files:", error);
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
             fileList.querySelector("td").textContent = `Error: ${error.message}`;
         }
     }
 
-    async handleDownload(selectedItems) {
-        if (selectedItems.length === 0) return;
-
-        const paths = selectedItems.map((item) => item.dataset.path);
+    async handleDownload(paths) {
+        if (!paths || paths.length === 0) return;
 
         let iframe = document.getElementById("global-download-iframe");
         if (!iframe) {
@@ -334,11 +508,12 @@ class FileManager extends BaseFileManager {
         document.body.removeChild(form);
     }
 
-    async handleDelete(selectedItems) {
-        const paths = selectedItems.map((item) => item.dataset.path);
+    async handleDelete(paths) {
+        if (!paths || paths.length === 0) return;
+        const itemName = paths[0].split(/[/\\]/).pop();
         const confirmMessage =
             paths.length === 1
-                ? `Are you sure you want to delete ${paths[0]}?`
+                ? `Are you sure you want to delete "${itemName}"?`
                 : `Are you sure you want to delete ${paths.length} items?`;
 
         if (!confirm(confirmMessage)) return;
@@ -351,8 +526,6 @@ class FileManager extends BaseFileManager {
 
     initializeEventListeners() {
         this.elements.fileList.addEventListener("click", (e) => {
-            setTimeout(() => this.updateFileOperationsUI(), 50);
-
             const row = e.target.closest("tr");
             if (row?.dataset.upRow) {
                 this.listFiles(row.dataset.path);
@@ -421,8 +594,7 @@ class FileManager extends BaseFileManager {
 
         document.getElementById("renameItem")?.addEventListener("click", () =>
             handleButtonClick("renameItem", async () => {
-                const selectedItem = this.getSelectedItems()[0];
-                const oldPath = selectedItem.dataset.path;
+                const oldPath = this.getSelectedItems()[0];
                 const renameInput = document.getElementById("renameInput");
                 const newName = renameInput?.value.trim();
 
@@ -486,10 +658,10 @@ class FileManager extends BaseFileManager {
         const searchInput = document.getElementById("searchInput");
         if (searchInput) {
             let searchTimeout;
-            searchInput.addEventListener("input", (e) => {
+            searchInput.addEventListener("input", () => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.filterFiles(e.target.value);
+                    this.applySortAndFilter(true);
                 }, 50);
             });
             searchInput.addEventListener("click", (e) => {
@@ -511,8 +683,7 @@ class FileManager extends BaseFileManager {
                     this.sortDirection = "asc";
                 }
                 this.updateSortIndicators();
-                this.updateFileList(this.currentFileList);
-                this.selectionManager.notifyItemsUpdate();
+                this.applySortAndFilter(true);
             });
         });
         this.updateSortIndicators();
@@ -537,6 +708,12 @@ class FileManager extends BaseFileManager {
         this.initializeEventListeners();
         this.initializeSortListeners();
         super.initialize();
+
+        if (this.selectionManager) {
+            this.selectionManager.config.getAllIds = () =>
+                this.filteredList.filter((i) => !i.isUpRow).map((i) => i.path);
+        }
+
         this.listFiles(this.currentPath);
     }
 }

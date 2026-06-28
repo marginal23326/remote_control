@@ -10,7 +10,7 @@ function initializeTaskManager(socket) {
 
     async function killProcesses(items) {
         if (!items.length) return;
-        const pids = items.map((item) => parseInt(item.dataset.pid));
+        const pids = items.map((pid) => parseInt(pid));
         if (!confirm(`Are you sure you want to kill ${pids.length} process(es)?`)) return;
 
         for (const pid of pids) {
@@ -33,7 +33,7 @@ function initializeTaskManager(socket) {
                 items.push({
                     label: "Process Details",
                     action: async () => {
-                        const pid = selectedItems[0].dataset.pid;
+                        const pid = selectedItems[0];
                         try {
                             const res = await apiCall(`/api/tasks/${pid}`);
                             const d = res.data;

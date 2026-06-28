@@ -212,20 +212,11 @@ tbody tr {
     transition: background 0.1s;
 }
 
-tbody tr:hover {
-    background: rgba(255, 255, 255, 0.03);
+.is-inaccessible {
+    opacity: 0.5;
 }
-
-@keyframes highlightFade {
-    0% {
-        background-color: rgba(250, 204, 21, 0.3);
-    }
-    100% {
-        background-color: transparent;
-    }
-}
-.row-highlight {
-    animation: highlightFade 1.5s ease-out forwards;
+.is-inaccessible svg {
+    color: var(--color-gray-500) !important;
 }
 
 td {

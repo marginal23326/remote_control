@@ -11,7 +11,6 @@ pub struct FileEntry {
     pub is_dir: bool,
     pub size: u64,
     pub last_modified: Option<i64>,
-    pub no_access: bool,
 }
 
 #[derive(Serialize, Debug)]
@@ -41,12 +40,6 @@ impl FileManager {
                 }
             })
             .collect()
-    }
-
-    /// Helper to check if we have read access to a directory
-    fn check_dir_access(path: &Path) -> bool {
-        // Try to read the directory. If it fails, we assume no access.
-        fs::read_dir(path).is_ok()
     }
 
     pub fn list_directory(path_str: &str) -> Result<Vec<FileEntry>> {
@@ -81,31 +74,14 @@ impl FileManager {
             let full_path = full_path_buf.to_string_lossy().to_string();
             let file_name = entry.file_name().to_string_lossy().to_string();
 
-            // Check access for subdirectories
-            let mut no_access = false;
-            if is_dir {
-                no_access = !Self::check_dir_access(&full_path_buf);
-            }
-
             entries.push(FileEntry {
                 name: file_name,
                 path: full_path,
                 is_dir,
                 size: len,
                 last_modified: modified_millis,
-                no_access,
             });
         }
-
-        // Sort: Directories first, then files (case-insensitive)
-        entries.sort_by(|a, b| {
-            b.is_dir.cmp(&a.is_dir).then_with(|| {
-                a.name
-                    .bytes()
-                    .map(|b| b.to_ascii_lowercase())
-                    .cmp(b.name.bytes().map(|b| b.to_ascii_lowercase()))
-            })
-        });
 
         Ok(entries)
     }
