@@ -83,6 +83,7 @@ let encoderProperties = {};
 let encoderPropertyConstraints = {};
 let cachedDimensions = null;
 let pendingIceCandidates = [];
+let activeStunServer = null;
 
 function removeWebRTCListeners(socket) {
     socket.off("webrtc_offer");
@@ -109,9 +110,11 @@ function initializeStream(sessionId, socket) {
 
             socket.on("webrtc_offer", async (sdpText) => {
                 if (!peerConnection) {
-                    peerConnection = new RTCPeerConnection({
-                        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-                    });
+                    const rtcConfig = {};
+                    if (activeStunServer) {
+                        rtcConfig.iceServers = [{ urls: activeStunServer }];
+                    }
+                    peerConnection = new RTCPeerConnection(rtcConfig);
 
                     peerConnection.ontrack = (event) => {
                         if (streamUI.view.srcObject !== event.streams[0]) {
@@ -332,6 +335,10 @@ function flushPendingMouseMove() {
 
 function updateSettingsDisplay(settings) {
     if (!settings) return;
+
+    if (settings.stun_server !== undefined) {
+        activeStunServer = settings.stun_server;
+    }
 
     if (settings.native_width !== undefined) {
         nativeWidth = settings.native_width;
