@@ -47,8 +47,11 @@ impl InputManager {
         let width = if width > 0 { width } else { 1920 };
         let height = if height > 0 { height } else { 1080 };
 
-        let abs_x = (((x - left) as f64 * 65536.0) / width as f64) as i32;
-        let abs_y = (((y - top) as f64 * 65536.0) / height as f64) as i32;
+        let relative_x = (x - left) as i64;
+        let relative_y = (y - top) as i64;
+
+        let abs_x = ((relative_x * 65536 + width as i64 - 1) / width as i64) as i32;
+        let abs_y = ((relative_y * 65536 + height as i64 - 1) / height as i64) as i32;
         self.send_mouse_input(
             MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
             abs_x,
