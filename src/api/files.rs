@@ -1,6 +1,8 @@
 use crate::services::files::FileManager;
 use crate::utils::error::{AppError, AppResult};
 use anyhow::anyhow;
+use async_zip::tokio::write::ZipFileWriter;
+use async_zip::{Compression, ZipEntryBuilder};
 use axum::{
     Json,
     body::Body,
@@ -12,10 +14,11 @@ use axum_extra::extract::Form;
 use mime_guess::from_path;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::io::Seek;
 use std::path::Path;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use tokio::io::duplex;
+use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use tokio_util::io::ReaderStream;
 
 // --- DATA STRUCTURES ---
@@ -46,20 +49,21 @@ pub struct ActionPayload {
     new_name: Option<String>,
 }
 
-fn systime_to_zip_datetime(systime: std::time::SystemTime) -> Option<zip::DateTime> {
+fn systime_to_zip_datetime(systime: std::time::SystemTime) -> Option<async_zip::ZipDateTime> {
     use time::OffsetDateTime;
     let utc_dt: OffsetDateTime = systime.into();
     let offset = time::UtcOffset::current_local_offset().ok()?;
     let local_dt = utc_dt.to_offset(offset);
-    zip::DateTime::from_date_and_time(
-        local_dt.year() as u16,
-        local_dt.month() as u8,
-        local_dt.day(),
-        local_dt.hour(),
-        local_dt.minute(),
-        local_dt.second(),
+    Some(
+        async_zip::ZipDateTimeBuilder::new()
+            .year(local_dt.year())
+            .month(local_dt.month() as u32)
+            .day(local_dt.day() as u32)
+            .hour(local_dt.hour() as u32)
+            .minute(local_dt.minute() as u32)
+            .second(local_dt.second() as u32)
+            .build(),
     )
-    .ok()
 }
 
 fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
@@ -261,7 +265,6 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         return Err(AppError::BadRequest("No files selected".to_string()));
     }
 
-    // Single file download
     if paths.len() == 1 {
         let path_str = &paths[0];
         let path = Path::new(path_str);
@@ -296,19 +299,15 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
 
                 return Ok((headers, body).into_response());
             }
-            // If it's a directory, fall through to ZIP generation
         } else {
             return Err(AppError::NotFound("File not found".to_string()));
         }
     }
 
-    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<std::fs::File> {
-        let temp_file = tempfile::tempfile()?;
-        let mut zip = zip::ZipWriter::new(temp_file);
-
-        let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        let path_bufs: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
+    let paths_clone = paths.clone();
+    let files_to_zip = tokio::task::spawn_blocking(move || {
+        let mut collected = Vec::new();
+        let path_bufs: Vec<std::path::PathBuf> = paths_clone.iter().map(std::path::PathBuf::from).collect();
         let common_parent = find_common_parent(&path_bufs);
 
         for root_path in path_bufs {
@@ -328,28 +327,42 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
                         .and_then(systime_to_zip_datetime)
                         .unwrap_or_default();
 
-                    let file_options = options.last_modified_time(last_modified);
-
-                    if zip.start_file(zip_path_name, file_options).is_ok()
-                        && let Ok(mut f) = std::fs::File::open(path)
-                    {
-                        let _ = std::io::copy(&mut f, &mut zip);
-                    }
+                    collected.push((path.to_path_buf(), zip_path_name, last_modified));
                 }
             }
         }
-
-        let mut temp_file = zip.finish()?;
-        temp_file.seek(std::io::SeekFrom::Start(0))?;
-
-        Ok(temp_file)
+        collected
     })
-    .await;
+    .await
+    .map_err(|e| anyhow!("Task failed: {}", e))?;
 
-    let temp_file = result.map_err(|e| anyhow!("Task failed: {}", e))??;
+    let (w, r) = duplex(1024 * 1024);
 
-    let file = File::from_std(temp_file);
-    let stream = ReaderStream::new(file);
+    tokio::spawn(async move {
+        let mut writer = ZipFileWriter::with_tokio(w);
+
+        for (fs_path, zip_path, last_modified) in files_to_zip {
+            if let Ok(mut f) = tokio::fs::File::open(&fs_path).await {
+                let builder =
+                    ZipEntryBuilder::new(zip_path.into(), Compression::Stored).last_modification_date(last_modified);
+
+                if let Ok(entry_writer) = writer.write_entry_stream(builder).await {
+                    let mut compat_writer = entry_writer.compat_write();
+                    if tokio::io::copy(&mut f, &mut compat_writer).await.is_err() {
+                        break;
+                    }
+                    if compat_writer.into_inner().close().await.is_err() {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        let _ = writer.close().await;
+    });
+
+    let stream = ReaderStream::new(r);
     let body = Body::from_stream(stream);
 
     let mut headers = HeaderMap::new();
