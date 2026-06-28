@@ -59,10 +59,13 @@ class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
         this.samplesAvailable = 0;
 
         this.targetBufferSamples = Math.floor(currentSampleRate * 0.12);
-
         this.maxBufferSamples = Math.floor(currentSampleRate * 0.3);
 
         this.isBuffering = true;
+
+        this.fadeVolume = 0.0;
+        this.fadeStep = 0.002;
+        this.lastSample = 0.0;
 
         this.port.onmessage = (event) => {
             if (event.data.type === "pcm") {
@@ -98,23 +101,24 @@ class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
         const channelData = output[0];
         const length = channelData.length;
 
-        if (this.isBuffering) {
-            if (this.samplesAvailable >= this.targetBufferSamples) {
-                this.isBuffering = false;
-            } else {
-                for (let i = 0; i < length; i++) channelData[i] = 0.0;
-                return true;
-            }
-        }
-
         for (let i = 0; i < length; i++) {
-            if (this.samplesAvailable > 0) {
-                channelData[i] = this.buffer[this.readIndex];
+            if (this.isBuffering && this.samplesAvailable >= this.targetBufferSamples) {
+                this.isBuffering = false;
+            } else if (!this.isBuffering && this.samplesAvailable === 0) {
+                this.isBuffering = true;
+            }
+
+            if (this.isBuffering) {
+                this.fadeVolume = Math.max(0.0, this.fadeVolume - this.fadeStep);
+                channelData[i] = this.lastSample * this.fadeVolume;
+            } else {
+                this.fadeVolume = Math.min(1.0, this.fadeVolume + this.fadeStep);
+                this.lastSample = this.buffer[this.readIndex];
+
+                channelData[i] = this.lastSample * this.fadeVolume;
+
                 this.readIndex = (this.readIndex + 1) % this.capacity;
                 this.samplesAvailable--;
-            } else {
-                channelData[i] = 0.0;
-                this.isBuffering = true;
             }
         }
 
