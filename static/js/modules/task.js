@@ -119,7 +119,8 @@ function initializeTaskManager(socket) {
             const valueA = a[column];
             const valueB = b[column];
             const modifier = order === "asc" ? 1 : -1;
-            return typeof valueA === "number" ? (valueA - valueB) * modifier : valueA.localeCompare(valueB) * modifier;
+            const diff = typeof valueA === "number" ? valueA - valueB : valueA.localeCompare(valueB);
+            return diff !== 0 ? diff * modifier : (a.pid - b.pid) * modifier;
         });
     }
 
