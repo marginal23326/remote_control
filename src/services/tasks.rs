@@ -173,12 +173,6 @@ impl TaskManager {
             });
         }
 
-        result.sort_by(|a, b| {
-            b.memory_usage
-                .partial_cmp(&a.memory_usage)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
         result
     }
 
