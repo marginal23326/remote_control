@@ -85,12 +85,6 @@ let cachedDimensions = null;
 let pendingIceCandidates = [];
 let activeStunServer = null;
 
-function removeWebRTCListeners(socket) {
-    socket.off("webrtc_offer");
-    socket.off("webrtc_remote_ice");
-    socket.off("stream_error");
-}
-
 function initializeStream(sessionId, socket) {
     window.addEventListener("resize", () => (cachedDimensions = null));
     window.addEventListener("scroll", () => (cachedDimensions = null), { capture: true, passive: true });
@@ -101,83 +95,84 @@ function initializeStream(sessionId, socket) {
             .catch(() => {});
     });
 
+    socket.on("webrtc_offer", async (sdpText) => {
+        if (!streamActive) return;
+        if (!peerConnection) {
+            const rtcConfig = {};
+            if (activeStunServer) {
+                rtcConfig.iceServers = [{ urls: activeStunServer }];
+            }
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            peerConnection.ontrack = (event) => {
+                if (streamUI.view.srcObject !== event.streams[0]) {
+                    streamUI.view.srcObject = event.streams[0];
+                }
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit("webrtc_ice_candidate", {
+                        sdp_mline_index: event.candidate.sdpMLineIndex,
+                        candidate: event.candidate.candidate,
+                    });
+                }
+            };
+
+            peerConnection.ondatachannel = (event) => {
+                registerInputDataChannel(event.channel);
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                if (peerConnection.connectionState === "connected") {
+                    streamUI.startFpsCounter();
+                    apiCall("/api/stream/settings", "GET").then((s) => {
+                        if (s) updateSettingsDisplay(s);
+                    });
+                }
+            };
+        }
+
+        await peerConnection.setRemoteDescription({ type: "offer", sdp: sdpText });
+
+        for (const c of pendingIceCandidates) {
+            await peerConnection.addIceCandidate(c);
+        }
+        pendingIceCandidates = [];
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit("webrtc_answer", answer.sdp);
+    });
+
+    socket.on("webrtc_remote_ice", async (data) => {
+        if (!streamActive) return;
+        if (peerConnection) {
+            const candidate = {
+                sdpMLineIndex: data.sdp_mline_index,
+                candidate: data.candidate,
+            };
+            if (peerConnection.remoteDescription) {
+                await peerConnection.addIceCandidate(candidate);
+            } else {
+                pendingIceCandidates.push(candidate);
+            }
+        }
+    });
+
+    socket.on("stream_error", (data) => {
+        if (!streamActive) return;
+        console.error("Stream error:", data.message);
+        streamActive = false;
+        cleanupPeerConnection();
+        streamUI.hide();
+    });
+
     document.getElementById("startStream").addEventListener("click", () => {
         if (!streamActive) {
             streamActive = true;
             streamUI.show();
-
             socket.emit("start_stream", { sessionId });
-
-            socket.on("webrtc_offer", async (sdpText) => {
-                if (!peerConnection) {
-                    const rtcConfig = {};
-                    if (activeStunServer) {
-                        rtcConfig.iceServers = [{ urls: activeStunServer }];
-                    }
-                    peerConnection = new RTCPeerConnection(rtcConfig);
-
-                    peerConnection.ontrack = (event) => {
-                        if (streamUI.view.srcObject !== event.streams[0]) {
-                            streamUI.view.srcObject = event.streams[0];
-                        }
-                    };
-
-                    peerConnection.onicecandidate = (event) => {
-                        if (event.candidate) {
-                            socket.emit("webrtc_ice_candidate", {
-                                sdp_mline_index: event.candidate.sdpMLineIndex,
-                                candidate: event.candidate.candidate,
-                            });
-                        }
-                    };
-
-                    peerConnection.ondatachannel = (event) => {
-                        registerInputDataChannel(event.channel);
-                    };
-
-                    peerConnection.onconnectionstatechange = () => {
-                        if (peerConnection.connectionState === "connected") {
-                            streamUI.startFpsCounter();
-                            apiCall("/api/stream/settings", "GET").then((s) => {
-                                if (s) updateSettingsDisplay(s);
-                            });
-                        }
-                    };
-                }
-
-                await peerConnection.setRemoteDescription({ type: "offer", sdp: sdpText });
-
-                for (const c of pendingIceCandidates) {
-                    await peerConnection.addIceCandidate(c);
-                }
-                pendingIceCandidates = [];
-
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.emit("webrtc_answer", answer.sdp);
-            });
-
-            socket.on("webrtc_remote_ice", async (data) => {
-                if (peerConnection) {
-                    const candidate = {
-                        sdpMLineIndex: data.sdp_mline_index,
-                        candidate: data.candidate,
-                    };
-                    if (peerConnection.remoteDescription) {
-                        await peerConnection.addIceCandidate(candidate);
-                    } else {
-                        pendingIceCandidates.push(candidate);
-                    }
-                }
-            });
-
-            socket.on("stream_error", (data) => {
-                console.error("Stream error:", data.message);
-                streamActive = false;
-                cleanupPeerConnection();
-                streamUI.hide();
-                removeWebRTCListeners(socket);
-            });
         }
     });
 
@@ -188,7 +183,6 @@ function initializeStream(sessionId, socket) {
             await apiCall("/api/stream/stop");
             cleanupPeerConnection();
             streamUI.clear();
-            removeWebRTCListeners(socket);
         }
     });
 
