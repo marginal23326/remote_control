@@ -29,22 +29,20 @@ pub struct ShellCreateEvent {
 
 #[derive(Deserialize, Debug)]
 pub struct ShellInputEvent {
-    pub session_id: String,
     pub command: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct ShellResizeEvent {
-    pub session_id: String,
     pub cols: u16,
     pub rows: u16,
 }
 
 #[derive(Debug, Clone)]
-struct ActiveShellMarker(String);
+struct TaskPollMarker;
 
 #[derive(Debug, Clone)]
-struct TaskPollMarker;
+struct ShellPendingMarker;
 
 #[derive(Deserialize, Debug)]
 pub struct AudioConfig {
@@ -79,46 +77,66 @@ pub async fn handle_shell_create(
     Data(data): Data<ShellCreateEvent>,
     State(state): State<SharedState>,
 ) {
-    if let Some(old_session) = socket.extensions.get::<ActiveShellMarker>() {
-        state.shell.lock().close_session(&old_session.0);
+    let socket_id = socket.id.to_string();
+
+    if socket.extensions.get::<ShellPendingMarker>().is_some() {
+        return;
     }
+    socket.extensions.insert(ShellPendingMarker);
+
+    state.shell.lock().close_session(&socket_id);
 
     let session_id = uuid::Uuid::new_v4().to_string();
     let sid = session_id.clone();
     let socket_clone = socket.clone();
+    let cols = data.cols;
+    let rows = data.rows;
 
     let session_result = tokio::task::spawn_blocking(move || {
-        crate::services::shell::ShellManager::create_session(sid, data.cols, data.rows, socket_clone)
+        crate::services::shell::ShellManager::create_session(sid, cols, rows, socket_clone)
     })
-    .await
-    .unwrap();
+    .await;
+
+    socket.extensions.remove::<ShellPendingMarker>();
 
     match session_result {
-        Ok(session) => {
-            state.shell.lock().add_session(session_id.clone(), session);
-            socket.extensions.insert(ActiveShellMarker(session_id.clone()));
-            let _ = socket.emit(
-                "shell_created",
-                &json!({ "status": "success", "session_id": session_id }),
-            );
+        Ok(Ok(session)) => {
+            if socket.connected() {
+                state.shell.lock().add_session(socket_id, session);
+                let _ = socket.emit(
+                    "shell_created",
+                    &json!({ "status": "success", "session_id": session_id }),
+                );
+            } else {
+                std::thread::spawn(move || drop(session));
+            }
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             tracing::error!("Failed to create shell: {}", e);
             let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
         }
+        _ => {}
     }
 }
 
-pub async fn handle_shell_input(Data(data): Data<ShellInputEvent>, State(state): State<SharedState>) {
+pub async fn handle_shell_input(
+    socket: SocketRef,
+    Data(data): Data<ShellInputEvent>,
+    State(state): State<SharedState>,
+) {
     let mut shell_manager = state.shell.lock();
-    if let Err(e) = shell_manager.write_to_shell(&data.session_id, &data.command) {
+    if let Err(e) = shell_manager.write_to_shell(&socket.id.to_string(), &data.command) {
         tracing::error!("Shell write error: {}", e);
     }
 }
 
-pub async fn handle_shell_resize(Data(data): Data<ShellResizeEvent>, State(state): State<SharedState>) {
+pub async fn handle_shell_resize(
+    socket: SocketRef,
+    Data(data): Data<ShellResizeEvent>,
+    State(state): State<SharedState>,
+) {
     let mut shell_manager = state.shell.lock();
-    if let Err(e) = shell_manager.resize_shell(&data.session_id, data.cols, data.rows) {
+    if let Err(e) = shell_manager.resize_shell(&socket.id.to_string(), data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
     }
 }
@@ -128,12 +146,7 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
         ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
     }
 
-    let mut shell_manager = state.shell.lock();
-    if let Some(session) = socket.extensions.remove::<ActiveShellMarker>() {
-        shell_manager.close_session(&session.0);
-    } else {
-        shell_manager.close_session(&socket.id.to_string());
-    }
+    state.shell.lock().close_session(&socket.id.to_string());
 
     let socket_id = socket.id.to_string();
     let was_screen_owner = state.screen.disconnect_if_owner(&socket_id);

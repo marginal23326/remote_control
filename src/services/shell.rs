@@ -12,6 +12,12 @@ pub struct ShellSession {
     pub killer: Box<dyn ChildKiller + Send + Sync>,
 }
 
+impl Drop for ShellSession {
+    fn drop(&mut self) {
+        let _ = self.killer.kill();
+    }
+}
+
 pub struct ShellManager {
     sessions: HashMap<String, ShellSession>,
 }
@@ -139,9 +145,10 @@ impl ShellManager {
 
     // Clean up session
     pub fn close_session(&mut self, session_id: &str) {
-        if let Some(mut session) = self.sessions.remove(session_id) {
-            let _ = session.killer.kill();
-            tracing::info!("Shell session closed/cleaned up: {}", session_id);
+        if let Some(session) = self.sessions.remove(session_id) {
+            std::thread::spawn(move || {
+                drop(session);
+            });
         }
     }
 }

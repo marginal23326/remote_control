@@ -199,7 +199,6 @@ export class InteractiveShell {
         this.terminal.onData((data) => {
             if (this.sessionId && this.isStarted) {
                 this.socket.emit("shell_input", {
-                    session_id: this.sessionId,
                     command: data,
                 });
             }
@@ -262,7 +261,6 @@ export class InteractiveShell {
         if (this.sessionId && this.isStarted) {
             const { cols, rows } = this.terminal;
             this.socket.emit("shell_resize", {
-                session_id: this.sessionId,
                 cols,
                 rows,
             });
