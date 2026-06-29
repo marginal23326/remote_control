@@ -1,5 +1,5 @@
 import { apiCall } from "./utils.js";
-import { showNotification } from "./dom.js";
+import { showNotification, LoadingButton } from "./dom.js";
 
 const streamUI = {
     container: document.getElementById("streamContainer"),
@@ -85,6 +85,7 @@ let encoderPropertyConstraints = {};
 let cachedDimensions = null;
 let pendingIceCandidates = [];
 let activeStunServer = null;
+let startBtnLoader = null;
 
 function initializeStream(sessionId, socket) {
     window.addEventListener("resize", () => (cachedDimensions = null));
@@ -98,6 +99,10 @@ function initializeStream(sessionId, socket) {
 
     socket.on("webrtc_offer", async (sdpText) => {
         if (!streamActive) return;
+
+        if (startBtnLoader) startBtnLoader.stopLoading();
+        streamUI.show();
+
         if (!peerConnection) {
             const rtcConfig = {};
             if (activeStunServer) {
@@ -166,6 +171,9 @@ function initializeStream(sessionId, socket) {
         console.error("Stream error:", data.message);
         showNotification(data.message, "error");
         streamActive = false;
+
+        if (startBtnLoader) startBtnLoader.stopLoading();
+
         cleanupPeerConnection();
         streamUI.hide();
     });
@@ -173,7 +181,13 @@ function initializeStream(sessionId, socket) {
     document.getElementById("startStream").addEventListener("click", () => {
         if (!streamActive) {
             streamActive = true;
-            streamUI.show();
+
+            const btn = document.getElementById("startStream");
+            if (btn && !startBtnLoader) {
+                startBtnLoader = new LoadingButton(btn, "");
+            }
+            if (startBtnLoader) startBtnLoader.startLoading();
+
             socket.emit("start_stream", { sessionId });
         }
     });
@@ -181,6 +195,9 @@ function initializeStream(sessionId, socket) {
     document.getElementById("stopStream").addEventListener("click", async () => {
         if (streamActive) {
             streamActive = false;
+
+            if (startBtnLoader) startBtnLoader.stopLoading();
+
             streamUI.hide();
             await apiCall("/api/stream/stop");
             cleanupPeerConnection();
@@ -233,6 +250,8 @@ function initializeStream(sessionId, socket) {
         if (streamActive) {
             wasStreamActive = true;
             streamActive = false;
+
+            if (startBtnLoader) startBtnLoader.stopLoading();
 
             cleanupPeerConnection();
         }

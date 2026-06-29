@@ -59,7 +59,8 @@ class LoadingButton {
 
     startLoading() {
         this.button.disabled = true;
-        this.button.innerHTML = `${SVG_TEMPLATES.spinner(4)} ${this.loadingText}`;
+        const textHtml = this.loadingText ? `<span>${this.loadingText}</span>` : "";
+        this.button.innerHTML = `<span class="flex items-center justify-center gap-2">${SVG_TEMPLATES.spinner(4)}${textHtml}</span>`;
         return this;
     }
 
