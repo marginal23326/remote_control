@@ -686,11 +686,7 @@ impl ScreenManager {
 
                     event = control_rx.recv(), if control_open => {
                         if let Some(event) = event {
-                            if let Err(err) =
-                                crate::services::input::apply_mouse_event(&input, event).await
-                            {
-                                tracing::error!("Input data channel control event failed: {err:#}");
-                            }
+                            crate::services::input::apply_mouse_event(&input, event).await;
                         } else {
                             control_open = false;
                         }
@@ -702,19 +698,15 @@ impl ScreenManager {
                             continue;
                         }
                         let event = move_rx.borrow_and_update().clone();
-                        if let Some(event) = event {
-                            if let Some(seq) = event.seq {
-                                if seq <= last_low_latency_seq {
-                                    continue;
+                            if let Some(event) = event {
+                                if let Some(seq) = event.seq {
+                                    if seq <= last_low_latency_seq {
+                                        continue;
+                                    }
+                                    last_low_latency_seq = seq;
                                 }
-                                last_low_latency_seq = seq;
+                                crate::services::input::apply_mouse_event(&input, event).await;
                             }
-                            if let Err(err) =
-                                crate::services::input::apply_mouse_event(&input, event).await
-                            {
-                                tracing::error!("Input data channel low-latency event failed: {err:#}");
-                            }
-                        }
                     }
                 }
             }

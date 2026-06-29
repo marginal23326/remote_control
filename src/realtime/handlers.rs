@@ -59,13 +59,11 @@ pub struct AudioConfig {
 // --- HANDLERS ---
 
 pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<SharedState>) {
-    if let Err(err) = apply_mouse_event(&state.input, data).await {
-        tracing::error!("Input mouse event failed: {err:#}");
-    }
+    apply_mouse_event(&state.input, data).await;
 }
 
 pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<SharedState>) {
-    let result = match data {
+    match data {
         KeyboardEvent::Text { text } => state.input.type_text(&text).await,
         KeyboardEvent::Shortcut { shortcut, modifiers } => {
             let mods = modifiers.unwrap_or_default();
@@ -74,10 +72,6 @@ pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state)
         KeyboardEvent::KeyDown { key } => state.input.set_key_state(&key, true).await,
         KeyboardEvent::KeyUp { key } => state.input.set_key_state(&key, false).await,
     };
-
-    if let Err(err) = result {
-        tracing::error!("Input keyboard event failed: {err:#}");
-    }
 }
 
 pub async fn handle_shell_create(
@@ -163,9 +157,9 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     if was_screen_owner {
         let input = state.input.clone();
         tokio::spawn(async move {
-            let _ = input.click_mouse("left", false).await;
-            let _ = input.click_mouse("right", false).await;
-            let _ = input.click_mouse("middle", false).await;
+            input.click_mouse("left", false).await;
+            input.click_mouse("right", false).await;
+            input.click_mouse("middle", false).await;
         });
     }
 }
