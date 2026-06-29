@@ -205,3 +205,46 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         Ok(())
     }
 }
+
+pub(crate) async fn take_screenshot() -> anyhow::Result<(Vec<u8>, &'static str)> {
+    tokio::task::spawn_blocking(|| {
+        use windows_capture::dxgi_duplication_api::DxgiDuplicationApi;
+        use windows_capture::encoder::{ImageEncoder, ImageEncoderPixelFormat, ImageFormat};
+        use windows_capture::monitor::Monitor;
+
+        let monitor = Monitor::primary()?;
+        let mut dup = match DxgiDuplicationApi::new(monitor) {
+            Ok(d) => d,
+            Err(windows_capture::dxgi_duplication_api::Error::WindowsError(e))
+                if e.code().0 == 0x887A0004u32 as i32 =>
+            {
+                anyhow::bail!(
+                    "Desktop Duplication API is not supported on this GPU.\n\n\
+                     Search 'Graphics settings' in the Start menu, find this app, \
+                     and set GPU preference to 'Power saving'."
+                );
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let mut frame = dup.acquire_next_frame(100)?;
+
+        if frame.frame_info().LastPresentTime == 0 {
+            frame = dup.acquire_next_frame(100)?;
+        }
+
+        let buf = frame.buffer()?;
+
+        let mut scratch = Vec::new();
+        let packed = buf.as_nopadding_buffer(&mut scratch);
+
+        let png_bytes = ImageEncoder::new(ImageFormat::Png, ImageEncoderPixelFormat::Bgra8)?.encode(
+            packed,
+            buf.width(),
+            buf.height(),
+        )?;
+
+        Ok((png_bytes, "image/png"))
+    })
+    .await?
+}

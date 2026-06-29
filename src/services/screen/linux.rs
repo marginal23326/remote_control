@@ -631,3 +631,19 @@ fn write_restore_token(token: &str) {
         let _ = fs::write(path, token);
     }
 }
+
+pub(crate) async fn take_screenshot() -> Result<(Vec<u8>, &'static str)> {
+    let response = ashpd::desktop::screenshot::Screenshot::request()
+        .interactive(false)
+        .send()
+        .await?
+        .response()?;
+
+    let uri = response.uri().as_str();
+    let path = std::path::PathBuf::from(uri.strip_prefix("file://").unwrap());
+
+    let data = tokio::fs::read(&path).await?;
+    let _ = tokio::fs::remove_file(&path).await;
+
+    Ok((data, "image/png"))
+}

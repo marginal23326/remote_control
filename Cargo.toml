@@ -100,7 +100,12 @@ features = [
 
 # --- Linux Portal / PipeWire ---
 [target.'cfg(target_os = "linux")'.dependencies]
-ashpd = { version = "0.13", default-features = false, features = ["tokio", "screencast", "remote_desktop"] }
+ashpd = { version = "0.13", default-features = false, features = [
+    "tokio",
+    "screencast",
+    "remote_desktop",
+    "screenshot",
+] }
 pipewire = { version = "0.10", features = ["v0_3_49"] }
 xkeysym = "0.2"
 zbus = { version = "5", default-features = false, features = ["tokio"] }

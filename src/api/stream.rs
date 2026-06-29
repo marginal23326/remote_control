@@ -89,3 +89,8 @@ pub async fn stop_stream_handler(State(state): State<SharedState>) -> Json<serde
     state.screen.stop_stream();
     Json(json!({"status": "success"}))
 }
+
+pub async fn get_screenshot_handler() -> crate::utils::error::AppResult<impl axum::response::IntoResponse> {
+    let (data, content_type) = crate::services::screen::take_screenshot().await?;
+    Ok(([(axum::http::header::CONTENT_TYPE, content_type)], data))
+}

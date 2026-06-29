@@ -1,3 +1,2 @@
 - Text should be typed using paste when sent.
-- make screenshot work
 - A toggle on the stream section to intercept all client keyboard events and send it to the server.
