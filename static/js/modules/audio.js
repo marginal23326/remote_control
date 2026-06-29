@@ -1,4 +1,6 @@
 // static/js/modules/audio.js
+import { showNotification } from "./dom.js";
+
 class AudioManager {
     constructor(socket) {
         this.socket = socket;
@@ -33,7 +35,7 @@ class AudioManager {
         const MIN_RATE = 3000;
         const MAX_RATE = 768000;
         if (rate < MIN_RATE || rate > MAX_RATE) {
-            alert(`Sample rate must be between ${MIN_RATE} and ${MAX_RATE}`);
+            showNotification(`Sample rate must be between ${MIN_RATE} and ${MAX_RATE}`, "error");
             return false;
         }
         return true;
@@ -170,7 +172,7 @@ class AudioManager {
         } catch (error) {
             console.error(`Error starting ${type} audio:`, error);
             await this.stopAudioStream(type);
-            alert("Audio Error: " + error.message);
+            showNotification("Audio Error: " + error.message, "error");
         }
     }
 
