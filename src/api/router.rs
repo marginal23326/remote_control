@@ -19,6 +19,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
+use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
 
@@ -97,5 +98,6 @@ pub fn create_router(state: SharedState) -> Router {
         .nest("/api", api_routes)
         .nest("/assets", assets_routes)
         .nest_service("/static", serve_static)
+        .layer(CompressionLayer::new())
         .with_state(state)
 }
