@@ -6,9 +6,9 @@ use super::keymap::shortcut_keysym;
 use crate::services::screen::linux::portal_session;
 
 #[derive(Clone)]
-pub struct InputManager;
+pub(crate) struct OsInputManager;
 
-impl InputManager {
+impl OsInputManager {
     pub fn new() -> Self {
         Self
     }
