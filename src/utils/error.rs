@@ -6,7 +6,6 @@ use axum::{
 use serde_json::json;
 use thiserror::Error;
 
-// This enum defines every possible error in our app
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Authentication failed: {0}")]
@@ -25,16 +24,17 @@ pub enum AppError {
     NotFound(String),
 }
 
-// This allows us to use our Error type in Axum routes
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::AuthError(msg) => (StatusCode::UNAUTHORIZED, msg),
+        let (status, error_message) = match &self {
+            AppError::AuthError(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             AppError::InternalError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
             AppError::IoError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
-            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
-            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
         };
+
+        tracing::error!(?status, "{}", error_message);
 
         let body = Json(json!({
             "status": "error",
@@ -45,5 +45,4 @@ impl IntoResponse for AppError {
     }
 }
 
-// A shorthand type for Results in our app
 pub type AppResult<T> = Result<T, AppError>;
