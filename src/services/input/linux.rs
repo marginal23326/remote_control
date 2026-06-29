@@ -97,4 +97,12 @@ impl InputManager {
 
         result
     }
+
+    pub async fn set_key_state(&self, key: &str, pressed: bool) -> Result<()> {
+        if let Some(keysym) = shortcut_keysym(key) {
+            let state = if pressed { KeyState::Pressed } else { KeyState::Released };
+            portal_session().notify_keyboard_keysym(keysym as i32, state).await?;
+        }
+        Ok(())
+    }
 }

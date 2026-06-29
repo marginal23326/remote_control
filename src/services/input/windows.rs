@@ -145,6 +145,14 @@ impl InputManager {
         Ok(())
     }
 
+    pub async fn set_key_state(&self, key: &str, pressed: bool) -> anyhow::Result<()> {
+        let vk = self.map_key_to_vk(key);
+        if vk.0 != 0 {
+            self.send_key_event(vk, !pressed);
+        }
+        Ok(())
+    }
+
     fn is_extended_key(vk: u16) -> bool {
         matches!(
             vk,

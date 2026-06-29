@@ -1,5 +1,6 @@
 // static/js/modules/input.js
 import { streamUI, streamActive, calculateStreamDimensions, sendMouseEventOverDataChannel } from "./stream.js";
+import { showNotification } from "./dom.js";
 
 // Mapping for abstract action names to actual keys
 const SHORTCUT_MAP = {
@@ -26,6 +27,19 @@ function initializeInputHandlers(socket) {
         socket.emit("keyboard_event", {
             type: type,
             ...payload,
+        });
+    }
+
+    const keyboardCaptureBtn = document.getElementById("keyboardCaptureBtn");
+    let isKeyboardCaptureActive = false;
+
+    if (keyboardCaptureBtn) {
+        keyboardCaptureBtn.addEventListener("click", () => {
+            isKeyboardCaptureActive = !isKeyboardCaptureActive;
+            keyboardCaptureBtn.classList.toggle("bg-blue-500/20", isKeyboardCaptureActive);
+            keyboardCaptureBtn.classList.toggle("text-blue-400", isKeyboardCaptureActive);
+            keyboardCaptureBtn.classList.toggle("text-gray-400", !isKeyboardCaptureActive);
+            keyboardCaptureBtn.blur();
         });
     }
 
@@ -201,17 +215,81 @@ function initializeInputHandlers(socket) {
     let isScrolling = false;
     let isDragging = false;
 
-    document.addEventListener("keydown", (event) => {
-        if (event.key === "Control") isCtrlPressed = true;
-    });
+    const KEY_MAP = {
+        " ": "space",
+        ArrowUp: "up",
+        ArrowDown: "down",
+        ArrowLeft: "left",
+        ArrowRight: "right",
+        PageUp: "pageup",
+        PageDown: "pagedown",
+        OS: "win",
+        Control: "ctrl",
+        Shift: "shift",
+        Alt: "alt",
+        Meta: "win",
+        Enter: "enter",
+        Backspace: "backspace",
+        Tab: "tab",
+        Escape: "esc",
+        Delete: "delete",
+        Insert: "insert",
+        Home: "home",
+        End: "end",
+    };
 
-    document.addEventListener("keyup", (event) => {
-        if (event.key === "Control") isCtrlPressed = false;
-    });
+    const heldKeys = new Set();
+
+    document.addEventListener(
+        "keydown",
+        (event) => {
+            if (event.key === "Control") isCtrlPressed = true;
+
+            if (isKeyboardCaptureActive) {
+                if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (event.repeat) return;
+
+                let rawKey = event.key;
+                let key = KEY_MAP[rawKey] || rawKey.toLowerCase();
+
+                heldKeys.add(key);
+                emitKeyboardEvent("keyDown", { key });
+            }
+        },
+        { capture: true },
+    );
+
+    document.addEventListener(
+        "keyup",
+        (event) => {
+            if (event.key === "Control") isCtrlPressed = false;
+
+            if (isKeyboardCaptureActive) {
+                if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                let rawKey = event.key;
+                let key = KEY_MAP[rawKey] || rawKey.toLowerCase();
+
+                heldKeys.delete(key);
+                emitKeyboardEvent("keyUp", { key });
+            }
+        },
+        { capture: true },
+    );
 
     window.addEventListener("blur", () => {
         isCtrlPressed = false;
         isDragging = false;
+
+        heldKeys.forEach((key) => emitKeyboardEvent("keyUp", { key }));
+        heldKeys.clear();
     });
 
     if (streamUI.view) {

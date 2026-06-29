@@ -1,2 +1,1 @@
 - Text should be typed using paste when sent.
-- A toggle on the stream section to intercept all client keyboard events and send it to the server.

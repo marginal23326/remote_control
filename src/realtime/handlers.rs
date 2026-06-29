@@ -19,6 +19,12 @@ pub enum KeyboardEvent {
         shortcut: String,
         modifiers: Option<Vec<String>>,
     },
+    KeyDown {
+        key: String,
+    },
+    KeyUp {
+        key: String,
+    },
 }
 
 #[derive(Deserialize, Debug)]
@@ -65,6 +71,8 @@ pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state)
             let mods = modifiers.unwrap_or_default();
             state.input.send_shortcut(&shortcut, mods).await
         }
+        KeyboardEvent::KeyDown { key } => state.input.set_key_state(&key, true).await,
+        KeyboardEvent::KeyUp { key } => state.input.set_key_state(&key, false).await,
     };
 
     if let Err(err) = result {
