@@ -859,6 +859,17 @@ mod windows;
 #[allow(unused_imports)]
 use windows::{get_active_window_title, get_display_native_size, get_max_fps, start_os_capture};
 
+pub async fn take_screenshot() -> anyhow::Result<(Vec<u8>, &'static str)> {
+    #[cfg(windows)]
+    {
+        windows::take_screenshot().await
+    }
+    #[cfg(target_os = "linux")]
+    {
+        linux::take_screenshot().await
+    }
+}
+
 fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String, String>) -> Vec<String> {
     let mut rejected = Vec::new();
     for (key, value) in properties {

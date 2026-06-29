@@ -5,7 +5,7 @@ use crate::api::{
         rename_handler, upload_handler,
     },
     middleware::auth_middleware,
-    stream::{get_settings_handler, stop_stream_handler, update_settings_handler},
+    stream::{get_screenshot_handler, get_settings_handler, stop_stream_handler, update_settings_handler},
     system::get_system_info_handler,
     tasks::{get_process_details_handler, kill_process_handler},
 };
@@ -65,6 +65,7 @@ pub fn create_router(state: SharedState) -> Router {
             get(get_settings_handler).post(update_settings_handler),
         )
         .route("/stream/stop", get(stop_stream_handler))
+        .route("/stream/screenshot", get(get_screenshot_handler))
         .route("/files", get(list_files_handler))
         .route("/files/check-access", post(check_access_handler))
         .route("/create_folder", post(create_folder_handler))

@@ -5,6 +5,7 @@ const streamUI = {
     container: document.getElementById("streamContainer"),
     status: document.getElementById("streamStatus"),
     view: document.getElementById("streamView"),
+    screenshotView: null,
     nativeWidth: null,
     nativeHeight: null,
     fpsCounter: document.getElementById("currentFPS"),
@@ -67,6 +68,29 @@ const streamUI = {
             this.view.srcObject.getTracks().forEach((t) => t.stop());
             this.view.srcObject = null;
         }
+    },
+
+    initScreenshotView() {
+        if (!this.screenshotView) {
+            this.screenshotView = document.createElement("img");
+            this.screenshotView.className = this.view.className + " hidden object-contain";
+            this.view.parentNode.insertBefore(this.screenshotView, this.view.nextSibling);
+        }
+    },
+
+    displayScreenshot(url) {
+        this.initScreenshotView();
+        this.screenshotView.src = url;
+        this.screenshotView.classList.remove("hidden");
+        this.view.classList.add("hidden");
+        this.show();
+    },
+
+    hideScreenshot() {
+        if (this.screenshotView) {
+            this.screenshotView.classList.add("hidden");
+        }
+        this.view.classList.remove("hidden");
     },
 };
 
@@ -180,6 +204,7 @@ function initializeStream(sessionId, socket) {
 
     document.getElementById("startStream").addEventListener("click", () => {
         if (!streamActive) {
+            streamUI.hideScreenshot();
             streamActive = true;
 
             const btn = document.getElementById("startStream");
@@ -192,16 +217,50 @@ function initializeStream(sessionId, socket) {
         }
     });
 
+    async function executeStopStream() {
+        if (!streamActive) return;
+        streamActive = false;
+
+        if (startBtnLoader) startBtnLoader.stopLoading();
+        await apiCall("/api/stream/stop").catch(() => {});
+        cleanupPeerConnection();
+        streamUI.clear();
+    }
+
     document.getElementById("stopStream").addEventListener("click", async () => {
-        if (streamActive) {
-            streamActive = false;
+        streamUI.hide();
+        streamUI.hideScreenshot();
+        await executeStopStream();
+    });
 
-            if (startBtnLoader) startBtnLoader.stopLoading();
+    let currentScreenshotUrl = null;
 
-            streamUI.hide();
-            await apiCall("/api/stream/stop");
-            cleanupPeerConnection();
-            streamUI.clear();
+    document.getElementById("screenshot").addEventListener("click", async () => {
+        const loader = new LoadingButton(document.getElementById("screenshot"), "");
+        loader.startLoading();
+
+        try {
+            const response = await fetch("/api/stream/screenshot");
+            if (!response.ok) {
+                const errorObj = await response.json().catch(() => ({}));
+                throw new Error(errorObj.message || "Capture failed");
+            }
+
+            const blob = await response.blob();
+
+            if (currentScreenshotUrl) {
+                URL.revokeObjectURL(currentScreenshotUrl);
+            }
+
+            currentScreenshotUrl = URL.createObjectURL(blob);
+            streamUI.displayScreenshot(currentScreenshotUrl);
+            await executeStopStream();
+
+            showNotification("Screenshot captured. Right-click to save.", "info");
+        } catch (err) {
+            showNotification(err.message, "error");
+        } finally {
+            loader.stopLoading();
         }
     });
 
