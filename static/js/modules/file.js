@@ -1,6 +1,6 @@
 // static/js/modules/file.js
 import { apiCall, SVG_TEMPLATES, CLASSES, formatFileSize, formatDate, BaseFileManager, escapeHtml } from "./utils.js";
-import { LoadingButton } from "./dom.js";
+import { LoadingButton, showNotification } from "./dom.js";
 
 class FileManager extends BaseFileManager {
     constructor() {
@@ -92,7 +92,7 @@ class FileManager extends BaseFileManager {
         if (!files.length) return;
 
         if (!this.currentPath) {
-            alert("Please navigate to a directory before uploading files.");
+            showNotification("Please navigate to a directory before uploading files.", "error");
             return;
         }
 
@@ -107,7 +107,10 @@ class FileManager extends BaseFileManager {
             const encodedPath = encodeURIComponent(this.currentPath);
             await this.handleApiCall(`/api/upload?path=${encodedPath}`, "POST", formData, async (res) => {
                 if (res.count !== files.length) {
-                    alert(`Warning: Only ${res.count} of ${files.length} files were uploaded successfully.`);
+                    showNotification(
+                        `Only ${res.count} of ${files.length} files were uploaded successfully.`,
+                        "warning",
+                    );
                 }
                 const lastFile = files[files.length - 1].name;
                 const sep = this.getSeparator();
@@ -125,11 +128,11 @@ class FileManager extends BaseFileManager {
     async handleApiCall(apiEndpoint, method, data, successCallback) {
         try {
             const response = await apiCall(apiEndpoint, method, data);
-            if (response.message) alert(response.message);
+            if (response.message) showNotification(response.message, "info");
             successCallback?.(response);
         } catch (error) {
             console.error(`Error in ${apiEndpoint}:`, error);
-            alert(`Error: ${error.message}`);
+            showNotification(`Error: ${error.message}`, "error");
         }
     }
 
@@ -575,7 +578,7 @@ class FileManager extends BaseFileManager {
                 const folderNameInput = document.getElementById("newFolderName");
                 const folderName = folderNameInput?.value.trim();
                 if (!folderName) {
-                    alert("Please enter a folder name");
+                    showNotification("Please enter a folder name", "warning");
                     return;
                 }
 
@@ -602,7 +605,7 @@ class FileManager extends BaseFileManager {
                 const newName = renameInput?.value.trim();
 
                 if (!newName) {
-                    alert("Please enter a new name");
+                    showNotification("Please enter a new name", "warning");
                     return;
                 }
 

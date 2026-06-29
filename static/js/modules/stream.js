@@ -1,4 +1,5 @@
 import { apiCall } from "./utils.js";
+import { showNotification } from "./dom.js";
 
 const streamUI = {
     container: document.getElementById("streamContainer"),
@@ -163,6 +164,7 @@ function initializeStream(sessionId, socket) {
     socket.on("stream_error", (data) => {
         if (!streamActive) return;
         console.error("Stream error:", data.message);
+        showNotification(data.message, "error");
         streamActive = false;
         cleanupPeerConnection();
         streamUI.hide();
@@ -406,7 +408,7 @@ async function updateStreamSettings(includeEncoderProps = false) {
 
     const response = await apiCall("/api/stream/settings", "POST", payload);
     if (response.rejected_properties?.length) {
-        alert(`Invalid encoder properties: ${response.rejected_properties.join(", ")}`);
+        showNotification(`Invalid encoder properties: ${response.rejected_properties.join(", ")}`, "error");
     }
     updateSettingsDisplay(response);
 }
@@ -530,7 +532,7 @@ function readEncoderPropsFromDOM() {
     });
     encoderProperties = props;
     if (warnings.length) {
-        alert(warnings.join("\n"));
+        showNotification(warnings.join("\n"), "error");
         return null;
     }
     return props;

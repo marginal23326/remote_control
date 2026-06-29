@@ -1,5 +1,6 @@
 // static/js/modules/task.js
 import { apiCall, SVG_TEMPLATES, BaseTaskManager } from "./utils.js";
+import { showNotification } from "./dom.js";
 
 function initializeTaskManager(socket) {
     let _selectedProcess = null;
@@ -18,7 +19,7 @@ function initializeTaskManager(socket) {
                 await apiCall("/api/tasks/kill", "POST", { pid });
             } catch (error) {
                 console.error("Error killing process:", error);
-                alert(error.message);
+                showNotification(error.message, "error");
             }
         }
         document.getElementById("endTaskContainer").classList.add("hidden");
@@ -42,9 +43,9 @@ function initializeTaskManager(socket) {
                             if (d.rss_memory_mb !== d.exact_memory_mb) {
                                 msg += `\nAccurate (PSS): ${d.exact_memory_mb.toFixed(2)} MB`;
                             }
-                            alert(msg);
+                            showNotification(msg, "info");
                         } catch (err) {
-                            alert("Failed to get details: " + err.message);
+                            showNotification("Failed to get details: " + err.message, "error");
                         }
                     },
                 });
