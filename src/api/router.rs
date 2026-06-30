@@ -6,7 +6,7 @@ use crate::api::{
     },
     middleware::auth_middleware,
     stream::{get_screenshot_handler, get_settings_handler, stop_stream_handler, update_settings_handler},
-    system::get_system_info_handler,
+    system::{get_clipboard_handler, get_system_info_handler, set_clipboard_handler},
     tasks::{get_process_details_handler, kill_process_handler},
 };
 use crate::state::SharedState;
@@ -60,6 +60,10 @@ pub fn create_router(state: SharedState) -> Router {
     // 2. Define Protected API Routes
     let api_routes = Router::new()
         .route("/system", get(get_system_info_handler))
+        .route(
+            "/system/clipboard",
+            get(get_clipboard_handler).post(set_clipboard_handler),
+        )
         .route(
             "/stream/settings",
             get(get_settings_handler).post(update_settings_handler),

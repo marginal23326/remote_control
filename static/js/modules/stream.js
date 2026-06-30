@@ -324,6 +324,26 @@ function initializeStream(sessionId, socket) {
             socket.emit("start_stream", { sessionId });
         }
     });
+
+    ["pull", "push"].forEach((action) => {
+        document.getElementById(`${action}ClipboardBtn`)?.addEventListener("click", async (e) => {
+            const loader = new LoadingButton(e.currentTarget, "").startLoading();
+            try {
+                if (action === "pull") {
+                    const data = await apiCall("/api/system/clipboard", "GET");
+                    await navigator.clipboard.writeText(data.text);
+                } else {
+                    const text = await navigator.clipboard.readText();
+                    await apiCall("/api/system/clipboard", "POST", { text });
+                }
+                showNotification(`${action === "pull" ? "Remote" : "Local"} clipboard synced!`, "info");
+            } catch (err) {
+                showNotification(`Failed to ${action} clipboard: ${err.message}`, "error");
+            } finally {
+                loader.stopLoading();
+            }
+        });
+    });
 }
 
 function cleanupPeerConnection() {
