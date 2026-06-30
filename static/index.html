@@ -3,499 +3,469 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Remote Interface</title>
+        <title>Remote Control</title>
         <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     </head>
 
-    <body class="min-h-dvh text-gray-100 selection:bg-blue-500 selection:text-white">
+    <body
+        class="h-dvh flex flex-col bg-zinc-950 text-zinc-100 selection:bg-zinc-800 selection:text-white overflow-hidden"
+    >
         <!-- Connection Overlay -->
         <div
             id="connectionOverlay"
-            class="connection-overlay fixed inset-0 z-50 flex flex-col items-center justify-center"
+            class="connection-overlay fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-300"
         >
-            <div class="spinner mb-6"></div>
-            <p id="connectionMessage" class="text-lg font-mono tracking-widest text-blue-400 animate-pulse">
-                ESTABLISHING UPLINK...
-            </p>
+            <div class="spinner mb-4"></div>
+            <p id="connectionMessage" class="text-sm font-medium text-zinc-400">Connecting...</p>
         </div>
 
-        <!-- Main Wrapper -->
-        <div class="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
-            <!-- Header HUD -->
-            <header class="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-white/5">
-                <div class="flex items-center gap-4 mb-4 md:mb-0">
-                    <div
-                        class="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/50 flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.3)]"
-                    >
-                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Global Header & Nav -->
+        <header
+            class="flex items-center justify-between shrink-0 h-11 px-3 border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-sm z-10 gap-4"
+        >
+            <div class="flex items-center gap-4 md:gap-6 min-w-0 flex-1">
+                <!-- Branding -->
+                <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-zinc-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                                 stroke-width="2"
-                                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                             />
                         </svg>
                     </div>
-                    <div>
-                        <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                            NEXUS <span class="text-blue-500 text-glow">CONTROL</span>
-                        </h1>
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"
-                            ></span>
-                            <span class="text-xs text-gray-400 font-mono uppercase tracking-wider">System Online</span>
-                        </div>
-                    </div>
+                    <span class="font-semibold tracking-tight text-sm">Remote</span>
                 </div>
 
+                <!-- Navigation -->
+                <nav class="flex items-center gap-1 overflow-x-auto hide-scrollbar min-w-0">
+                    <a
+                        href="#streamSection"
+                        class="nav-link nav-tab active px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                        >Screen</a
+                    >
+                    <a href="#audioSection" class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                        >Audio</a
+                    >
+                    <a href="#shellSection" class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                        >Terminal</a
+                    >
+                    <a href="#fileSection" class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                        >Files</a
+                    >
+                    <a
+                        href="#processSection"
+                        class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                        >Processes</a
+                    >
+                    <a
+                        href="#systemSection"
+                        class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                        >System</a
+                    >
+                </nav>
+            </div>
+
+            <!-- Global Actions -->
+            <div class="flex items-center gap-4 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span class="text-xs text-zinc-400 font-medium hidden sm:inline-block">Connected</span>
+                </div>
+                <div class="h-4 w-px bg-zinc-800"></div>
                 <button
                     id="logoutButton"
-                    class="hidden group px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
+                    class="hidden text-sm font-medium text-zinc-400 hover:text-zinc-100 px-2.5 py-1.5 rounded-md hover:bg-zinc-900 transition-colors"
                 >
-                    <span class="flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                stroke-linecap="round"
-                                stroke-width="2"
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                            />
-                        </svg>
-                        DISCONNECT
-                    </span>
+                    Sign out
                 </button>
-            </header>
+            </div>
+        </header>
 
-            <!-- Navigation Dock -->
-            <nav class="sticky top-4 z-40 mb-8">
-                <div class="glass-card rounded-2xl p-2 shadow-2xl">
-                    <div class="flex items-center justify-between overflow-x-auto hide-scrollbar">
-                        <ul class="flex space-x-1 min-w-max mx-auto">
-                            <li>
-                                <a
-                                    href="#streamSection"
-                                    class="nav-link nav-tab active group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M15 10l4.553-2.276A1 1 0 0121 8.818v6.364a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                        />
-                                    </svg>
-                                    Stream
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#audioSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                                        />
-                                    </svg>
-                                    Audio
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#shellSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                        />
-                                    </svg>
-                                    Shell
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#keyboardSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                                        />
-                                    </svg>
-                                    Input
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#fileSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                                        />
-                                    </svg>
-                                    Files
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#processSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                                        />
-                                    </svg>
-                                    Tasks
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#systemSection"
-                                    class="nav-link nav-tab group flex items-center px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
-                                >
-                                    <svg
-                                        class="w-5 h-5 mr-2.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-width="2"
-                                            d="M10.3 4.3c.5-1.7 3-1.7 3.4 0a1.7 1.7 0 0 0 2.5 1c1.6-.9 3.4 1 2.4 2.5a1.7 1.7 0 0 0 1 2.5c1.8.5 1.8 3 0 3.4a1.7 1.7 0 0 0-1 2.5c1 1.6-.8 3.4-2.4 2.4a1.7 1.7 0 0 0-2.5 1c-.5 1.8-3 1.8-3.4 0a1.7 1.7 0 0 0-2.5-1c-1.6 1-3.4-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.5c-1.8-.5-1.8-3 0-3.4a1.7 1.7 0 0 0 1-2.5c-1-1.6.8-3.4 2.4-2.4 1 .6 2.2 0 2.5-1z"
-                                        />
-                                        <path stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
-                                    </svg>
-                                    System
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </nav>
-
-            <!-- Main Content -->
-            <main class="min-h-0">
-                <!-- Stream Section -->
-                <section id="streamSection" class="section animate-in fade-in zoom-in-95 duration-300">
-                    <div class="glass-card rounded-2xl p-6">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                            <div class="flex items-center gap-3">
-                                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                                    <span class="w-2 h-8 bg-blue-500 rounded-sm"></span>
-                                    VISUAL FEED
-                                </h2>
-                                <span
-                                    id="streamStatus"
-                                    class="hidden items-center gap-2 px-3 py-1 text-xs font-mono font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                >
-                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    <span id="currentFPS">0</span> FPS
-                                </span>
-                            </div>
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto pt-1 pb-4 pl-2 pr-4 md:pb-6 md:pr-6 bg-zinc-950">
+            <div class="max-w-[1400px] mx-auto h-full">
+                <!-- Stream & Input Section -->
+                <section
+                    id="streamSection"
+                    class="section flex flex-col animate-in fade-in duration-200 lg:h-full lg:min-h-0 pt-0.5 pl-0.5"
+                >
+                    <div class="flex flex-col lg:flex-row gap-4 lg:h-full lg:min-h-0">
+                        <!-- LEFT COLUMN: Video Player, Controls & Meta -->
+                        <div
+                            class="flex-1 flex flex-col min-w-0 min-h-0 lg:h-full lg:overflow-y-auto hide-scrollbar lg:pr-2"
+                        >
+                            <!-- Unified Player Wrapper -->
                             <div
-                                id="activeWindow"
-                                class="text-sm font-mono text-gray-400 bg-black/20 px-3 py-1 rounded border border-white/5"
+                                class="flex flex-col gap-1.5 shrink-0 w-full mx-auto lg:ml-0 lg:max-w-[calc((100dvh-140px)*16/9)]"
                             >
-                                Waiting for source...
-                            </div>
-
-                            <div class="flex gap-2">
-                                <!-- Stream Controls -->
-                                <div class="flex rounded-lg bg-black/30 p-1 border border-white/5">
-                                    <button
-                                        id="startStream"
-                                        class="p-2 rounded hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400 transition-all active:scale-95"
-                                        title="Initialize Stream"
+                                <!-- Video Container -->
+                                <div
+                                    id="streamContainer"
+                                    class="relative bg-black rounded-lg border border-zinc-800 overflow-hidden shadow-sm shrink-0 w-full aspect-video transition-all duration-200"
+                                >
+                                    <div
+                                        id="streamOverlay"
+                                        class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-sm transition-opacity duration-300"
                                     >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-width="2"
-                                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        id="stopStream"
-                                        class="p-2 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-all active:scale-95"
-                                        title="Terminate Stream"
-                                    >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-width="2"
-                                                d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-                                            />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <!-- Utility Controls -->
-                                <div class="flex rounded-lg bg-black/30 p-1 border border-white/5">
-                                    <button
-                                        id="pullClipboardBtn"
-                                        class="p-2 rounded hover:bg-yellow-500/20 text-gray-400 hover:text-yellow-400 transition-all active:scale-95"
-                                        title="Pull Remote Clipboard"
-                                    >
-                                        <svg fill="none" stroke="currentColor" class="w-5 h-5" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"
-                                            />
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 11v6m-3-3 3 3 3-3"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        id="pushClipboardBtn"
-                                        class="p-2 rounded hover:bg-yellow-500/20 text-gray-400 hover:text-yellow-400 transition-all active:scale-95"
-                                        title="Push Local Clipboard"
-                                    >
-                                        <svg fill="none" stroke="currentColor" class="w-5 h-5" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"
-                                            />
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 17v-6m-3 3 3-3 3 3"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        id="keyboardCaptureBtn"
-                                        class="p-2 rounded hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-all active:scale-95"
-                                        title="Toggle Keyboard Capture"
-                                    >
-                                        <svg
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            class="w-5 h-5"
-                                            viewBox="0 0 24 24"
+                                        <div
+                                            class="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 shadow-lg"
                                         >
-                                            <path
-                                                d="M3 6h18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2m4 4h.01M12 10h.01M17 10h.01M7 14h.01M10 14h4m3 0h.01"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        id="screenshot"
-                                        class="p-2 rounded hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-all active:scale-95"
-                                        title="Capture Frame"
+                                            <svg class="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M6 19L19 12L6 5V19Z"></path>
+                                            </svg>
+                                        </div>
+                                        <p class="text-sm font-medium text-zinc-300">Stream Offline</p>
+                                        <p class="text-xs text-zinc-500 mt-1">Click the start button to connect</p>
+                                    </div>
+
+                                    <video
+                                        id="streamView"
+                                        autoplay
+                                        playsinline
+                                        muted
+                                        class="absolute inset-0 w-full h-full object-contain object-center pointer-events-auto opacity-0 transition-opacity duration-300"
+                                    ></video>
+                                </div>
+
+                                <!-- Controls Panel -->
+                                <div class="w-full shrink-0 flex flex-col gap-2">
+                                    <div
+                                        class="w-full flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 overflow-x-auto hide-scrollbar"
                                     >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-width="2"
-                                                d="M3 9a2 2 0 0 1 2-2h1a2 2 0 0 0 2-1V5a2 2 0 0 1 2-1h4a2 2 0 0 1 2 1v1a2 2 0 0 0 2 1h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
-                                            />
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-width="2"
-                                                d="M15 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        id="fullscreenBtn"
-                                        class="p-2 rounded hover:bg-purple-500/20 text-gray-400 hover:text-purple-400 transition-all active:scale-95"
-                                        title="Maximize Viewport"
-                                    >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-width="2"
-                                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                                            />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div
-                            id="streamContainer"
-                            class="stream-container mb-6 aspect-video transition-all duration-300 ease-in-out"
-                        >
-                            <video
-                                id="streamView"
-                                autoplay
-                                playsinline
-                                muted
-                                class="w-full h-full object-contain"
-                            ></video>
-                        </div>
-
-                        <!-- Stream Settings Panel -->
-                        <div
-                            class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-black/20 rounded-xl p-5 border border-white/5"
-                        >
-                            <!-- Bitrate -->
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center text-sm">
-                                    <label class="text-gray-400 font-medium">Bitrate</label>
-                                    <span id="bitrateValue" class="text-blue-400 font-mono">5000 kbps</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    id="streamBitrate"
-                                    min="100"
-                                    max="20000"
-                                    step="100"
-                                    value="5000"
-                                    class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                />
-                            </div>
-
-                            <!-- Resolution -->
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center text-sm">
-                                    <label class="text-gray-400 font-medium">Resolution Scaling</label>
-                                    <span id="resolutionValue" class="text-blue-400 font-mono">100%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    id="streamResolution"
-                                    min="5"
-                                    max="100"
-                                    value="100"
-                                    class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                />
-                            </div>
-
-                            <!-- FPS -->
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center text-sm">
-                                    <label class="text-gray-400 font-medium">Target Framerate</label>
-                                    <div class="flex items-center gap-2">
-                                        <span id="fpsValue" class="text-blue-400 font-mono">60 FPS</span>
                                         <button
-                                            id="autoFpsButton"
-                                            class="text-xs px-2 py-0.5 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 border border-blue-500/30 transition-colors"
+                                            id="startStream"
+                                            class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                            title="Start Stream"
                                         >
-                                            AUTO
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                                                ></path>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            id="stopStream"
+                                            class="p-1 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors"
+                                            title="Stop Stream"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path
+                                                    stroke-width="2"
+                                                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                                                ></path>
+                                            </svg>
+                                        </button>
+                                        <div class="w-px h-4 bg-zinc-700 mx-0.5 shrink-0"></div>
+                                        <button
+                                            id="pullClipboardBtn"
+                                            class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                            title="Pull remote clipboard"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                                ></path>
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M12 11v6m-3-3 3 3 3-3"
+                                                ></path>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            id="pushClipboardBtn"
+                                            class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                            title="Push local clipboard"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                                ></path>
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M12 17v-6m-3 3 3-3 3 3"
+                                                ></path>
+                                            </svg>
+                                        </button>
+                                        <div class="w-px h-4 bg-zinc-700 mx-0.5 shrink-0"></div>
+                                        <button
+                                            id="keyboardCaptureBtn"
+                                            class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                            title="Toggle Keyboard Capture"
+                                        >
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    d="M3 6h18a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2m4 4h.01M12 10h.01M17 10h.01M7 14h.01M10 14h4m3 0h.01"
+                                                ></path>
+                                            </svg>
+                                        </button>
+                                        <div class="ml-auto flex items-center gap-1 shrink-0">
+                                            <button
+                                                id="screenshot"
+                                                class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                                title="Capture Frame"
+                                            >
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        stroke-linecap="round"
+                                                        stroke-width="2"
+                                                        d="M3 9a2 2 0 012-2h1a2 2 0 002-1V5a2 2 0 012-1h4a2 2 0 012 1v1a2 2 0 002 1h1a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                                                    ></path>
+                                                    <path
+                                                        stroke-linecap="round"
+                                                        stroke-width="2"
+                                                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                                                    ></path>
+                                                </svg>
+                                            </button>
+                                            <button
+                                                id="fullscreenBtn"
+                                                class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                                title="Fullscreen"
+                                            >
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                                                    ></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Video Metadata Bar -->
+                                    <div class="flex items-center justify-between gap-4 px-1 pb-1 shrink-0 w-full">
+                                        <div
+                                            id="activeWindow"
+                                            class="text-xs text-zinc-400 truncate max-w-sm sm:max-w-md"
+                                        >
+                                            Waiting for source...
+                                        </div>
+                                        <span
+                                            id="streamStatus"
+                                            class="hidden items-center gap-1.5 text-xs text-zinc-400 shrink-0"
+                                        >
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            <span id="currentFPS">0</span> FPS
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: Settings & Input Sidebar -->
+                        <div
+                            class="w-full lg:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 lg:overflow-y-auto hide-scrollbar lg:h-full min-h-0 pb-4 lg:pb-0"
+                        >
+                            <!-- Essential Input Card -->
+                            <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col gap-4">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-sm font-medium text-zinc-100">Quick Input</h3>
+                                    <!-- Sticky Toggle -->
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <span class="text-[10px] font-medium text-zinc-500 uppercase tracking-wide"
+                                            >Sticky</span
+                                        >
+                                        <input type="checkbox" id="stickyToggle" class="hidden peer" />
+                                        <div
+                                            class="w-6 h-3.5 bg-zinc-800 rounded-full peer-checked:bg-zinc-100 transition-colors relative after:absolute after:top-0.5 after:left-0.5 after:bg-zinc-500 peer-checked:after:bg-zinc-900 after:w-2.5 after:h-2.5 after:rounded-full after:transition-transform peer-checked:after:translate-x-2.5"
+                                        ></div>
+                                    </label>
+                                </div>
+
+                                <!-- Modifiers (Injected by JS) -->
+                                <div id="modifierGrid" class="grid grid-cols-4 gap-2"></div>
+
+                                <!-- System Keys (Injected by JS) -->
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div id="systemGrid" class="contents"></div>
+                                </div>
+
+                                <!-- Arrow Keys / Navigation (Injected by JS) -->
+                                <div
+                                    id="navGrid"
+                                    class="flex flex-col items-center gap-2 pt-2 border-t border-zinc-800/50"
+                                ></div>
+
+                                <!-- Custom & Text -->
+                                <div class="pt-2 border-t border-zinc-800/50 flex flex-col gap-3">
+                                    <div class="flex gap-2">
+                                        <input
+                                            type="text"
+                                            id="customKey"
+                                            class="flex-1 h-8 px-2 text-xs bg-zinc-950 border border-zinc-800 rounded-md focus:border-zinc-500"
+                                            placeholder="Custom stroke (e.g. alt+f4, del, f12)"
+                                        />
+                                        <button
+                                            id="sendCustomShortcut"
+                                            class="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-xs font-medium transition-colors shrink-0"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <textarea
+                                            id="textInput"
+                                            class="flex-1 h-8 min-h-8 px-2 py-1.5 text-xs bg-zinc-950 border border-zinc-800 rounded-md focus:border-zinc-500 resize-y hide-scrollbar"
+                                            placeholder="Type text to inject..."
+                                        ></textarea>
+                                        <button
+                                            id="sendText"
+                                            class="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-transparent rounded-md text-xs font-medium transition-colors shrink-0"
+                                        >
+                                            Send
                                         </button>
                                     </div>
                                 </div>
-                                <input
-                                    type="range"
-                                    id="streamFPS"
-                                    min="1"
-                                    value="60"
-                                    class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                />
                             </div>
-                        </div>
 
-                        <!-- Advanced Encoder Settings -->
-                        <div class="mt-4">
-                            <button
-                                id="advancedToggle"
-                                class="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-400 hover:text-gray-200 bg-black/10 hover:bg-black/20 rounded-lg transition-all border border-white/5"
-                            >
-                                <svg
-                                    class="w-4 h-4 transition-transform duration-200"
-                                    id="advancedToggleIcon"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path stroke-linecap="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                                <span>Advanced Encoder Settings</span>
-                                <span id="encoderTypeLabel" class="ml-auto text-xs font-mono text-gray-500"></span>
-                            </button>
+                            <!-- Stream Settings Card -->
+                            <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col gap-4">
+                                <h3 class="text-sm font-medium text-zinc-100">Stream Quality</h3>
 
-                            <div
-                                id="advancedSettingsPanel"
-                                class="hidden mt-3 p-4 bg-black/20 rounded-xl border border-white/5"
-                            >
-                                <div class="text-xs text-gray-500 mb-3 font-mono">
-                                    Directly set GStreamer encoder properties. Changes apply live.
-                                    <span class="text-yellow-500">
-                                        Restart the stream to reset values to defaults.</span
-                                    >
+                                <div class="space-y-1">
+                                    <div class="flex justify-between items-center text-xs">
+                                        <label class="text-zinc-400">Bitrate</label>
+                                        <span id="bitrateValue" class="text-zinc-300 font-mono">5000 kbps</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        id="streamBitrate"
+                                        min="100"
+                                        max="20000"
+                                        step="100"
+                                        value="5000"
+                                        class="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-zinc-300"
+                                    />
                                 </div>
-                                <table class="w-full" id="encoderPropsTable">
-                                    <thead>
-                                        <tr class="text-xs text-gray-500 font-mono">
-                                            <th class="text-left pb-2 pr-2 w-1/2">Property</th>
-                                            <th class="text-left pb-2 pr-2 w-1/3">Value</th>
-                                            <th class="pb-2 w-12"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="encoderPropsList"></tbody>
-                                </table>
-                                <div class="flex gap-2 mt-3">
+
+                                <div class="space-y-1">
+                                    <div class="flex justify-between items-center text-xs">
+                                        <label class="text-zinc-400">Scale</label>
+                                        <span id="resolutionValue" class="text-zinc-300 font-mono">100%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        id="streamResolution"
+                                        min="5"
+                                        max="100"
+                                        value="100"
+                                        class="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-zinc-300"
+                                    />
+                                </div>
+
+                                <div class="space-y-1">
+                                    <div class="flex justify-between items-center text-xs">
+                                        <label class="text-zinc-400">Framerate</label>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <span id="fpsValue" class="text-zinc-300 font-mono">60 FPS</span>
+                                            <button
+                                                id="autoFpsButton"
+                                                class="text-[10px] px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-colors"
+                                            >
+                                                AUTO
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        id="streamFPS"
+                                        min="1"
+                                        value="60"
+                                        class="w-full h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-zinc-300"
+                                    />
+                                </div>
+
+                                <!-- Advanced Settings Dropdown -->
+                                <div class="pt-2 mt-1 border-t border-zinc-800/50">
                                     <button
-                                        id="addEncoderProp"
-                                        class="px-3 py-1.5 text-xs rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition-all"
+                                        id="advancedToggle"
+                                        class="flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors py-1 w-full text-left"
                                     >
-                                        + Add Property
+                                        <svg
+                                            id="advancedToggleIcon"
+                                            class="w-3.5 h-3.5 transition-transform duration-200 shrink-0"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M19 9l-7 7-7-7"
+                                            />
+                                        </svg>
+                                        <span class="font-medium">Advanced Encoder Settings</span>
+                                        <span
+                                            id="encoderTypeLabel"
+                                            class="ml-auto font-mono bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded text-[10px]"
+                                        ></span>
                                     </button>
-                                    <button
-                                        id="applyEncoderProps"
-                                        class="px-4 py-1.5 text-xs rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 transition-all ml-auto"
-                                    >
-                                        Apply Changes
-                                    </button>
+
+                                    <!-- Advanced Settings Panel (Seamless Layout) -->
+                                    <div id="advancedSettingsPanel" class="hidden mt-3 space-y-3">
+                                        <table class="w-full text-xs" id="encoderPropsTable">
+                                            <thead>
+                                                <tr class="text-zinc-500 text-left border-b border-zinc-800/40">
+                                                    <th class="font-normal pb-2 w-1/2">Property</th>
+                                                    <th class="font-normal pb-2 w-1/3">Value</th>
+                                                    <th class="pb-2 w-6"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="encoderPropsList" class="divide-y divide-zinc-800/30"></tbody>
+                                        </table>
+
+                                        <div class="flex items-center justify-between pt-1">
+                                            <button
+                                                id="addEncoderProp"
+                                                class="text-xs font-medium text-zinc-500 hover:text-zinc-200 transition-colors"
+                                            >
+                                                + Add Property
+                                            </button>
+                                            <button
+                                                id="applyEncoderProps"
+                                                class="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md transition-colors font-medium"
+                                            >
+                                                Apply
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -503,113 +473,86 @@
                 </section>
 
                 <!-- Audio Section -->
-                <section
-                    id="audioSection"
-                    class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
-                >
-                    <div class="glass-card rounded-2xl p-8">
-                        <h2 class="text-xl font-bold text-white mb-8 flex items-center gap-2">
-                            <span class="w-2 h-8 bg-purple-500 rounded-sm"></span>
-                            AUDIO PANEL
-                        </h2>
-
-                        <div class="grid md:grid-cols-2 gap-8">
-                            <!-- Server Side -->
-                            <div class="bg-black/20 p-6 rounded-xl border border-white/5">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h3 class="text-lg font-medium text-purple-400">Host Uplink</h3>
-                                    <div class="h-2 w-2 rounded-full bg-gray-600" id="serverAudioStatus"></div>
+                <section id="audioSection" class="section hidden animate-in fade-in duration-200">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-5">
+                                <h3 class="text-sm font-medium text-zinc-300">Server Audio (Incoming)</h3>
+                                <div class="w-2 h-2 rounded-full bg-zinc-700" id="serverAudioStatus"></div>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-500 mb-1.5">Source</label>
+                                    <select
+                                        id="audioSourceSelect"
+                                        class="w-full text-sm bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-100 transition-colors"
+                                    >
+                                        <option value="mic">Microphone</option>
+                                        <option value="system">System Sound</option>
+                                    </select>
                                 </div>
-
-                                <div class="space-y-4">
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-xs text-gray-500 mb-1 uppercase tracking-wider"
-                                                >Source</label
-                                            >
-                                            <select
-                                                id="audioSourceSelect"
-                                                class="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white focus:ring-purple-500/50 focus:border-purple-500"
-                                            >
-                                                <option value="mic">Microphone Input</option>
-                                                <option value="system">System Loopback</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-gray-500 mb-1 uppercase tracking-wider"
-                                                >Sample Rate</label
-                                            >
-                                            <input
-                                                type="number"
-                                                id="serverAudioRate"
-                                                value="48000"
-                                                class="w-full px-4 py-2.5"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div class="pt-2 flex gap-3">
-                                        <button
-                                            id="startServerAudio"
-                                            class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
-                                        >
-                                            ACTIVATE
-                                        </button>
-                                        <button
-                                            id="stopServerAudio"
-                                            class="flex-1 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
-                                        >
-                                            TERMINATE
-                                        </button>
-                                    </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-500 mb-1.5">Sample Rate</label>
+                                    <input
+                                        type="number"
+                                        id="serverAudioRate"
+                                        value="48000"
+                                        class="w-full text-sm bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-100 transition-colors"
+                                    />
+                                </div>
+                                <div class="flex gap-3 pt-2">
+                                    <button
+                                        id="startServerAudio"
+                                        class="flex-1 py-2 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Start
+                                    </button>
+                                    <button
+                                        id="stopServerAudio"
+                                        class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Stop
+                                    </button>
                                 </div>
                             </div>
-
-                            <!-- Client Side -->
-                            <div class="bg-black/20 p-6 rounded-xl border border-white/5">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h3 class="text-lg font-medium text-blue-400">Local Downlink</h3>
-                                    <div class="h-2 w-2 rounded-full bg-gray-600" id="clientAudioStatus"></div>
+                        </div>
+                        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-5">
+                                <h3 class="text-sm font-medium text-zinc-300">Local Audio (Outgoing)</h3>
+                                <div class="w-2 h-2 rounded-full bg-zinc-700" id="clientAudioStatus"></div>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-500 mb-1.5">Sample Rate</label>
+                                    <input
+                                        type="number"
+                                        id="clientAudioRate"
+                                        value="48000"
+                                        class="w-full text-sm bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-100 transition-colors"
+                                    />
                                 </div>
-
-                                <div class="space-y-4">
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-xs text-gray-500 mb-1 uppercase tracking-wider"
-                                                >Sample Rate</label
-                                            >
-                                            <input
-                                                type="number"
-                                                id="clientAudioRate"
-                                                value="48000"
-                                                class="w-full px-4 py-2.5"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-gray-500 mb-1 uppercase tracking-wider"
-                                                >Buffer Size</label
-                                            >
-                                            <input
-                                                type="number"
-                                                id="clientAudioChunk"
-                                                value="512"
-                                                class="w-full px-4 py-2.5"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div class="pt-2 flex gap-3">
-                                        <button
-                                            id="startClientAudio"
-                                            class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
-                                        >
-                                            ACTIVATE
-                                        </button>
-                                        <button
-                                            id="stopClientAudio"
-                                            class="flex-1 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-all active:scale-[0.98]"
-                                        >
-                                            TERMINATE
-                                        </button>
-                                    </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-500 mb-1.5">Buffer Size</label>
+                                    <input
+                                        type="number"
+                                        id="clientAudioChunk"
+                                        value="512"
+                                        class="w-full text-sm bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-100 transition-colors"
+                                    />
+                                </div>
+                                <div class="flex gap-3 pt-2">
+                                    <button
+                                        id="startClientAudio"
+                                        class="flex-1 py-2 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Start
+                                    </button>
+                                    <button
+                                        id="stopClientAudio"
+                                        class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Stop
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -617,280 +560,285 @@
                 </section>
 
                 <!-- Shell Section -->
-                <section
-                    id="shellSection"
-                    class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
-                >
-                    <div class="glass-card rounded-2xl p-6 h-[80vh] flex flex-col">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                                <span class="w-2 h-8 bg-emerald-500 rounded-sm"></span>
-                                TERMINAL ACCESS
-                            </h2>
-                            <div class="flex gap-2">
-                                <button
-                                    id="startShellBtn"
-                                    class="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded font-mono text-sm transition-all active:scale-[0.96]"
-                                >
-                                    INITIALIZE
-                                </button>
-                                <button
-                                    id="restartShellBtn"
-                                    class="hidden px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded font-mono text-sm transition-all active:scale-[0.96]"
-                                >
-                                    REBOOT
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="terminalContainer" class="flex-1 rounded-lg overflow-hidden relative">
-                            <div
-                                class="absolute inset-0 flex items-center justify-center text-gray-600 font-mono tracking-widest pointer-events-none"
+                <section id="shellSection" class="section hidden h-full flex flex-col animate-in fade-in duration-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-medium text-zinc-100">Terminal</h2>
+                        <div class="flex gap-2">
+                            <button
+                                id="startShellBtn"
+                                class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors"
                             >
-                                AWAITING INITIALIZATION...
-                            </div>
+                                Start Session
+                            </button>
+                            <button
+                                id="shellTextModeBtn"
+                                class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
+                                title="Raw Text View"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M4 6h16M4 12h16m-7 6h7"
+                                    />
+                                </svg>
+                            </button>
+                            <button
+                                id="restartShellBtn"
+                                class="hidden px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
+                            >
+                                Restart
+                            </button>
                         </div>
                     </div>
-                </section>
-
-                <!-- Keyboard Section -->
-                <section
-                    id="keyboardSection"
-                    class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
-                >
-                    <div class="glass-card rounded-2xl p-6 max-w-4xl mx-auto">
-                        <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            <span class="w-2 h-8 bg-orange-500 rounded-sm shrink-0"></span>
-                            INPUT EMULATION
-                        </h2>
-                        <div class="flex flex-col gap-4">
-                            <!-- Top Row: Functional Zones -->
-                            <div class="flex flex-col lg:flex-row items-stretch gap-4">
-                                <div id="tileCommandCenter" class="flex-[1.2] min-w-[300px]"></div>
-                                <div id="tileNavActions" class="flex-[0.8] min-w-[250px]"></div>
+                    <div id="terminalContainer" class="flex-1 min-h-[500px] rounded-lg overflow-hidden relative">
+                        <div id="shellTextOverlay" class="hidden absolute inset-0 z-20 bg-zinc-950 flex flex-col p-2">
+                            <div class="flex justify-end mb-2">
+                                <button
+                                    id="shellCloseTextBtn"
+                                    class="p-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md transition-colors"
+                                ></button>
                             </div>
-                            <!-- Bottom Row: Text -->
-                            <div id="tileText"></div>
+                            <textarea
+                                id="shellTextContent"
+                                class="flex-1 w-full bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-sm p-3 rounded-md resize-none focus:outline-none"
+                                readonly
+                            ></textarea>
+                        </div>
+
+                        <div
+                            class="absolute inset-0 flex items-center justify-center text-zinc-600 font-mono text-sm pointer-events-none"
+                        >
+                            Ready for connection.
                         </div>
                     </div>
                 </section>
 
                 <!-- File Section -->
-                <section id="fileSection" class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div class="glass-card rounded-2xl p-6 h-[85vh] min-h-[600px] flex flex-col">
-                        <!-- Header & Primary Controls -->
-                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-                            <h2 class="text-xl font-bold text-white flex items-center gap-2 min-w-max">
-                                <span class="w-2 h-8 bg-pink-500 rounded-sm"></span>
-                                DATA STORAGE
-                            </h2>
-
-                            <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                                <input
-                                    type="text"
-                                    id="searchInput"
-                                    placeholder="Search index..."
-                                    class="flex-1 min-w-[150px] px-3 py-2 bg-black/40 border border-gray-700 rounded-lg text-sm"
+                <section id="fileSection" class="section hidden h-full flex flex-col animate-in fade-in duration-200">
+                    <!-- Navigation Bar -->
+                    <div class="flex items-center gap-1 mb-2 bg-zinc-900 border border-zinc-800 rounded-md p-1">
+                        <button
+                            id="navBackBtn"
+                            title="Back"
+                            disabled
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M15 19l-7-7 7-7"
                                 />
+                            </svg>
+                        </button>
+                        <button
+                            id="navUpBtn"
+                            title="Up one level"
+                            disabled
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 19V5m0 0-4 4m4-4 4 4"
+                                />
+                            </svg>
+                        </button>
 
-                                <div class="flex relative group shadow-sm">
-                                    <input
-                                        type="text"
-                                        id="newFolderName"
-                                        placeholder="Folder name"
-                                        class="w-32 lg:w-40 px-3 py-2 bg-black/40 border border-gray-700 rounded-l-lg rounded-r-none! text-sm focus:border-pink-500 transition-colors"
-                                    />
-                                    <button
-                                        id="createFolder"
-                                        class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-y border-r border-emerald-500/30 rounded-r-lg rounded-l-none transition-colors cursor-pointer"
-                                        title="Create Folder"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                    </button>
-                                </div>
+                        <div class="w-px h-4 bg-zinc-800 mx-0.5 shrink-0"></div>
 
-                                <input type="file" id="fileUpload" class="hidden" name="files" multiple />
-                                <label
-                                    for="fileUpload"
-                                    class="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors cursor-pointer flex items-center gap-2 shadow-sm"
-                                    title="Upload Files"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                        />
-                                    </svg>
-                                    <span class="text-sm font-medium hidden sm:inline">Upload</span>
-                                </label>
-
-                                <button
-                                    id="refresh"
-                                    class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg transition-all shadow-sm cursor-pointer active:scale-95"
-                                    title="Refresh"
-                                >
-                                    <svg
-                                        class="w-4 h-4 text-gray-300"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                        />
-                                    </svg>
-                                </button>
+                        <div
+                            id="pathContainer"
+                            class="flex-1 min-w-0 flex items-center px-2 h-8 cursor-text relative group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
+                        >
+                            <div
+                                id="currentPath"
+                                class="flex items-center w-full h-full overflow-x-auto hide-scrollbar text-zinc-300 font-mono text-sm whitespace-nowrap select-none"
+                            >
+                                <!-- Dynamic Path -->
                             </div>
+                            <input
+                                type="text"
+                                id="pathInput"
+                                class="absolute inset-0 w-full h-full bg-zinc-950 px-2 font-mono text-sm text-zinc-100 focus:outline-none focus:border focus:border-zinc-700 rounded"
+                                spellcheck="false"
+                            />
                         </div>
 
-                        <!-- Secondary Bar: Path & Contextual Operations -->
-                        <div
-                            class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 bg-black/20 py-2 px-3 rounded-lg border border-white/5 min-h-14"
-                        >
-                            <!-- Path Input with Tailind-native class hiding strategies -->
-                            <div
-                                id="pathContainer"
-                                class="flex-1 w-full min-w-0 flex items-center bg-black/40 hover:bg-black/60 border border-white/5 hover:border-white/10 rounded px-2 h-9 cursor-text relative transition-colors shadow-inner group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
-                            >
-                                <div
-                                    id="currentPath"
-                                    class="flex items-center w-full h-full overflow-x-auto hide-scrollbar text-gray-300 font-mono text-sm whitespace-nowrap select-none"
-                                >
-                                    <!-- Breadcrumbs Dynamically Rendered -->
-                                </div>
-                                <input
-                                    type="text"
-                                    id="pathInput"
-                                    class="absolute inset-0 w-full h-full bg-[#0a0a0a] px-3 font-mono text-sm text-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-500/50 rounded"
-                                    spellcheck="false"
-                                    autocomplete="off"
-                                />
-                            </div>
-
-                            <div
-                                id="fileOperations"
-                                class="flex flex-wrap items-center gap-2 hidden w-full sm:w-auto justify-end"
-                            >
-                                <div id="renameGroup" class="hidden flex items-center gap-2 w-full sm:w-auto">
-                                    <input
-                                        type="text"
-                                        id="renameInput"
-                                        placeholder="New name..."
-                                        class="flex-1 sm:w-32 px-3 py-1 bg-gray-900 border border-gray-700 rounded text-sm disabled:opacity-50"
-                                    />
-                                    <button
-                                        id="renameItem"
-                                        class="px-3 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/30 rounded text-sm font-medium disabled:opacity-50 transition-all cursor-pointer"
-                                    >
-                                        Rename
-                                    </button>
-                                </div>
-                                <button
-                                    id="downloadFile"
-                                    class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-sm font-medium disabled:opacity-50 transition-all cursor-pointer"
-                                >
-                                    Download
-                                </button>
-                                <button
-                                    id="deleteItem"
-                                    class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded text-sm font-medium disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                    Delete
-                                </button>
-                            </div>
+                        <div id="searchWrapper" class="hidden flex-1 min-w-0">
+                            <input
+                                type="text"
+                                id="searchInput"
+                                placeholder="Search files..."
+                                class="w-full h-8 px-2 text-sm bg-transparent placeholder:text-zinc-600 focus:outline-none border-0!"
+                            />
                         </div>
 
-                        <!-- Table Area / Drop Zone Container -->
-                        <div
-                            id="dropZone"
-                            class="flex-1 overflow-hidden border border-white/10 rounded-xl bg-black/20 flex flex-col relative group transition-all"
-                            style="clip-path: inset(0 round 0.75rem)"
+                        <button
+                            id="searchToggleBtn"
+                            title="Search"
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 shrink-0"
                         >
-                            <!-- Drop Overlay structures -->
-                            <div
-                                id="dropOverlay"
-                                class="absolute inset-0 z-50 bg-pink-500/10 backdrop-blur-sm border-2 border-dashed border-pink-500 rounded-xl flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 hidden"
+                            <svg id="searchIcon" fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="5" stroke-width="2" />
+                                <path stroke-linecap="round" stroke-width="2" d="m21 21-6-6" />
+                            </svg>
+                            <svg
+                                id="searchCloseIcon"
+                                fill="none"
+                                stroke="currentColor"
+                                class="hidden w-4 h-4"
+                                viewBox="0 0 24 24"
                             >
-                                <div id="dropPrompt" class="text-center p-8 glass-card rounded-xl">
-                                    <svg
-                                        class="w-16 h-16 mx-auto mb-4 text-pink-500"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-width="2"
-                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                        />
-                                    </svg>
-                                    <p class="text-xl font-bold text-white">Drop files to upload</p>
-                                </div>
-                                <div id="dropSpinner" class="hidden text-center p-8 glass-card rounded-xl">
-                                    <svg
-                                        class="w-10 h-10 animate-spin mx-auto text-pink-500 mb-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            class="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            stroke-width="4"
-                                        />
-                                        <path
-                                            class="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5 0 0 5 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        />
-                                    </svg>
-                                    <p class="text-xl font-bold text-white">Uploading files...</p>
-                                </div>
-                            </div>
+                                <path stroke-linecap="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </button>
 
-                            <div class="overflow-auto flex-1 h-full w-full">
-                                <table id="fileTable" class="w-full relative">
-                                    <thead class="sticky top-0 z-10 backdrop-blur-md">
-                                        <tr>
-                                            <th
-                                                class="px-6 py-3 text-left font-mono text-xs w-full cursor-pointer hover:text-white select-none transition-colors whitespace-nowrap"
-                                                data-sort="name"
-                                            >
-                                                Filename <span class="sort-indicator text-[10px] opacity-60"></span>
-                                            </th>
-                                            <th
-                                                class="px-6 py-3 text-left font-mono text-xs w-24 sm:w-32 hidden sm:table-cell cursor-pointer hover:text-white select-none transition-colors whitespace-nowrap"
-                                                data-sort="size"
-                                            >
-                                                Size <span class="sort-indicator text-[10px] opacity-60"></span>
-                                            </th>
-                                            <th
-                                                class="px-6 py-3 text-left font-mono text-xs w-48 hidden md:table-cell cursor-pointer hover:text-white select-none transition-colors whitespace-nowrap"
-                                                data-sort="modified"
-                                            >
-                                                Modified <span class="sort-indicator text-[10px] opacity-60"></span>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody
-                                        id="fileList"
-                                        class="font-mono text-sm divide-y divide-white/5 text-gray-300"
-                                    >
-                                        <!-- Dynamic Content -->
-                                    </tbody>
-                                </table>
+                        <button
+                            id="refresh"
+                            title="Refresh"
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 shrink-0"
+                        >
+                            <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-width="2"
+                                    d="M4 4v5h1m15 2A8 8 0 0 0 5 9m0 0h4m11 11v-5h-1m0 0a8 8 0 0 1-15-2m15 2h-4"
+                                />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Actions Bar -->
+                    <div id="fileActionsBar" class="flex items-center justify-between gap-2 mb-4">
+                        <div class="flex items-center gap-2">
+                            <input type="file" id="fileUpload" class="hidden" name="files" multiple />
+                            <label
+                                for="fileUpload"
+                                class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors cursor-pointer flex items-center gap-2"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-width="2"
+                                        d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8-4-4m0 0L8 8m4-4v12"
+                                    />
+                                </svg>
+                                <span class="hidden sm:inline">Upload</span>
+                            </label>
+                            <button
+                                id="downloadFile"
+                                title="Download selected"
+                                class="hidden px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"
+                                    />
+                                </svg>
+                                <span class="hidden sm:inline">Download</span>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            <button
+                                id="homeButton"
+                                title="Home directory"
+                                class="p-2 text-zinc-400 rounded-md transition-colors hover:text-zinc-100 hover:bg-zinc-800"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="m3 12 9-9 9 9M5 10v10h5v-5h4v5h5V10"
+                                    />
+                                </svg>
+                            </button>
+                            <button
+                                id="createFolder"
+                                title="Create folder"
+                                class="p-2 text-zinc-400 rounded-md transition-colors hover:text-zinc-100 hover:bg-zinc-800"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2m9 4v4m-2-2h4"
+                                    />
+                                </svg>
+                            </button>
+                            <button
+                                id="deleteItem"
+                                title="Delete selected"
+                                class="hidden p-2 text-red-400 rounded-md transition-colors hover:bg-red-950/50"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M4 7h16M9 7V4l1-1h4l1 1v3M7 7v13l1 1h8l1-1V7m-7 4v6m4-6v6"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        id="dropZone"
+                        class="flex-1 min-h-0 border border-zinc-800 rounded-lg bg-zinc-900 flex flex-col relative"
+                    >
+                        <div
+                            id="dropOverlay"
+                            class="absolute inset-0 z-50 bg-zinc-900/80 backdrop-blur-sm border-2 border-dashed border-zinc-500 rounded-lg flex items-center justify-center opacity-0 pointer-events-none transition-opacity hidden"
+                        >
+                            <div id="dropPrompt" class="text-center p-6 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <p class="text-sm font-medium text-zinc-300">Drop files to upload</p>
                             </div>
+                            <div
+                                id="dropSpinner"
+                                class="hidden text-center p-6 bg-zinc-950 rounded-lg border border-zinc-800"
+                            >
+                                <div class="spinner mx-auto mb-3"></div>
+                                <p class="text-sm font-medium text-zinc-300">Uploading...</p>
+                            </div>
+                        </div>
+                        <div class="overflow-auto h-full w-full">
+                            <table id="fileTable" class="w-full">
+                                <thead class="sticky top-0 z-10 bg-zinc-900 border-b border-zinc-800">
+                                    <tr>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300 w-full"
+                                            data-sort="name"
+                                        >
+                                            Name <span class="sort-indicator"></span>
+                                        </th>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300 w-24 sm:w-32 hidden sm:table-cell"
+                                            data-sort="size"
+                                        >
+                                            Size <span class="sort-indicator"></span>
+                                        </th>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300 w-48 hidden md:table-cell"
+                                            data-sort="modified"
+                                        >
+                                            Modified <span class="sort-indicator"></span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fileList" class="font-mono text-sm text-zinc-300"></tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -898,95 +846,67 @@
                 <!-- Process Section -->
                 <section
                     id="processSection"
-                    class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
+                    class="section hidden h-full flex flex-col animate-in fade-in duration-200"
                 >
-                    <div class="glass-card rounded-2xl p-6 h-[85vh] flex flex-col">
-                        <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <span class="w-2 h-8 bg-teal-500 rounded-sm"></span>
-                            TASK MANAGER
-                        </h2>
-
-                        <div class="flex-1 overflow-hidden border border-white/10 rounded-xl bg-black/20">
-                            <div class="overflow-auto h-full">
-                                <table class="w-full">
-                                    <thead class="sticky top-0 z-10 backdrop-blur-md">
-                                        <tr>
-                                            <th
-                                                class="px-6 py-3 text-left w-1/2 cursor-pointer hover:bg-white/5 transition-colors"
-                                                data-column="name"
-                                            >
-                                                <div class="flex items-center gap-1">
-                                                    Process Name <span class="sort-icon text-[10px] opacity-0"></span>
-                                                </div>
-                                            </th>
-                                            <th
-                                                class="px-6 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
-                                                data-column="cpu_percent"
-                                            >
-                                                <div class="flex items-center gap-1">
-                                                    CPU <span class="total-usage text-[10px] opacity-50"></span>
-                                                    <span class="sort-icon text-[10px] opacity-0"></span>
-                                                </div>
-                                            </th>
-                                            <th
-                                                class="px-6 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
-                                                data-column="memory_usage"
-                                            >
-                                                <div class="flex items-center gap-1">
-                                                    MEM <span class="total-usage text-[10px] opacity-50"></span>
-                                                    <span class="sort-icon text-[10px] opacity-0"></span>
-                                                </div>
-                                            </th>
-                                            <th
-                                                class="px-6 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
-                                                data-column="pid"
-                                            >
-                                                <div class="flex items-center gap-1">
-                                                    PID <span class="sort-icon text-[10px] opacity-0"></span>
-                                                </div>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody
-                                        id="taskList"
-                                        class="font-mono text-sm divide-y divide-white/5 text-gray-300"
-                                    >
-                                        <!-- Dynamic -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div id="endTaskContainer" class="mt-4 flex justify-end hidden">
+                    <div class="flex justify-end items-center mb-4 min-h-8">
+                        <div id="endTaskContainer" class="hidden">
                             <button
                                 id="endTaskButton"
-                                class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-6 py-2 rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.2)] transition-all uppercase font-bold tracking-wide active:scale-[0.98]"
+                                class="px-3 py-1.5 bg-red-950 hover:bg-red-900 text-red-400 rounded-md text-sm font-medium transition-colors"
                             >
                                 Kill Process
                             </button>
                         </div>
                     </div>
-                </section>
 
-                <!-- System Section -->
-                <section
-                    id="systemSection"
-                    class="section hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
-                >
-                    <div class="glass-card rounded-2xl p-8">
-                        <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <span class="w-2 h-8 bg-indigo-500 rounded-sm"></span>
-                            SYSTEM DIAGNOSTICS
-                        </h2>
-                        <div
-                            class="font-mono text-sm leading-relaxed p-6 rounded-xl bg-black/30 border border-white/10 text-gray-300 shadow-inner"
-                        >
-                            <div id="systemInfo" class="whitespace-pre-wrap">Fetching system telemetry...</div>
+                    <div class="flex-1 min-h-0 border border-zinc-800 rounded-lg bg-zinc-900 overflow-hidden">
+                        <div class="overflow-auto h-full w-full">
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 z-10 bg-zinc-900 border-b border-zinc-800">
+                                    <tr>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300 w-1/2"
+                                            data-column="name"
+                                        >
+                                            Name <span class="sort-icon opacity-0"></span>
+                                        </th>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300"
+                                            data-column="cpu_percent"
+                                        >
+                                            CPU <span class="total-usage text-xs text-zinc-500 font-normal ml-1"></span>
+                                            <span class="sort-icon opacity-0"></span>
+                                        </th>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300"
+                                            data-column="memory_usage"
+                                        >
+                                            RAM <span class="total-usage text-xs text-zinc-500 font-normal ml-1"></span>
+                                            <span class="sort-icon opacity-0"></span>
+                                        </th>
+                                        <th
+                                            class="px-4 py-2 text-left cursor-pointer hover:text-zinc-300"
+                                            data-column="pid"
+                                        >
+                                            PID <span class="sort-icon opacity-0"></span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="taskList" class="font-mono text-zinc-300"></tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
-            </main>
-        </div>
+
+                <!-- System Section -->
+                <section id="systemSection" class="section hidden animate-in fade-in duration-200">
+                    <!-- 4-Column Grid for large screens -->
+                    <div id="systemInfo" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+                        <div class="text-sm text-zinc-500">Loading system data...</div>
+                    </div>
+                </section>
+            </div>
+        </main>
 
         <script type="module" src="/js/main.js"></script>
     </body>

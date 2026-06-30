@@ -6,7 +6,7 @@ import { AudioManager } from "./modules/audio.js";
 import { initializeStream, updateSettingsDisplay } from "./modules/stream.js";
 import { InteractiveShell } from "./modules/shell.js";
 import { initializeFileManagement } from "./modules/file.js";
-import { renderInputSection } from "./modules/input-render.js";
+import { renderInputGrids } from "./modules/input-render.js";
 import { initializeInputHandlers } from "./modules/input.js";
 import { updateSystemInfo } from "./modules/system.js";
 import { apiCall } from "./modules/utils.js";
@@ -18,7 +18,6 @@ function updateUIBasedOnAuthentication(isAuthenticated) {
         "streamSection",
         "audioSection",
         "shellSection",
-        "keyboardSection",
         "fileSection",
         "systemSection",
         "processSection",
@@ -59,7 +58,8 @@ document.addEventListener("click", (e) => {
     // Initialize different parts of the application
     initializeStream(sessionId, socket);
     initializeFileManagement();
-    renderInputSection();
+
+    renderInputGrids();
     initializeInputHandlers(socket);
     initializeTaskManager(socket);
 

@@ -20,6 +20,20 @@ export class InteractiveShell {
             },
             fontFamily: "'MesloLGM Nerd Font', Consolas, monospace",
             scrollback: 10000,
+            theme: {
+                background: "#09090b", // zinc-950
+                foreground: "#f4f4f5", // zinc-100
+                cursor: "#f4f4f5",
+                selectionBackground: "#27272a", // zinc-800
+                black: "#09090b",
+                red: "#ef4444",
+                green: "#10b981",
+                yellow: "#eab308",
+                blue: "#3b82f6",
+                magenta: "#d946ef",
+                cyan: "#06b6d4",
+                white: "#f4f4f5",
+            },
         });
 
         this.fitAddon = new FitAddon();
@@ -97,7 +111,8 @@ export class InteractiveShell {
         // Style adjustments
         const xtermElement = terminalElement.querySelector(".xterm");
         if (xtermElement) {
-            xtermElement.style.padding = "8px";
+            xtermElement.style.padding = "12px";
+            xtermElement.style.height = "100%";
         }
     }
 

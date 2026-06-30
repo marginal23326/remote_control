@@ -1,5 +1,5 @@
 // static/js/modules/task.js
-import { apiCall, SVG_TEMPLATES, BaseTaskManager } from "./utils.js";
+import { apiCall, UIManager, showConfirmModal } from "./utils.js";
 import { showNotification } from "./dom.js";
 
 function initializeTaskManager(socket) {
@@ -12,7 +12,14 @@ function initializeTaskManager(socket) {
     async function killProcesses(items) {
         if (!items.length) return;
         const pids = items.map((pid) => parseInt(pid));
-        if (!confirm(`Are you sure you want to kill ${pids.length} process(es)?`)) return;
+
+        const confirmed = await showConfirmModal({
+            title: "Kill Process",
+            message: `Are you sure you want to kill ${pids.length} process(es)?`,
+            confirmLabel: "Kill Process",
+            danger: true,
+        });
+        if (!confirmed) return;
 
         for (const pid of pids) {
             try {
@@ -25,9 +32,13 @@ function initializeTaskManager(socket) {
         document.getElementById("endTaskContainer").classList.add("hidden");
     }
 
-    const taskManager = new BaseTaskManager({
-        onKillProcess: killProcesses,
-        getContextMenuItems: (defaultItems, selectedItems) => {
+    let taskManager;
+    taskManager = new UIManager({
+        containerSelector: "#taskList",
+        itemDataAttribute: "pid",
+        getItemId: (element) => element.dataset.pid,
+        getContextMenuItems: (context) => {
+            const selectedItems = context?.selectedItems || taskManager.getSelectedItems();
             const items = [];
 
             if (selectedItems.length === 1) {
@@ -51,7 +62,15 @@ function initializeTaskManager(socket) {
                 });
             }
 
-            return [...items, ...defaultItems];
+            if (selectedItems.length > 0) {
+                items.push({ label: "End Task", action: () => killProcesses(selectedItems) });
+            }
+
+            return items;
+        },
+        onSelectionChange: (selectedItems) => {
+            const endTaskContainer = document.getElementById("endTaskContainer");
+            endTaskContainer.classList.toggle("hidden", selectedItems.length === 0);
         },
     });
 
@@ -66,12 +85,12 @@ function initializeTaskManager(socket) {
             row.dataset.pid = process.pid;
 
             row.innerHTML = `
-                <td class="px-4 py-1 whitespace-nowrap text-sm font-medium text-white">
+                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-100">
                     ${process.name}
                 </td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${process.cpu_percent.toFixed(1)}%</td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${process.memory_usage.toFixed(1)} MB</td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-gray-500">${process.pid}</td>
+                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.cpu_percent.toFixed(1)}%</td>
+                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.memory_usage.toFixed(1)} MB</td>
+                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-500">${process.pid}</td>
             `;
 
             fragment.appendChild(row);
@@ -88,9 +107,9 @@ function initializeTaskManager(socket) {
                 if (column === currentSort.column) {
                     icon.textContent = currentSort.order === "asc" ? "▲" : "▼";
                     icon.classList.remove("opacity-0");
-                    icon.classList.add("opacity-100", "text-blue-400");
+                    icon.classList.add("opacity-100", "text-zinc-100");
                 } else {
-                    icon.classList.remove("opacity-100", "text-blue-400");
+                    icon.classList.remove("opacity-100", "text-zinc-100");
                     icon.classList.add("opacity-0");
                 }
             }
@@ -101,12 +120,7 @@ function initializeTaskManager(socket) {
 
         const endTaskButton = document.getElementById("endTaskButton");
         if (!endTaskButton.hasListener) {
-            endTaskButton.innerHTML = `
-                <span class="flex items-center gap-2">
-                    ${SVG_TEMPLATES.cross()}
-                    <span>KILL PROCESS</span>
-                </span>
-            `;
+            endTaskButton.innerHTML = `Kill Process`;
             endTaskButton.addEventListener("click", () => {
                 const selectedItems = taskManager.getSelectedItems();
                 killProcesses(selectedItems);

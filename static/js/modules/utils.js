@@ -1,4 +1,6 @@
 // static/js/modules/utils.js
+import { showNotification } from "./dom.js";
+
 async function apiCall(endpoint, method = "GET", data = null) {
     const options = {
         method,
@@ -46,16 +48,12 @@ function formatDate(timestamp) {
 }
 
 const SVG_TEMPLATES = {
-    upArrow: () => `
-        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-width="2" d="M12 19V9m0 0-4 4m4-4 4 4"/>
-        </svg>`,
-    folder: (colorClass = "text-blue-400") => `
-        <svg class="w-5 h-5 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    folder: (colorClass = "text-zinc-400") => `
+        <svg class="w-4 h-4 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
         </svg>`,
     file: () => `
-        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-3 7h3m-3 4h3m-6-4h0m0 4h0"/>
         </svg>`,
     spinner: (size = 4) => {
@@ -66,7 +64,7 @@ const SVG_TEMPLATES = {
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5 0 0 5 0 12zm2 5a8 8 0 0 1-2-5H0c0 3 1 6 3 8z"/>
         </svg>`;
     },
-    upload: (size = 10, colorClass = "text-blue-500/70") => {
+    upload: (size = 10, colorClass = "text-zinc-600") => {
         const rem = size * 0.25;
         return `
         <svg style="width:${rem}rem;height:${rem}rem" class="mx-auto mb-2 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +80,7 @@ const SVG_TEMPLATES = {
 const CLASSES = {
     row: "cursor-pointer",
     noAccess: "is-inaccessible",
-    defaultHover: "hover:bg-gray-700/50",
+    defaultHover: "hover:bg-zinc-800",
 };
 
 class SelectionManager {
@@ -97,9 +95,9 @@ class SelectionManager {
         this.config = {
             containerSelector: "",
             itemSelector: "tr:not(.virtual-spacer)",
-            selectedClass: "bg-blue-500/50",
-            defaultHoverClass: "hover:bg-gray-700/50",
-            selectedHoverClass: "hover:!bg-blue-600/20",
+            selectedClass: "bg-zinc-800/80 ring-1 ring-inset ring-zinc-700/50",
+            defaultHoverClass: "hover:bg-zinc-800",
+            selectedHoverClass: "hover:bg-zinc-700!",
             disabledClass: "cursor-not-allowed opacity-50",
             getItemId: (element) => element.dataset.id,
             isItemSelectable: (element) => !element.classList.contains("cursor-not-allowed"),
@@ -172,7 +170,7 @@ class SelectionManager {
 
                 if (
                     e.target.closest(".context-menu") ||
-                    e.target.closest("#fileOperations") ||
+                    e.target.closest("#fileActionsBar") ||
                     e.target.closest("#endTaskContainer") ||
                     e.target.closest("nav")
                 ) {
@@ -425,7 +423,8 @@ class ContextMenuManager {
         this.menuElement = null;
         this.config = {
             menuClass: "context-menu",
-            menuItemClass: "px-4 py-2 text-white hover:bg-gray-600 cursor-pointer",
+            menuItemClass:
+                "px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 rounded-md cursor-pointer select-none transition-colors",
             getMenuItems: () => [],
             ...config,
         };
@@ -449,9 +448,11 @@ class ContextMenuManager {
         this.menuElement.style.position = "fixed";
         this.menuElement.style.left = `${x}px`;
         this.menuElement.style.top = `${y}px`;
+        this.menuElement.style.zIndex = "20";
 
         const ul = document.createElement("ul");
-        ul.className = "bg-gray-700 border border-gray-600 rounded-lg py-2";
+        ul.className =
+            "bg-zinc-900 border border-zinc-800 rounded-lg p-1 shadow-lg min-w-[140px] flex flex-col gap-0.5";
 
         items.forEach((item) => {
             const li = document.createElement("li");
@@ -485,7 +486,7 @@ class UIManager {
                   containerSelector: this.config.containerSelector,
                   itemSelector: this.config.itemSelector || "tr",
                   getItemId: this.config.getItemId,
-                  isItemSelectable: this.config.isItemSelectable,
+                  ...(this.config.isItemSelectable ? { isItemSelectable: this.config.isItemSelectable } : {}),
                   onSelectionChange: (items) => {
                       this.config.onSelectionChange(items);
                   },
@@ -557,83 +558,107 @@ class UIManager {
     }
 }
 
-class BaseFileManager extends UIManager {
-    constructor() {
-        super({
-            containerSelector: "#fileList",
-            itemDataAttribute: "path",
-            getItemId: (element) => element.dataset.path,
-            isItemSelectable: (element) => !element.hasAttribute("data-up-row"),
-            getContextMenuItems: (context) => {
-                const selectedItems = context?.selectedItems || this.getSelectedItems();
-                if (!selectedItems.length) return [];
-
-                const items = [];
-                const singleItem = selectedItems.length === 1;
-
-                items.push({
-                    label: "Download",
-                    action: () => this.handleDownload(selectedItems),
-                });
-
-                if (singleItem) {
-                    items.push({
-                        label: "Rename",
-                        action: () => {
-                            document.getElementById("renameInput").focus();
-                        },
-                    });
-                }
-
-                items.push({
-                    label: "Delete",
-                    action: () => this.handleDelete(selectedItems),
-                });
-
-                return items;
-            },
-            onSelectionChange: () => this.updateFileOperationsUI(),
-        });
-    }
-}
-
-class BaseTaskManager extends UIManager {
-    constructor(config = {}) {
-        const onKillProcess = config.onKillProcess || (() => {});
-        const customGetMenuItems = config.getContextMenuItems;
-        super({
-            containerSelector: "#taskList",
-            itemDataAttribute: "pid",
-            getItemId: (element) => element.dataset.pid,
-            isItemSelectable: (_element) => true,
-            getContextMenuItems: () => {
-                const selected = this.getSelectedItems();
-                const defaultItems =
-                    selected.length > 0
-                        ? [
-                              {
-                                  label: "End Task",
-                                  action: () => {
-                                      onKillProcess(selected);
-                                  },
-                              },
-                          ]
-                        : [];
-
-                if (customGetMenuItems) {
-                    return customGetMenuItems(defaultItems, selected);
-                }
-                return defaultItems;
-            },
-            onSelectionChange: (selectedItems) => {
-                const endTaskContainer = document.getElementById("endTaskContainer");
-                endTaskContainer.classList.toggle("hidden", selectedItems.length === 0);
-            },
-        });
-    }
-}
-
 const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
 const escapeHtml = (str) => (str || "").replace(/[&<>"']/g, (m) => HTML_ESCAPES[m]);
 
-export { apiCall, formatFileSize, formatDate, SVG_TEMPLATES, CLASSES, BaseFileManager, BaseTaskManager, escapeHtml };
+function _createModal(bodyHtml, { confirmLabel, cancelLabel = "Cancel", danger = false }) {
+    const overlay = document.createElement("div");
+    overlay.className =
+        "fixed inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150";
+    overlay.innerHTML = `<div class="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
+        ${bodyHtml}
+        <div class="flex justify-end gap-2 mt-5">
+            <button class="modal-cancel-btn px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                ${escapeHtml(cancelLabel)}
+            </button>
+            <button class="modal-confirm-btn px-3 py-1.5 ${
+                danger ? "bg-red-950 hover:bg-red-900 text-red-400" : "bg-zinc-100 hover:bg-white text-zinc-900"
+            } rounded-md text-sm font-medium transition-colors flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                ${escapeHtml(confirmLabel)}
+            </button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function _runModal(overlay, { getResult, focusSelector }) {
+    return new Promise((resolve) => {
+        const finish = (value) => {
+            document.removeEventListener("keydown", onKeydown);
+            overlay.remove();
+            resolve(value);
+        };
+        const attemptConfirm = () => {
+            const result = getResult ? getResult() : true;
+            if (result === undefined) return;
+            finish(result);
+        };
+        const onKeydown = (e) => {
+            if (e.key === "Escape") finish(null);
+            if (e.key === "Enter") attemptConfirm();
+        };
+
+        overlay.querySelector(".modal-confirm-btn").addEventListener("click", attemptConfirm);
+        overlay.querySelector(".modal-cancel-btn").addEventListener("click", () => finish(null));
+        overlay.addEventListener("mousedown", (e) => {
+            if (e.target === overlay) finish(null);
+        });
+        document.addEventListener("keydown", onKeydown);
+
+        overlay.querySelector(focusSelector).focus();
+    });
+}
+
+function showPromptModal({ title, label = "", initialValue = "", confirmLabel = "OK", sanitize = null }) {
+    const overlay = _createModal(
+        `<h3 class="text-sm font-medium text-zinc-100 mb-3">${escapeHtml(title)}</h3>
+         ${label ? `<label class="block text-xs text-zinc-500 mb-1.5">${escapeHtml(label)}</label>` : ""}
+         <input type="text" spellcheck="false" class="modal-input w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none transition-colors" />`,
+        { confirmLabel },
+    );
+
+    const input = overlay.querySelector(".modal-input");
+    input.value = initialValue;
+    if (sanitize) {
+        input.addEventListener("input", () => {
+            const cleaned = sanitize(input.value);
+            if (cleaned !== input.value) input.value = cleaned;
+        });
+    }
+
+    return _runModal(overlay, {
+        focusSelector: ".modal-input",
+        getResult: () => {
+            const value = input.value.trim();
+            if (!value) {
+                showNotification("Please enter a value", "warning");
+                return undefined;
+            }
+            return value;
+        },
+    });
+}
+
+function showConfirmModal({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false }) {
+    const overlay = _createModal(
+        `<h3 class="text-sm font-medium text-zinc-100 mb-2">${escapeHtml(title)}</h3>
+         <p class="text-sm text-zinc-400">${escapeHtml(message)}</p>`,
+        { confirmLabel, cancelLabel, danger },
+    );
+    return _runModal(overlay, { focusSelector: ".modal-confirm-btn" }).then((v) => v === true);
+}
+
+export {
+    apiCall,
+    formatFileSize,
+    formatDate,
+    SVG_TEMPLATES,
+    CLASSES,
+    UIManager,
+    escapeHtml,
+    showPromptModal,
+    showConfirmModal,
+};

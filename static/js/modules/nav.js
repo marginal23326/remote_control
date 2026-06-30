@@ -34,8 +34,6 @@ function updateActiveNavLink(activeLinkId) {
     cachedNavLinks.forEach((link) => {
         const isActive = link.getAttribute("href") === `#${activeLinkId}`;
         link.classList.toggle("active", isActive);
-        link.classList.toggle("text-blue-400", isActive);
-        link.classList.toggle("bg-blue-500/10", isActive);
     });
     updateOverflowIndicators();
 }

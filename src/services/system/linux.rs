@@ -19,7 +19,6 @@ pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
         battery: read_battery_status(),
         domain: "N/A".to_string(),
         system_drive: "/".to_string(),
-        system_dir: "/usr/bin".to_string(),
         antivirus: "N/A".to_string(),
         firewall: get_firewall_status().await,
         cpu_max_speed,
