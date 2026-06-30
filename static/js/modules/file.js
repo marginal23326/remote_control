@@ -1,11 +1,41 @@
 // static/js/modules/file.js
-import { apiCall, SVG_TEMPLATES, CLASSES, formatFileSize, formatDate, BaseFileManager, escapeHtml } from "./utils.js";
+import {
+    apiCall,
+    SVG_TEMPLATES,
+    CLASSES,
+    formatFileSize,
+    formatDate,
+    UIManager,
+    escapeHtml,
+    showPromptModal,
+    showConfirmModal,
+} from "./utils.js";
 import { LoadingButton, showNotification } from "./dom.js";
 
-class FileManager extends BaseFileManager {
+class FileManager extends UIManager {
     constructor() {
-        super();
+        super({
+            containerSelector: "#fileList",
+            itemDataAttribute: "path",
+            getItemId: (element) => element.dataset.path,
+            getContextMenuItems: (context) => {
+                const selectedItems = context?.selectedItems || this.getSelectedItems();
+                if (!selectedItems.length) return [];
+
+                const items = [{ label: "Download", action: () => this.handleDownload(selectedItems) }];
+
+                if (selectedItems.length === 1) {
+                    items.push({ label: "Rename", action: () => this.openRenameModal(selectedItems[0]) });
+                }
+
+                items.push({ label: "Delete", action: () => this.handleDelete(selectedItems) });
+                return items;
+            },
+            onSelectionChange: () => this.updateFileOperationsUI(),
+        });
+
         this.currentPath = "";
+        this.navigationHistory = [];
         this.currentFileList = [];
         this.filteredList = [];
         this.collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -63,8 +93,6 @@ class FileManager extends BaseFileManager {
         const buttonConfigs = {
             downloadFile: "Downloading...",
             deleteItem: "Deleting...",
-            renameItem: "Renaming...",
-            createFolder: "Creating...",
             refresh: "",
         };
 
@@ -113,8 +141,7 @@ class FileManager extends BaseFileManager {
                     );
                 }
                 const lastFile = files[files.length - 1].name;
-                const sep = this.getSeparator();
-                const scrollToPath = `${this.currentPath}${this.currentPath.endsWith(sep) ? "" : sep}${lastFile}`;
+                const scrollToPath = this.joinPath(this.currentPath, lastFile);
                 await this.listFiles(this.currentPath, scrollToPath);
             });
         } finally {
@@ -137,29 +164,9 @@ class FileManager extends BaseFileManager {
     }
 
     updateFileOperationsUI() {
-        const selectionCount = this.selectionManager?.selectedIds?.size || 0;
-
-        const elements = {
-            operations: document.getElementById("fileOperations"),
-            renameGroup: document.getElementById("renameGroup"),
-            download: document.getElementById("downloadFile"),
-            delete: document.getElementById("deleteItem"),
-            renameInput: document.getElementById("renameInput"),
-        };
-
-        if (elements.operations) elements.operations.classList.toggle("hidden", !selectionCount);
-        if (elements.renameGroup) elements.renameGroup.classList.toggle("hidden", selectionCount !== 1);
-
-        if (elements.download) elements.download.disabled = !selectionCount;
-        if (elements.delete) elements.delete.disabled = !selectionCount;
-
-        if (selectionCount === 1 && elements.renameInput) {
-            const selectedId = Array.from(this.selectionManager.selectedIds)[0];
-            const fileItem = this.currentFileList.find((f) => f.path === selectedId);
-            if (fileItem) elements.renameInput.value = fileItem.name;
-        } else if (elements.renameInput) {
-            elements.renameInput.value = "";
-        }
+        const hasSelection = (this.selectionManager?.selectedIds?.size || 0) > 0;
+        document.getElementById("downloadFile")?.classList.toggle("hidden", !hasSelection);
+        document.getElementById("deleteItem")?.classList.toggle("hidden", !hasSelection);
     }
 
     updateBreadcrumbs() {
@@ -175,8 +182,8 @@ class FileManager extends BaseFileManager {
             const btn = document.createElement("button");
             btn.className = `truncate flex-shrink-0 rounded px-1.5 py-0.5 text-sm transition-colors ${
                 isActive
-                    ? "text-gray-100 font-semibold max-w-[200px]"
-                    : "text-gray-300 hover:text-white hover:bg-white/10 max-w-[150px] cursor-pointer"
+                    ? "text-zinc-100 font-medium max-w-[200px]"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 max-w-[150px] cursor-pointer"
             }`;
             btn.textContent = text;
             btn.title = text;
@@ -189,7 +196,7 @@ class FileManager extends BaseFileManager {
             return btn;
         };
 
-        const chevron = `<svg class="w-3.5 h-3.5 text-gray-500 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+        const chevron = `<svg class="w-3.5 h-3.5 text-zinc-600 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
 
         if (!path || path === "/" || path === "") {
             container.appendChild(createPartBtn(path === "" ? "This PC" : "/", path === "" ? "" : "/", true));
@@ -243,20 +250,6 @@ class FileManager extends BaseFileManager {
             const key = this.sortColumn === "modified" ? "last_modified" : this.sortColumn;
             return dirMul * ((a[key] ?? 0) - (b[key] ?? 0));
         });
-
-        if (this.currentPath !== "") {
-            const parent = this.getParentPath();
-            list.unshift({
-                isUpRow: true,
-                path: parent,
-                is_dir: true,
-                name: "..",
-                _safePath: escapeHtml(parent),
-                _safeName: "..",
-                _formattedSize: "-",
-                _formattedDate: "-",
-            });
-        }
 
         this.filteredList = list;
 
@@ -327,13 +320,6 @@ class FileManager extends BaseFileManager {
             const item = this.filteredList[i];
             if (!item) continue;
 
-            if (item.isUpRow) {
-                html += `<tr data-up-row="true" data-is-dir="true" data-path="${item._safePath}" class="${CLASSES.row} ${CLASSES.defaultHover}">
-                    <td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>
-                </tr>`;
-                continue;
-            }
-
             const cachedAccess = this.accessCache.get(item.path);
             const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
 
@@ -346,14 +332,14 @@ class FileManager extends BaseFileManager {
                 : CLASSES.defaultHover;
 
             html += `<tr data-path="${item._safePath}" data-is-dir="${item.is_dir}" data-name="${item._safeName}" class="${CLASSES.row} ${selectedCls} ${accessCls}" style="height: ${this.rowHeight}px">
-                <td class="px-2 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
-                <td class="px-2 whitespace-nowrap hidden sm:table-cell">${item._formattedSize}</td>
-                <td class="px-2 whitespace-nowrap hidden md:table-cell">${item._formattedDate}</td>
+                <td class="px-4 py-1 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
+                <td class="px-4 py-1 whitespace-nowrap hidden sm:table-cell text-zinc-400">${item._formattedSize}</td>
+                <td class="px-4 py-1 whitespace-nowrap hidden md:table-cell text-zinc-400">${item._formattedDate}</td>
             </tr>`;
         }
 
-        if (totalItems === 0 || (totalItems === 1 && this.filteredList[0].isUpRow)) {
-            html += `<tr><td colspan="3" class="px-2 whitespace-nowrap"><div class="text-center text-gray-500 py-8 font-mono">Directory is empty</div></td></tr>`;
+        if (totalItems === 0) {
+            html += `<tr><td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="text-center text-zinc-500 text-sm py-8 font-mono">Directory is empty</div></td></tr>`;
         }
 
         if (paddingBottom > 0) {
@@ -415,6 +401,11 @@ class FileManager extends BaseFileManager {
         return this.currentPath.includes("\\") ? "\\" : "/";
     }
 
+    joinPath(parent, child) {
+        const sep = this.getSeparator();
+        return parent.endsWith(sep) ? `${parent}${child}` : `${parent}${sep}${child}`;
+    }
+
     getParentPath() {
         const path = this.currentPath;
         if (/^[A-Z]:\\$/i.test(path) || path === "/") return "";
@@ -427,7 +418,7 @@ class FileManager extends BaseFileManager {
         return /^[A-Z]:$/i.test(parent) ? parent + "\\" : parent;
     }
 
-    async listFiles(path, scrollToPath = null) {
+    async listFiles(path, scrollToPath = null, { skipHistory = false } = {}) {
         this.clearSelection();
         this.accessCache.clear();
         this.accessQueue.clear();
@@ -443,12 +434,13 @@ class FileManager extends BaseFileManager {
         this.isLoading = true;
 
         const isSamePath = path === this.currentPath;
+        const previousPath = this.currentPath;
 
         if (!isSamePath) {
             this.currentFileList = [];
             this.filteredList = [];
-            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Loading...</td></tr>`;
-            if (this.elements.searchInput) this.elements.searchInput.value = "";
+            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-zinc-400">Loading...</td></tr>`;
+            this.setSearchMode(false);
         }
 
         try {
@@ -460,27 +452,53 @@ class FileManager extends BaseFileManager {
                     ? `Access Denied: You do not have permission to view ${path}`
                     : response.message;
 
-                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
+                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
                 fileList.querySelector("td").textContent = errorMsg;
-
-                if (path !== "") {
-                    const previousPath = this.currentPath;
-                    const upHtml = `<tr data-up-row="true" data-path="${escapeHtml(previousPath)}" class="${CLASSES.row} ${CLASSES.defaultHover}"><td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`;
-                    fileList.insertAdjacentHTML("afterbegin", upHtml);
-                }
                 return;
+            }
+
+            if (!isSamePath && !skipHistory) {
+                this.navigationHistory.push(previousPath);
             }
 
             this.currentPath = path;
             this.updateBreadcrumbs();
+            this.updateNavButtons();
 
             await this.updateFileList(response, scrollToPath);
         } catch (error) {
             this.isLoading = false;
             console.error("Error listing files:", error);
-            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
+            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
             fileList.querySelector("td").textContent = `Error: ${error.message}`;
         }
+    }
+
+    async goBack() {
+        if (!this.navigationHistory.length) return;
+        const previous = this.navigationHistory.pop();
+        await this.listFiles(previous, null, { skipHistory: true });
+    }
+
+    async goUp() {
+        if (this.currentPath === "") return;
+        await this.listFiles(this.getParentPath());
+    }
+
+    async goHome() {
+        try {
+            const { path } = await apiCall("/api/files/home");
+            await this.listFiles(path);
+        } catch (error) {
+            showNotification("Could not open home directory: " + error.message, "error");
+        }
+    }
+
+    updateNavButtons() {
+        const backBtn = document.getElementById("navBackBtn");
+        const upBtn = document.getElementById("navUpBtn");
+        if (backBtn) backBtn.disabled = this.navigationHistory.length === 0;
+        if (upBtn) upBtn.disabled = this.currentPath === "";
     }
 
     async handleDownload(paths) {
@@ -522,7 +540,13 @@ class FileManager extends BaseFileManager {
                 ? `Are you sure you want to delete "${itemName}"?`
                 : `Are you sure you want to delete ${paths.length} items?`;
 
-        if (!confirm(confirmMessage)) return;
+        const confirmed = await showConfirmModal({
+            title: "Delete",
+            message: confirmMessage,
+            confirmLabel: "Delete",
+            danger: true,
+        });
+        if (!confirmed) return;
 
         await this.handleApiCall("/api/delete", "POST", { paths }, async (_response) => {
             await this.listFiles(this.currentPath);
@@ -531,13 +555,6 @@ class FileManager extends BaseFileManager {
     }
 
     initializeEventListeners() {
-        this.elements.fileList.addEventListener("click", (e) => {
-            const row = e.target.closest("tr");
-            if (row?.dataset.upRow) {
-                this.listFiles(row.dataset.path);
-            }
-        });
-
         this.elements.fileList.addEventListener("dblclick", (e) => {
             const row = e.target.closest("tr");
             if (row && row.dataset.isDir === "true") this.listFiles(row.dataset.path);
@@ -573,64 +590,41 @@ class FileManager extends BaseFileManager {
             }),
         );
 
-        document.getElementById("createFolder")?.addEventListener("click", () =>
-            handleButtonClick("createFolder", async () => {
-                const folderNameInput = document.getElementById("newFolderName");
-                const folderName = folderNameInput?.value.trim();
-                if (!folderName) {
-                    showNotification("Please enter a folder name", "warning");
-                    return;
-                }
+        document.getElementById("createFolder")?.addEventListener("click", async () => {
+            const folderName = await showPromptModal({
+                title: "Create folder",
+                label: "Please enter the folder name",
+                confirmLabel: "Create",
+                sanitize: (value) => value.replace(/[/\\]/g, ""),
+            });
+            if (!folderName) return;
 
-                await this.handleApiCall(
-                    "/api/create_folder",
-                    "POST",
-                    { parentPath: this.currentPath, folderName },
-                    async () => {
-                        const sep = this.getSeparator();
-                        const newFolderPath = this.currentPath.endsWith(sep)
-                            ? `${this.currentPath}${folderName}`
-                            : `${this.currentPath}${sep}${folderName}`;
-                        await this.listFiles(this.currentPath, newFolderPath);
-                        if (folderNameInput) folderNameInput.value = "";
-                    },
-                );
-            }),
-        );
+            await this.handleApiCall(
+                "/api/create_folder",
+                "POST",
+                { parentPath: this.currentPath, folderName },
+                async () => {
+                    await this.listFiles(this.currentPath, this.joinPath(this.currentPath, folderName));
+                },
+            );
+        });
 
-        document.getElementById("renameItem")?.addEventListener("click", () =>
-            handleButtonClick("renameItem", async () => {
-                const oldPath = this.getSelectedItems()[0];
-                const renameInput = document.getElementById("renameInput");
-                const newName = renameInput?.value.trim();
+        // --- Navigation: Back / Up / Home ---
+        document.getElementById("navBackBtn")?.addEventListener("click", () => this.goBack());
+        document.getElementById("navUpBtn")?.addEventListener("click", () => this.goUp());
+        document.getElementById("homeButton")?.addEventListener("click", () => this.goHome());
 
-                if (!newName) {
-                    showNotification("Please enter a new name", "warning");
-                    return;
-                }
-
-                await this.handleApiCall("/api/rename", "POST", { oldPath, newName }, async () => {
-                    const sep = this.getSeparator();
-                    const newPath = this.currentPath.endsWith(sep)
-                        ? `${this.currentPath}${newName}`
-                        : `${this.currentPath}${sep}${newName}`;
-                    await this.listFiles(this.currentPath, newPath);
-                    document.getElementById("fileOperations")?.classList.add("hidden");
-                    this.clearSelection();
-                    if (renameInput) renameInput.value = "";
-                });
-            }),
-        );
-        document.getElementById("renameInput")?.addEventListener("input", (e) => {
-            if (/[/\\]/.test(e.target.value)) {
-                e.target.value = e.target.value.replace(/[/\\]/g, "");
+        // --- Search mode helpers ---
+        const searchToggleBtn = document.getElementById("searchToggleBtn");
+        searchToggleBtn?.addEventListener("click", () => {
+            const searchWrapper = document.getElementById("searchWrapper");
+            if (searchWrapper?.classList.contains("hidden")) {
+                this.setSearchMode(true);
+            } else {
+                this.setSearchMode(false, true);
             }
         });
-        document.getElementById("renameInput")?.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                document.getElementById("renameItem")?.click();
-            }
-        });
+
         // Class-based toggles for directory/edit transitions
         const pathContainer = document.getElementById("pathContainer");
         const pathInput = document.getElementById("pathInput");
@@ -673,11 +667,47 @@ class FileManager extends BaseFileManager {
             searchInput.addEventListener("click", (e) => {
                 e.stopPropagation();
             });
+            searchInput.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") this.setSearchMode(false, true);
+            });
         }
+    }
+
+    setSearchMode(active, refilter = false) {
+        document.getElementById("pathContainer")?.classList.toggle("hidden", active);
+        document.getElementById("searchWrapper")?.classList.toggle("hidden", !active);
+        document.getElementById("searchIcon")?.classList.toggle("hidden", active);
+        document.getElementById("searchCloseIcon")?.classList.toggle("hidden", !active);
+
+        if (active) {
+            this.elements.searchInput?.focus();
+        } else {
+            if (this.elements.searchInput) this.elements.searchInput.value = "";
+            if (refilter) this.applySortAndFilter(true);
+        }
+    }
+
+    async openRenameModal(oldPath) {
+        const fileItem = this.currentFileList.find((f) => f.path === oldPath);
+        const currentName = fileItem ? fileItem.name : oldPath.split(/[/\\]/).pop();
+
+        const newName = await showPromptModal({
+            title: `Rename "${currentName}"`,
+            label: "Please enter the new name",
+            initialValue: currentName,
+            confirmLabel: "Rename",
+            sanitize: (value) => value.replace(/[/\\]/g, ""),
+        });
+        if (!newName || newName === currentName) return;
+
+        await this.handleApiCall("/api/rename", "POST", { oldPath, newName }, async () => {
+            await this.listFiles(this.currentPath, this.joinPath(this.currentPath, newName));
+        });
     }
 
     initializeSortListeners() {
         document.querySelectorAll("#fileTable th[data-sort]").forEach((th) => {
+            th.classList.add("whitespace-nowrap");
             th.addEventListener("mousedown", (e) => e.stopPropagation());
 
             th.addEventListener("click", () => {
@@ -716,8 +746,7 @@ class FileManager extends BaseFileManager {
         super.initialize();
 
         if (this.selectionManager) {
-            this.selectionManager.config.getAllIds = () =>
-                this.filteredList.filter((i) => !i.isUpRow).map((i) => i.path);
+            this.selectionManager.config.getAllIds = () => this.filteredList.map((i) => i.path);
         }
 
         this.listFiles(this.currentPath);
@@ -768,7 +797,7 @@ class DropZone {
             this.overlay.classList.remove("hidden");
             requestAnimationFrame(() => this.overlay.classList.remove("opacity-0"));
         }
-        this.element.classList.add("border-pink-500", "shadow-[0_0_15px_rgba(236,72,153,0.3)]");
+        this.element.classList.add("border-zinc-500", "ring-2", "ring-zinc-800/50");
     }
 
     unhighlight() {
@@ -776,7 +805,7 @@ class DropZone {
             this.overlay.classList.add("opacity-0");
             setTimeout(() => this.overlay.classList.add("hidden"), 200);
         }
-        this.element.classList.remove("border-pink-500", "shadow-[0_0_15px_rgba(236,72,153,0.3)]");
+        this.element.classList.remove("border-zinc-500", "ring-2", "ring-zinc-800/50");
     }
 
     setLoading() {

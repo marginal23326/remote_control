@@ -124,4 +124,10 @@ impl FileManager {
         fs::rename(old_path, new_path)?;
         Ok(())
     }
+
+    pub fn get_home_dir() -> String {
+        std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| String::from(if cfg!(windows) { "C:\\" } else { "/" }))
+    }
 }

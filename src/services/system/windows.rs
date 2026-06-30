@@ -37,7 +37,6 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
             battery: battery_status,
             domain,
             system_drive: "C:".to_string(),
-            system_dir: r"C:\WINDOWS\system32".to_string(),
             antivirus: antivirus_info,
             firewall: get_firewall_status(),
             cpu_max_speed,

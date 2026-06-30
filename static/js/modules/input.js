@@ -35,9 +35,19 @@ function initializeInputHandlers(socket) {
     if (keyboardCaptureBtn) {
         keyboardCaptureBtn.addEventListener("click", () => {
             isKeyboardCaptureActive = !isKeyboardCaptureActive;
-            keyboardCaptureBtn.classList.toggle("bg-blue-500/20", isKeyboardCaptureActive);
-            keyboardCaptureBtn.classList.toggle("text-blue-400", isKeyboardCaptureActive);
-            keyboardCaptureBtn.classList.toggle("text-gray-400", !isKeyboardCaptureActive);
+
+            keyboardCaptureBtn.classList.toggle("bg-zinc-800", isKeyboardCaptureActive);
+            keyboardCaptureBtn.classList.toggle("text-zinc-100", isKeyboardCaptureActive);
+            keyboardCaptureBtn.classList.toggle("text-zinc-400", !isKeyboardCaptureActive);
+
+            const container = document.getElementById("streamContainer");
+            if (container) {
+                container.classList.toggle("ring-2", isKeyboardCaptureActive);
+                container.classList.toggle("ring-zinc-500/50", isKeyboardCaptureActive);
+                container.classList.toggle("border-zinc-500/30", isKeyboardCaptureActive);
+                container.classList.toggle("border-zinc-800", !isKeyboardCaptureActive);
+            }
+
             keyboardCaptureBtn.blur();
         });
     }
@@ -53,14 +63,28 @@ function initializeInputHandlers(socket) {
             .map((btn) => btn.dataset.modifier);
     }
 
-    // 2. Handle Standard Shortcut Buttons (Grid buttons like "Copy", "Up", "Esc")
+    // 2. Handle Standard Shortcut Buttons
     document.querySelectorAll("[data-key]").forEach((button) => {
         button.addEventListener("click", (_e) => {
-            // Add a visual click effect for the HUD aesthetic
-            button.classList.add("bg-blue-600", "text-white", "border-blue-500");
+            button.classList.remove(
+                "bg-zinc-950",
+                "text-zinc-300",
+                "border-zinc-800",
+                "hover:bg-zinc-800",
+                "hover:text-white",
+            );
+            button.classList.add("bg-zinc-100", "text-zinc-900", "border-zinc-100");
+            button.blur();
             setTimeout(() => {
-                button.classList.remove("bg-blue-600", "text-white", "border-blue-500");
-            }, 150);
+                button.classList.remove("bg-zinc-100", "text-zinc-900", "border-zinc-100");
+                button.classList.add(
+                    "bg-zinc-950",
+                    "text-zinc-300",
+                    "border-zinc-800",
+                    "hover:bg-zinc-800",
+                    "hover:text-white",
+                );
+            }, 80);
 
             const rawKey = button.dataset.key;
             let key = rawKey;
@@ -103,10 +127,13 @@ function initializeInputHandlers(socket) {
                 // Visual feedback on button
                 const originalText = sendTextButton.innerText;
                 sendTextButton.innerText = "SENT >>";
-                sendTextButton.classList.add("text-green-400", "border-green-500");
+                sendTextButton.classList.remove("text-zinc-100", "border-transparent");
+                sendTextButton.classList.add("text-emerald-400", "border-emerald-500");
+                sendTextButton.blur();
                 setTimeout(() => {
                     sendTextButton.innerText = originalText;
-                    sendTextButton.classList.remove("text-green-400", "border-green-500");
+                    sendTextButton.classList.remove("text-emerald-400", "border-emerald-500");
+                    sendTextButton.classList.add("text-zinc-100", "border-transparent");
                 }, 500);
             }
         };
@@ -139,9 +166,9 @@ function initializeInputHandlers(socket) {
 
                 const led = button.querySelector(".mod-led");
                 if (led) {
-                    led.classList.toggle("bg-gray-700/50", isActive);
-                    led.classList.toggle("bg-blue-400", !isActive);
-                    led.classList.toggle("shadow-[0_0_5px_rgba(96,165,250,0.8)]", !isActive);
+                    led.classList.toggle("bg-zinc-700/50", isActive);
+                    led.classList.toggle("bg-zinc-100", !isActive);
+                    led.classList.toggle("shadow-[0_0_5px_rgba(244,244,245,0.8)]", !isActive);
                 }
             } else {
                 // Sticky Mode is OFF: Transmit key immediately
@@ -151,10 +178,25 @@ function initializeInputHandlers(socket) {
                 });
 
                 // Normal click animation
-                button.classList.add("bg-blue-600", "text-white", "border-blue-500");
+                button.classList.remove(
+                    "bg-zinc-950",
+                    "text-zinc-300",
+                    "border-zinc-800",
+                    "hover:bg-zinc-800",
+                    "hover:text-white",
+                );
+                button.classList.add("bg-zinc-100", "text-zinc-900", "border-zinc-100");
+                button.blur();
                 setTimeout(() => {
-                    button.classList.remove("bg-blue-600", "text-white", "border-blue-500");
-                }, 150);
+                    button.classList.remove("bg-zinc-100", "text-zinc-900", "border-zinc-100");
+                    button.classList.add(
+                        "bg-zinc-950",
+                        "text-zinc-300",
+                        "border-zinc-800",
+                        "hover:bg-zinc-800",
+                        "hover:text-white",
+                    );
+                }, 80);
             }
         });
     });
@@ -176,7 +218,7 @@ function initializeInputHandlers(socket) {
                     const led = btn.querySelector(".mod-led");
                     if (led) {
                         led.className =
-                            "mod-led w-1.5 h-1.5 rounded-full bg-gray-700/50 transition-all duration-150 hidden";
+                            "mod-led w-1.5 h-1.5 rounded-full bg-zinc-700/50 transition-all duration-150 hidden";
                     }
                 });
             }
@@ -201,8 +243,13 @@ function initializeInputHandlers(socket) {
                 customKeyInput.value = "";
 
                 // Visual feedback
-                sendCustomButton.classList.add("bg-blue-500", "text-white");
-                setTimeout(() => sendCustomButton.classList.remove("bg-blue-500", "text-white"), 200);
+                sendCustomButton.classList.remove("bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700");
+                sendCustomButton.classList.add("bg-zinc-100", "text-zinc-900");
+                sendCustomButton.blur();
+                setTimeout(() => {
+                    sendCustomButton.classList.remove("bg-zinc-100", "text-zinc-900");
+                    sendCustomButton.classList.add("bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700");
+                }, 80);
             }
         });
     }

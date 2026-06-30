@@ -42,11 +42,16 @@ function enableInteractiveElements() {
 function showConnectionOverlay(message) {
     connectionMessage.textContent = message;
     connectionOverlay.classList.remove("hidden");
+    void connectionOverlay.offsetWidth;
+    connectionOverlay.classList.remove("opacity-0");
     disableInteractiveElements();
 }
 
 function hideConnectionOverlay() {
-    connectionOverlay.classList.add("hidden");
+    connectionOverlay.classList.add("opacity-0");
+    setTimeout(() => {
+        connectionOverlay.classList.add("hidden");
+    }, 300);
     enableInteractiveElements();
 }
 
@@ -85,7 +90,7 @@ function showNotification(message, type = "error") {
     if (!container) {
         container = document.createElement("div");
         container.id = "notification-container";
-        container.className = "fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 items-end pointer-events-none";
+        container.className = "fixed bottom-6 right-6 z-40 flex flex-col gap-2.5 items-end pointer-events-none";
         document.body.appendChild(container);
     }
 
@@ -112,12 +117,12 @@ function showNotification(message, type = "error") {
 
     const config = {
         error: {
-            icon: "text-red-400",
+            icon: "text-red-500",
             path: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
         },
-        warning: { icon: "text-amber-400", path: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-        info: { icon: "text-blue-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-    }[type] ?? { icon: "text-blue-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" };
+        warning: { icon: "text-amber-500", path: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+        info: { icon: "text-zinc-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    }[type] ?? { icon: "text-zinc-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" };
 
     const wrapper = document.createElement("div");
     wrapper.className = "flex items-center gap-2";
@@ -127,20 +132,20 @@ function showNotification(message, type = "error") {
 
     const badge = document.createElement("span");
     badge.className =
-        "notification-badge hidden px-1.5 py-0.5 text-sm font-semibold bg-white/10 text-gray-400 rounded-full leading-none tabular-nums transition-all duration-300";
+        "notification-badge hidden px-1.5 py-0.5 text-xs font-semibold bg-zinc-800 text-zinc-300 rounded-full leading-none tabular-nums transition-all duration-300 border border-zinc-700";
 
     const toast = document.createElement("div");
     toast.className =
-        "bg-[#18191e] border border-white/[0.07] rounded-lg shadow-2xl px-4 py-3 text-sm flex items-start gap-3 pointer-events-auto max-w-sm transition-all duration-300 translate-x-4 opacity-0";
+        "bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg px-4 py-3 text-sm flex items-start gap-3 pointer-events-auto max-w-sm transition-all duration-300 translate-x-4 opacity-0";
 
     toast.innerHTML = `
         <div class="shrink-0 ${config.icon} mt-0.5">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${config.path}"/></svg>
         </div>
         <div class="flex-1 min-w-0 break-words">
-            <span class="notification-text whitespace-pre-wrap text-[13px] leading-snug text-gray-200"></span>
+            <span class="notification-text whitespace-pre-wrap text-[13px] leading-snug text-zinc-200"></span>
         </div>
-        <button class="p-1 -mr-1 text-gray-600 hover:text-gray-200 hover:bg-white/10 rounded-md transition-colors">
+        <button class="p-1 -mr-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
     `;
