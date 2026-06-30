@@ -1,6 +1,5 @@
 // static/js/modules/input.js
 import { streamUI, streamActive, calculateStreamDimensions, sendMouseEventOverDataChannel } from "./stream.js";
-import { showNotification } from "./dom.js";
 
 // Mapping for abstract action names to actual keys
 const SHORTCUT_MAP = {
