@@ -47,15 +47,15 @@ function formatDate(timestamp) {
 
 const SVG_TEMPLATES = {
     upArrow: () => `
-        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M12 19V9m0 0-4 4m4-4 4 4"/>
         </svg>`,
-    folder: (colorClass = "text-blue-400") => `
-        <svg class="w-5 h-5 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    folder: (colorClass = "text-zinc-400") => `
+        <svg class="w-4 h-4 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
         </svg>`,
     file: () => `
-        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-3 7h3m-3 4h3m-6-4h0m0 4h0"/>
         </svg>`,
     spinner: (size = 4) => {
@@ -66,7 +66,7 @@ const SVG_TEMPLATES = {
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5 0 0 5 0 12zm2 5a8 8 0 0 1-2-5H0c0 3 1 6 3 8z"/>
         </svg>`;
     },
-    upload: (size = 10, colorClass = "text-blue-500/70") => {
+    upload: (size = 10, colorClass = "text-zinc-600") => {
         const rem = size * 0.25;
         return `
         <svg style="width:${rem}rem;height:${rem}rem" class="mx-auto mb-2 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +82,7 @@ const SVG_TEMPLATES = {
 const CLASSES = {
     row: "cursor-pointer",
     noAccess: "is-inaccessible",
-    defaultHover: "hover:bg-gray-700/50",
+    defaultHover: "hover:bg-zinc-800",
 };
 
 class SelectionManager {
@@ -97,9 +97,9 @@ class SelectionManager {
         this.config = {
             containerSelector: "",
             itemSelector: "tr:not(.virtual-spacer)",
-            selectedClass: "bg-blue-500/50",
-            defaultHoverClass: "hover:bg-gray-700/50",
-            selectedHoverClass: "hover:!bg-blue-600/20",
+            selectedClass: "bg-zinc-800/80 ring-1 ring-inset ring-zinc-700/50",
+            defaultHoverClass: "hover:bg-zinc-800",
+            selectedHoverClass: "hover:!bg-zinc-700",
             disabledClass: "cursor-not-allowed opacity-50",
             getItemId: (element) => element.dataset.id,
             isItemSelectable: (element) => !element.classList.contains("cursor-not-allowed"),
@@ -425,7 +425,8 @@ class ContextMenuManager {
         this.menuElement = null;
         this.config = {
             menuClass: "context-menu",
-            menuItemClass: "px-4 py-2 text-white hover:bg-gray-600 cursor-pointer",
+            menuItemClass:
+                "px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 rounded-md cursor-pointer select-none transition-colors",
             getMenuItems: () => [],
             ...config,
         };
@@ -449,9 +450,11 @@ class ContextMenuManager {
         this.menuElement.style.position = "fixed";
         this.menuElement.style.left = `${x}px`;
         this.menuElement.style.top = `${y}px`;
+        this.menuElement.style.zIndex = "30";
 
         const ul = document.createElement("ul");
-        ul.className = "bg-gray-700 border border-gray-600 rounded-lg py-2";
+        ul.className =
+            "bg-zinc-900 border border-zinc-800 rounded-lg p-1 shadow-lg min-w-[140px] flex flex-col gap-0.5";
 
         items.forEach((item) => {
             const li = document.createElement("li");

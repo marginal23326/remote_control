@@ -142,16 +142,11 @@ class FileManager extends BaseFileManager {
         const elements = {
             operations: document.getElementById("fileOperations"),
             renameGroup: document.getElementById("renameGroup"),
-            download: document.getElementById("downloadFile"),
-            delete: document.getElementById("deleteItem"),
             renameInput: document.getElementById("renameInput"),
         };
 
         if (elements.operations) elements.operations.classList.toggle("hidden", !selectionCount);
         if (elements.renameGroup) elements.renameGroup.classList.toggle("hidden", selectionCount !== 1);
-
-        if (elements.download) elements.download.disabled = !selectionCount;
-        if (elements.delete) elements.delete.disabled = !selectionCount;
 
         if (selectionCount === 1 && elements.renameInput) {
             const selectedId = Array.from(this.selectionManager.selectedIds)[0];
@@ -175,8 +170,8 @@ class FileManager extends BaseFileManager {
             const btn = document.createElement("button");
             btn.className = `truncate flex-shrink-0 rounded px-1.5 py-0.5 text-sm transition-colors ${
                 isActive
-                    ? "text-gray-100 font-semibold max-w-[200px]"
-                    : "text-gray-300 hover:text-white hover:bg-white/10 max-w-[150px] cursor-pointer"
+                    ? "text-zinc-100 font-medium max-w-[200px]"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 max-w-[150px] cursor-pointer"
             }`;
             btn.textContent = text;
             btn.title = text;
@@ -189,7 +184,7 @@ class FileManager extends BaseFileManager {
             return btn;
         };
 
-        const chevron = `<svg class="w-3.5 h-3.5 text-gray-500 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+        const chevron = `<svg class="w-3.5 h-3.5 text-zinc-600 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
 
         if (!path || path === "/" || path === "") {
             container.appendChild(createPartBtn(path === "" ? "This PC" : "/", path === "" ? "" : "/", true));
@@ -329,7 +324,7 @@ class FileManager extends BaseFileManager {
 
             if (item.isUpRow) {
                 html += `<tr data-up-row="true" data-is-dir="true" data-path="${item._safePath}" class="${CLASSES.row} ${CLASSES.defaultHover}">
-                    <td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>
+                    <td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>
                 </tr>`;
                 continue;
             }
@@ -346,14 +341,14 @@ class FileManager extends BaseFileManager {
                 : CLASSES.defaultHover;
 
             html += `<tr data-path="${item._safePath}" data-is-dir="${item.is_dir}" data-name="${item._safeName}" class="${CLASSES.row} ${selectedCls} ${accessCls}" style="height: ${this.rowHeight}px">
-                <td class="px-2 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
-                <td class="px-2 whitespace-nowrap hidden sm:table-cell">${item._formattedSize}</td>
-                <td class="px-2 whitespace-nowrap hidden md:table-cell">${item._formattedDate}</td>
+                <td class="px-4 py-1 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
+                <td class="px-4 py-1 whitespace-nowrap hidden sm:table-cell text-zinc-400">${item._formattedSize}</td>
+                <td class="px-4 py-1 whitespace-nowrap hidden md:table-cell text-zinc-400">${item._formattedDate}</td>
             </tr>`;
         }
 
         if (totalItems === 0 || (totalItems === 1 && this.filteredList[0].isUpRow)) {
-            html += `<tr><td colspan="3" class="px-2 whitespace-nowrap"><div class="text-center text-gray-500 py-8 font-mono">Directory is empty</div></td></tr>`;
+            html += `<tr><td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="text-center text-zinc-500 text-sm py-8 font-mono">Directory is empty</div></td></tr>`;
         }
 
         if (paddingBottom > 0) {
@@ -447,7 +442,7 @@ class FileManager extends BaseFileManager {
         if (!isSamePath) {
             this.currentFileList = [];
             this.filteredList = [];
-            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Loading...</td></tr>`;
+            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-zinc-400">Loading...</td></tr>`;
             if (this.elements.searchInput) this.elements.searchInput.value = "";
         }
 
@@ -460,12 +455,12 @@ class FileManager extends BaseFileManager {
                     ? `Access Denied: You do not have permission to view ${path}`
                     : response.message;
 
-                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
+                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
                 fileList.querySelector("td").textContent = errorMsg;
 
                 if (path !== "") {
                     const previousPath = this.currentPath;
-                    const upHtml = `<tr data-up-row="true" data-path="${escapeHtml(previousPath)}" class="${CLASSES.row} ${CLASSES.defaultHover}"><td colspan="3" class="px-2 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`;
+                    const upHtml = `<tr data-up-row="true" data-path="${escapeHtml(previousPath)}" class="${CLASSES.row} ${CLASSES.defaultHover}"><td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`;
                     fileList.insertAdjacentHTML("afterbegin", upHtml);
                 }
                 return;
@@ -478,7 +473,7 @@ class FileManager extends BaseFileManager {
         } catch (error) {
             this.isLoading = false;
             console.error("Error listing files:", error);
-            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500"></td></tr>`;
+            fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
             fileList.querySelector("td").textContent = `Error: ${error.message}`;
         }
     }
@@ -768,7 +763,7 @@ class DropZone {
             this.overlay.classList.remove("hidden");
             requestAnimationFrame(() => this.overlay.classList.remove("opacity-0"));
         }
-        this.element.classList.add("border-pink-500", "shadow-[0_0_15px_rgba(236,72,153,0.3)]");
+        this.element.classList.add("border-zinc-500", "ring-2", "ring-zinc-800/50");
     }
 
     unhighlight() {
@@ -776,7 +771,7 @@ class DropZone {
             this.overlay.classList.add("opacity-0");
             setTimeout(() => this.overlay.classList.add("hidden"), 200);
         }
-        this.element.classList.remove("border-pink-500", "shadow-[0_0_15px_rgba(236,72,153,0.3)]");
+        this.element.classList.remove("border-zinc-500", "ring-2", "ring-zinc-800/50");
     }
 
     setLoading() {

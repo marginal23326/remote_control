@@ -13,15 +13,17 @@ const streamUI = {
     frameTimes: [],
 
     show() {
-        this.container.classList.remove("h-0");
-        this.container.classList.add("h-auto");
+        document.getElementById("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
+        this.view.classList.remove("opacity-0");
+
         this.status.classList.remove("hidden");
         this.status.classList.add("inline-flex");
     },
 
     hide() {
-        this.container.classList.remove("h-auto");
-        this.container.classList.add("h-0");
+        document.getElementById("streamOverlay")?.classList.remove("opacity-0", "pointer-events-none");
+        this.view.classList.add("opacity-0");
+
         this.status.classList.remove("inline-flex");
         this.status.classList.add("hidden");
     },
@@ -73,7 +75,8 @@ const streamUI = {
     initScreenshotView() {
         if (!this.screenshotView) {
             this.screenshotView = document.createElement("img");
-            this.screenshotView.className = this.view.className + " hidden object-contain";
+            this.screenshotView.className =
+                "absolute inset-0 w-full h-full object-contain object-center pointer-events-auto hidden z-10 bg-black";
             this.view.parentNode.insertBefore(this.screenshotView, this.view.nextSibling);
         }
     },
@@ -83,7 +86,8 @@ const streamUI = {
         this.screenshotView.src = url;
         this.screenshotView.classList.remove("hidden");
         this.view.classList.add("hidden");
-        this.show();
+
+        document.getElementById("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
     },
 
     hideScreenshot() {
@@ -452,7 +456,7 @@ function updateSettingsDisplay(settings) {
 
     const bitrateVal = settings.bitrate;
     document.getElementById("bitrateValue").textContent =
-        bitrateVal >= 1000 ? (bitrateVal / 1000).toFixed(1) + " mbps" : bitrateVal + " kbps";
+        bitrateVal >= 1000 ? (bitrateVal / 1000).toFixed(1) + " Mbps" : bitrateVal + " kbps";
 
     const resPct = settings.resolution_percentage;
     const w = nativeWidth || 1920;
@@ -482,7 +486,7 @@ function updateSliderLabels() {
     const resolution = parseInt(document.getElementById("streamResolution").value);
     const fps = parseInt(document.getElementById("streamFPS").value);
     document.getElementById("bitrateValue").textContent =
-        bitrate >= 1000 ? (bitrate / 1000).toFixed(1) + " mbps" : bitrate + " kbps";
+        bitrate >= 1000 ? (bitrate / 1000).toFixed(1) + " Mbps" : bitrate + " kbps";
     document.getElementById("resolutionValue").textContent = resolution + "%";
     document.getElementById("fpsValue").textContent = `(Target: ${fps} FPS)`;
 }
@@ -521,37 +525,45 @@ function renderEncoderProperties() {
     const tbody = document.getElementById("encoderPropsList");
     if (!tbody) return;
     tbody.innerHTML = "";
-    for (const [key, value] of Object.entries(encoderProperties)) {
+
+    const inputCls = "text-xs font-mono text-zinc-200 w-full";
+
+    const sortedEntries = Object.entries(encoderProperties).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [key, value] of sortedEntries) {
         const row = document.createElement("tr");
         row.className = "group";
         const constraint = encoderPropertyConstraints[key];
         let valHtml;
+
         if (constraint) {
             if (constraint.value_type === "enum") {
                 const options = (constraint.enum_values || [])
                     .map((v) => `<option value="${v}" ${v === value ? "selected" : ""}>${v}</option>`)
                     .join("");
-                valHtml = `<select class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200">${options}</select>`;
+                valHtml = `<select class="prop-val w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-500 rounded text-xs font-mono text-zinc-200 transition-colors">${options}</select>`;
             } else if (constraint.value_type === "int") {
-                valHtml = `<input type="number" class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200" value="${escHtml(value)}"${constraint.min != null ? ' min="' + constraint.min + '"' : ""}${constraint.max != null ? ' max="' + constraint.max + '"' : ""}>`;
+                valHtml = `<input type="number" class="prop-val ${inputCls}" value="${escHtml(value)}"${constraint.min != null ? ' min="' + constraint.min + '"' : ""}${constraint.max != null ? ' max="' + constraint.max + '"' : ""}>`;
             } else if (constraint.value_type === "bool") {
                 const checked = value === "true" ? "checked" : "";
-                valHtml = `<input type="checkbox" class="prop-val w-4 h-4 accent-blue-500 mt-1" ${checked}>`;
+                valHtml = `<input type="checkbox" class="prop-val w-4 h-4 accent-zinc-100 bg-zinc-950 border-zinc-800 rounded focus:ring-0 mt-1 cursor-pointer" ${checked}>`;
             } else {
-                valHtml = `<input type="text" class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200" value="${escHtml(value)}">`;
+                valHtml = `<input type="text" class="prop-val ${inputCls}" value="${escHtml(value)}">`;
             }
         } else {
-            valHtml = `<input type="text" class="prop-val w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200" value="${escHtml(value)}">`;
+            valHtml = `<input type="text" class="prop-val ${inputCls}" value="${escHtml(value)}">`;
         }
+
         row.innerHTML = `
-            <td class="pr-2"><input type="text" class="prop-key w-full px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200 focus:border-blue-500" value="${escHtml(key)}"></td>
-            <td class="pr-2">${valHtml}</td>
-            <td><button class="prop-remove px-2 py-1 text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove property">&times;</button></td>
+            <td class="py-1.5 pr-2"><input type="text" class="prop-key ${inputCls}" value="${escHtml(key)}"></td>
+            <td class="py-1.5 pr-2">${valHtml}</td>
+            <td class="py-1.5"><button class="prop-remove px-1.5 py-0.5 text-sm text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Remove property">&times;</button></td>
         `;
+
         row.querySelector(".prop-remove").addEventListener("click", () => {
             delete encoderProperties[key];
             renderEncoderProperties();
         });
+
         row.querySelector(".prop-key").addEventListener("change", (e) => {
             const newKey = e.target.value.trim();
             if (newKey && newKey !== key) {
@@ -560,6 +572,7 @@ function renderEncoderProperties() {
                 renderEncoderProperties();
             }
         });
+
         const valInput = row.querySelector(".prop-val");
         if (valInput && valInput.tagName === "INPUT") {
             valInput.addEventListener("change", () => {
@@ -666,13 +679,13 @@ document.addEventListener("DOMContentLoaded", () => {
             if (existing) existing.remove();
             const row = document.createElement("div");
             row.id = "addPropRow";
-            row.className = "flex gap-2 items-center mt-2 pt-2 border-t border-white/5";
+            row.className = "flex gap-2 items-center mt-2 pt-2 border-t border-zinc-800/50";
             row.innerHTML = `
-                <select id="addPropSelect" class="flex-1 px-2 py-1 bg-black/40 border border-gray-700 rounded text-xs font-mono text-gray-200">
+                <select id="addPropSelect" class="flex-1 px-2 py-1 bg-zinc-950 border border-zinc-800 rounded text-xs font-mono text-zinc-200">
                     ${available.map((k) => `<option value="${k}">${k}</option>`).join("")}
                 </select>
-                <button id="confirmAddProp" class="px-2 py-1 text-xs rounded bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 transition-all">Add</button>
-                <button id="cancelAddProp" class="px-2 py-1 text-xs rounded bg-gray-600/30 hover:bg-gray-600/40 text-gray-300 border border-gray-500/30 transition-all">Cancel</button>
+                <button id="confirmAddProp" class="px-2 py-1 text-xs rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition-colors font-medium">Add</button>
+                <button id="cancelAddProp" class="px-2 py-1 text-xs rounded text-zinc-500 hover:text-zinc-200 transition-colors">Cancel</button>
             `;
             container.appendChild(row);
             document.getElementById("confirmAddProp").addEventListener("click", () => {
