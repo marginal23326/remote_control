@@ -6,6 +6,7 @@ class FileManager extends BaseFileManager {
     constructor() {
         super();
         this.currentPath = "";
+        this.navigationHistory = [];
         this.currentFileList = [];
         this.filteredList = [];
         this.collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -63,8 +64,6 @@ class FileManager extends BaseFileManager {
         const buttonConfigs = {
             downloadFile: "Downloading...",
             deleteItem: "Deleting...",
-            renameItem: "Renaming...",
-            createFolder: "Creating...",
             refresh: "",
         };
 
@@ -137,24 +136,9 @@ class FileManager extends BaseFileManager {
     }
 
     updateFileOperationsUI() {
-        const selectionCount = this.selectionManager?.selectedIds?.size || 0;
-
-        const elements = {
-            operations: document.getElementById("fileOperations"),
-            renameGroup: document.getElementById("renameGroup"),
-            renameInput: document.getElementById("renameInput"),
-        };
-
-        if (elements.operations) elements.operations.classList.toggle("hidden", !selectionCount);
-        if (elements.renameGroup) elements.renameGroup.classList.toggle("hidden", selectionCount !== 1);
-
-        if (selectionCount === 1 && elements.renameInput) {
-            const selectedId = Array.from(this.selectionManager.selectedIds)[0];
-            const fileItem = this.currentFileList.find((f) => f.path === selectedId);
-            if (fileItem) elements.renameInput.value = fileItem.name;
-        } else if (elements.renameInput) {
-            elements.renameInput.value = "";
-        }
+        const hasSelection = (this.selectionManager?.selectedIds?.size || 0) > 0;
+        document.getElementById("downloadFile")?.classList.toggle("hidden", !hasSelection);
+        document.getElementById("deleteItem")?.classList.toggle("hidden", !hasSelection);
     }
 
     updateBreadcrumbs() {
@@ -239,20 +223,6 @@ class FileManager extends BaseFileManager {
             return dirMul * ((a[key] ?? 0) - (b[key] ?? 0));
         });
 
-        if (this.currentPath !== "") {
-            const parent = this.getParentPath();
-            list.unshift({
-                isUpRow: true,
-                path: parent,
-                is_dir: true,
-                name: "..",
-                _safePath: escapeHtml(parent),
-                _safeName: "..",
-                _formattedSize: "-",
-                _formattedDate: "-",
-            });
-        }
-
         this.filteredList = list;
 
         this.renderViewport(true);
@@ -322,13 +292,6 @@ class FileManager extends BaseFileManager {
             const item = this.filteredList[i];
             if (!item) continue;
 
-            if (item.isUpRow) {
-                html += `<tr data-up-row="true" data-is-dir="true" data-path="${item._safePath}" class="${CLASSES.row} ${CLASSES.defaultHover}">
-                    <td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td>
-                </tr>`;
-                continue;
-            }
-
             const cachedAccess = this.accessCache.get(item.path);
             const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
 
@@ -347,7 +310,7 @@ class FileManager extends BaseFileManager {
             </tr>`;
         }
 
-        if (totalItems === 0 || (totalItems === 1 && this.filteredList[0].isUpRow)) {
+        if (totalItems === 0) {
             html += `<tr><td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="text-center text-zinc-500 text-sm py-8 font-mono">Directory is empty</div></td></tr>`;
         }
 
@@ -422,7 +385,7 @@ class FileManager extends BaseFileManager {
         return /^[A-Z]:$/i.test(parent) ? parent + "\\" : parent;
     }
 
-    async listFiles(path, scrollToPath = null) {
+    async listFiles(path, scrollToPath = null, { skipHistory = false } = {}) {
         this.clearSelection();
         this.accessCache.clear();
         this.accessQueue.clear();
@@ -438,12 +401,13 @@ class FileManager extends BaseFileManager {
         this.isLoading = true;
 
         const isSamePath = path === this.currentPath;
+        const previousPath = this.currentPath;
 
         if (!isSamePath) {
             this.currentFileList = [];
             this.filteredList = [];
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-zinc-400">Loading...</td></tr>`;
-            if (this.elements.searchInput) this.elements.searchInput.value = "";
+            this.exitSearchMode(false);
         }
 
         try {
@@ -457,17 +421,16 @@ class FileManager extends BaseFileManager {
 
                 fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
                 fileList.querySelector("td").textContent = errorMsg;
-
-                if (path !== "") {
-                    const previousPath = this.currentPath;
-                    const upHtml = `<tr data-up-row="true" data-path="${escapeHtml(previousPath)}" class="${CLASSES.row} ${CLASSES.defaultHover}"><td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="flex items-center gap-2">${SVG_TEMPLATES.upArrow()}..</div></td></tr>`;
-                    fileList.insertAdjacentHTML("afterbegin", upHtml);
-                }
                 return;
+            }
+
+            if (!isSamePath && !skipHistory) {
+                this.navigationHistory.push(previousPath);
             }
 
             this.currentPath = path;
             this.updateBreadcrumbs();
+            this.updateNavButtons();
 
             await this.updateFileList(response, scrollToPath);
         } catch (error) {
@@ -476,6 +439,34 @@ class FileManager extends BaseFileManager {
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
             fileList.querySelector("td").textContent = `Error: ${error.message}`;
         }
+    }
+
+    async goBack() {
+        if (!this.navigationHistory.length) return;
+        const previous = this.navigationHistory.pop();
+        this.updateNavButtons();
+        await this.listFiles(previous, null, { skipHistory: true });
+    }
+
+    async goUp() {
+        if (this.currentPath === "") return;
+        await this.listFiles(this.getParentPath());
+    }
+
+    async goHome() {
+        try {
+            const { path } = await apiCall("/api/files/home");
+            await this.listFiles(path);
+        } catch (error) {
+            showNotification("Could not open home directory: " + error.message, "error");
+        }
+    }
+
+    updateNavButtons() {
+        const backBtn = document.getElementById("navBackBtn");
+        const upBtn = document.getElementById("navUpBtn");
+        if (backBtn) backBtn.disabled = this.navigationHistory.length === 0;
+        if (upBtn) upBtn.disabled = this.currentPath === "";
     }
 
     async handleDownload(paths) {
@@ -526,13 +517,6 @@ class FileManager extends BaseFileManager {
     }
 
     initializeEventListeners() {
-        this.elements.fileList.addEventListener("click", (e) => {
-            const row = e.target.closest("tr");
-            if (row?.dataset.upRow) {
-                this.listFiles(row.dataset.path);
-            }
-        });
-
         this.elements.fileList.addEventListener("dblclick", (e) => {
             const row = e.target.closest("tr");
             if (row && row.dataset.isDir === "true") this.listFiles(row.dataset.path);
@@ -568,64 +552,44 @@ class FileManager extends BaseFileManager {
             }),
         );
 
-        document.getElementById("createFolder")?.addEventListener("click", () =>
-            handleButtonClick("createFolder", async () => {
-                const folderNameInput = document.getElementById("newFolderName");
-                const folderName = folderNameInput?.value.trim();
-                if (!folderName) {
-                    showNotification("Please enter a folder name", "warning");
-                    return;
-                }
+        document.getElementById("createFolder")?.addEventListener("click", () => {
+            this.showPromptModal({
+                title: "Create folder",
+                label: "Please enter the folder name",
+                confirmLabel: "Create",
+                onConfirm: (folderName) => {
+                    this.handleApiCall(
+                        "/api/create_folder",
+                        "POST",
+                        { parentPath: this.currentPath, folderName },
+                        async () => {
+                            const sep = this.getSeparator();
+                            const newFolderPath = this.currentPath.endsWith(sep)
+                                ? `${this.currentPath}${folderName}`
+                                : `${this.currentPath}${sep}${folderName}`;
+                            await this.listFiles(this.currentPath, newFolderPath);
+                        },
+                    );
+                },
+            });
+        });
 
-                await this.handleApiCall(
-                    "/api/create_folder",
-                    "POST",
-                    { parentPath: this.currentPath, folderName },
-                    async () => {
-                        const sep = this.getSeparator();
-                        const newFolderPath = this.currentPath.endsWith(sep)
-                            ? `${this.currentPath}${folderName}`
-                            : `${this.currentPath}${sep}${folderName}`;
-                        await this.listFiles(this.currentPath, newFolderPath);
-                        if (folderNameInput) folderNameInput.value = "";
-                    },
-                );
-            }),
-        );
+        // --- Navigation: Back / Up / Home ---
+        document.getElementById("navBackBtn")?.addEventListener("click", () => this.goBack());
+        document.getElementById("navUpBtn")?.addEventListener("click", () => this.goUp());
+        document.getElementById("homeButton")?.addEventListener("click", () => this.goHome());
 
-        document.getElementById("renameItem")?.addEventListener("click", () =>
-            handleButtonClick("renameItem", async () => {
-                const oldPath = this.getSelectedItems()[0];
-                const renameInput = document.getElementById("renameInput");
-                const newName = renameInput?.value.trim();
-
-                if (!newName) {
-                    showNotification("Please enter a new name", "warning");
-                    return;
-                }
-
-                await this.handleApiCall("/api/rename", "POST", { oldPath, newName }, async () => {
-                    const sep = this.getSeparator();
-                    const newPath = this.currentPath.endsWith(sep)
-                        ? `${this.currentPath}${newName}`
-                        : `${this.currentPath}${sep}${newName}`;
-                    await this.listFiles(this.currentPath, newPath);
-                    document.getElementById("fileOperations")?.classList.add("hidden");
-                    this.clearSelection();
-                    if (renameInput) renameInput.value = "";
-                });
-            }),
-        );
-        document.getElementById("renameInput")?.addEventListener("input", (e) => {
-            if (/[/\\]/.test(e.target.value)) {
-                e.target.value = e.target.value.replace(/[/\\]/g, "");
+        // --- Breadcrumb <-> Search toggle ---
+        const searchToggleBtn = document.getElementById("searchToggleBtn");
+        searchToggleBtn?.addEventListener("click", () => {
+            const searchWrapper = document.getElementById("searchWrapper");
+            if (searchWrapper?.classList.contains("hidden")) {
+                this.enterSearchMode();
+            } else {
+                this.exitSearchMode(true);
             }
         });
-        document.getElementById("renameInput")?.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                document.getElementById("renameItem")?.click();
-            }
-        });
+
         // Class-based toggles for directory/edit transitions
         const pathContainer = document.getElementById("pathContainer");
         const pathInput = document.getElementById("pathInput");
@@ -668,7 +632,115 @@ class FileManager extends BaseFileManager {
             searchInput.addEventListener("click", (e) => {
                 e.stopPropagation();
             });
+            searchInput.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") this.exitSearchMode(true);
+            });
         }
+
+        this.initializePromptModal();
+    }
+
+    // --- Breadcrumb <-> Search toggle ---
+    enterSearchMode() {
+        document.getElementById("pathContainer")?.classList.add("hidden");
+        document.getElementById("searchWrapper")?.classList.remove("hidden");
+        document.getElementById("searchIcon")?.classList.add("hidden");
+        document.getElementById("searchCloseIcon")?.classList.remove("hidden");
+        this.elements.searchInput?.focus();
+    }
+
+    exitSearchMode(refilter) {
+        const searchWrapper = document.getElementById("searchWrapper");
+        const wasSearching = searchWrapper && !searchWrapper.classList.contains("hidden");
+        if (!wasSearching) return;
+
+        searchWrapper.classList.add("hidden");
+        document.getElementById("pathContainer")?.classList.remove("hidden");
+        document.getElementById("searchIcon")?.classList.remove("hidden");
+        document.getElementById("searchCloseIcon")?.classList.add("hidden");
+        if (this.elements.searchInput) this.elements.searchInput.value = "";
+
+        if (refilter) this.applySortAndFilter(true);
+    }
+
+    // --- Create Folder / Rename modal ---
+    openRenameModal(oldPath) {
+        const fileItem = this.currentFileList.find((f) => f.path === oldPath);
+        const currentName = fileItem ? fileItem.name : oldPath.split(/[/\\]/).pop();
+
+        this.showPromptModal({
+            title: `Rename "${currentName}"`,
+            label: "Please enter the new name",
+            initialValue: currentName,
+            confirmLabel: "Rename",
+            onConfirm: (newName) => {
+                if (newName === currentName) return;
+                this.handleApiCall("/api/rename", "POST", { oldPath, newName }, async () => {
+                    const sep = this.getSeparator();
+                    const newPath = this.currentPath.endsWith(sep)
+                        ? `${this.currentPath}${newName}`
+                        : `${this.currentPath}${sep}${newName}`;
+                    await this.listFiles(this.currentPath, newPath);
+                });
+            },
+        });
+    }
+
+    initializePromptModal() {
+        const modal = document.getElementById("promptModal");
+        const input = document.getElementById("promptModalInput");
+        const confirmBtn = document.getElementById("promptModalConfirm");
+        const cancelBtn = document.getElementById("promptModalCancel");
+        if (!modal || !input || !confirmBtn || !cancelBtn) return;
+
+        const sanitize = (e) => {
+            if (/[/\\]/.test(e.target.value)) {
+                e.target.value = e.target.value.replace(/[/\\]/g, "");
+            }
+        };
+        const confirm = () => {
+            const value = input.value.trim();
+            if (!value) {
+                showNotification("Please enter a name", "warning");
+                return;
+            }
+            this.hidePromptModal();
+            this._promptResolve?.(value);
+        };
+        const cancel = () => this.hidePromptModal();
+
+        input.addEventListener("input", sanitize);
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") confirm();
+            if (e.key === "Escape") cancel();
+        });
+        confirmBtn.addEventListener("click", confirm);
+        cancelBtn.addEventListener("click", cancel);
+        modal.addEventListener("mousedown", (e) => {
+            if (e.target === modal) cancel();
+        });
+    }
+
+    showPromptModal({ title, label, initialValue = "", confirmLabel = "OK", onConfirm }) {
+        const modal = document.getElementById("promptModal");
+        const input = document.getElementById("promptModalInput");
+        if (!modal || !input) return;
+
+        document.getElementById("promptModalTitle").textContent = title;
+        document.getElementById("promptModalLabel").textContent = label;
+        document.getElementById("promptModalConfirm").textContent = confirmLabel;
+        input.value = initialValue;
+
+        this._promptResolve = onConfirm;
+
+        modal.classList.remove("hidden");
+        input.focus();
+        input.select();
+    }
+
+    hidePromptModal() {
+        document.getElementById("promptModal")?.classList.add("hidden");
+        this._promptResolve = null;
     }
 
     initializeSortListeners() {
@@ -712,7 +784,7 @@ class FileManager extends BaseFileManager {
 
         if (this.selectionManager) {
             this.selectionManager.config.getAllIds = () =>
-                this.filteredList.filter((i) => !i.isUpRow).map((i) => i.path);
+                this.filteredList.map((i) => i.path);
         }
 
         this.listFiles(this.currentPath);

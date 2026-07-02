@@ -46,10 +46,6 @@ function formatDate(timestamp) {
 }
 
 const SVG_TEMPLATES = {
-    upArrow: () => `
-        <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-width="2" d="M12 19V9m0 0-4 4m4-4 4 4"/>
-        </svg>`,
     folder: (colorClass = "text-zinc-400") => `
         <svg class="w-4 h-4 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
@@ -99,7 +95,7 @@ class SelectionManager {
             itemSelector: "tr:not(.virtual-spacer)",
             selectedClass: "bg-zinc-800/80 ring-1 ring-inset ring-zinc-700/50",
             defaultHoverClass: "hover:bg-zinc-800",
-            selectedHoverClass: "hover:!bg-zinc-700",
+            selectedHoverClass: "hover:bg-zinc-700!",
             disabledClass: "cursor-not-allowed opacity-50",
             getItemId: (element) => element.dataset.id,
             isItemSelectable: (element) => !element.classList.contains("cursor-not-allowed"),
@@ -488,7 +484,7 @@ class UIManager {
                   containerSelector: this.config.containerSelector,
                   itemSelector: this.config.itemSelector || "tr",
                   getItemId: this.config.getItemId,
-                  isItemSelectable: this.config.isItemSelectable,
+                  ...(this.config.isItemSelectable ? { isItemSelectable: this.config.isItemSelectable } : {}),
                   onSelectionChange: (items) => {
                       this.config.onSelectionChange(items);
                   },
@@ -566,7 +562,6 @@ class BaseFileManager extends UIManager {
             containerSelector: "#fileList",
             itemDataAttribute: "path",
             getItemId: (element) => element.dataset.path,
-            isItemSelectable: (element) => !element.hasAttribute("data-up-row"),
             getContextMenuItems: (context) => {
                 const selectedItems = context?.selectedItems || this.getSelectedItems();
                 if (!selectedItems.length) return [];
@@ -582,9 +577,7 @@ class BaseFileManager extends UIManager {
                 if (singleItem) {
                     items.push({
                         label: "Rename",
-                        action: () => {
-                            document.getElementById("renameInput").focus();
-                        },
+                        action: () => this.openRenameModal(selectedItems[0]),
                     });
                 }
 

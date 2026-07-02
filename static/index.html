@@ -46,13 +46,19 @@
                         class="nav-link nav-tab active px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
                         >Screen</a
                     >
-                    <a href="#audioSection" class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                    <a
+                        href="#audioSection"
+                        class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
                         >Audio</a
                     >
-                    <a href="#shellSection" class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                    <a
+                        href="#shellSection"
+                        class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
                         >Terminal</a
                     >
-                    <a href="#fileSection" class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
+                    <a
+                        href="#fileSection"
+                        class="nav-link nav-tab px-3 py-1.5 rounded-md text-sm font-medium shrink-0"
                         >Files</a
                     >
                     <a
@@ -622,72 +628,36 @@
 
                 <!-- File Section -->
                 <section id="fileSection" class="section hidden h-full flex flex-col animate-in fade-in duration-200">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 min-h-8">
-                        <h2 class="text-lg font-medium text-zinc-100 shrink-0">File Explorer</h2>
+                    <h2 class="text-lg font-medium text-zinc-100 mb-4">File Explorer</h2>
 
-                        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                            <input
-                                type="text"
-                                id="searchInput"
-                                placeholder="Search files..."
-                                class="flex-1 md:w-48 px-3 py-1.5 text-sm rounded-md placeholder:text-zinc-600 transition-colors"
-                            />
-                            <div
-                                class="flex shadow-sm border border-zinc-800 rounded-md overflow-hidden focus-within:border-zinc-500 transition-colors"
-                            >
-                                <input
-                                    type="text"
-                                    id="newFolderName"
-                                    placeholder="New folder..."
-                                    class="w-32 px-3 py-1.5 text-sm bg-zinc-950 text-zinc-100 placeholder:text-zinc-600 focus:outline-none border-0! rounded-none!"
-                                />
-                                <button
-                                    id="createFolder"
-                                    class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-                                    title="Create"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <input type="file" id="fileUpload" class="hidden" name="files" multiple />
-                            <label
-                                for="fileUpload"
-                                class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors cursor-pointer flex items-center gap-2"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-width="2"
-                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                    />
-                                </svg>
-                                <span class="hidden sm:inline">Upload</span>
-                            </label>
-                            <button
-                                id="refresh"
-                                class="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-800 rounded-md transition-colors"
-                                title="Refresh"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-width="2"
-                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Navigation Bar -->
+                    <div class="flex items-center gap-1 mb-2 bg-zinc-900 border border-zinc-800 rounded-md p-1">
+                        <button
+                            id="navBackBtn"
+                            title="Back"
+                            disabled
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <button
+                            id="navUpBtn"
+                            title="Up one level"
+                            disabled
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V9m0 0-4 4m4-4 4 4" />
+                            </svg>
+                        </button>
 
-                    <!-- Path & Context Operations -->
-                    <div
-                        class="flex items-center justify-between gap-4 mb-4 bg-zinc-900 border border-zinc-800 p-1.5 rounded-md"
-                    >
+                        <div class="w-px h-4 bg-zinc-800 mx-0.5 shrink-0"></div>
+
                         <div
                             id="pathContainer"
-                            class="flex-1 flex items-center px-2 h-8 cursor-text relative group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
+                            class="flex-1 min-w-0 flex items-center px-2 h-8 cursor-text relative group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
                         >
                             <div
                                 id="currentPath"
@@ -702,33 +672,125 @@
                                 spellcheck="false"
                             />
                         </div>
-                        <div id="fileOperations" class="hidden flex items-center gap-1.5 pr-1">
-                            <div id="renameGroup" class="hidden flex items-center gap-1">
-                                <input
-                                    type="text"
-                                    id="renameInput"
-                                    placeholder="Rename..."
-                                    class="w-32 px-2 py-1.5 text-xs rounded-md placeholder:text-zinc-600 transition-colors"
-                                />
-                                <button
-                                    id="renameItem"
-                                    class="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-xs text-zinc-300 transition-colors"
-                                >
-                                    Rename
-                                </button>
-                            </div>
+
+                        <div id="searchWrapper" class="hidden flex-1 min-w-0">
+                            <input
+                                type="text"
+                                id="searchInput"
+                                placeholder="Search files..."
+                                class="w-full h-8 px-2 text-sm bg-transparent placeholder:text-zinc-600 focus:outline-none border-0!"
+                            />
+                        </div>
+
+                        <button
+                            id="searchToggleBtn"
+                            title="Search"
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 shrink-0"
+                        >
+                            <svg id="searchIcon" fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="5" stroke-width="2"/>
+                                <path stroke-linecap="round" stroke-width="2" d="m21 21-6-6"/>
+                            </svg>
+                            <svg id="searchCloseIcon" fill="none" stroke="currentColor" class="hidden w-4 h-4" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+
+                        <button
+                            id="refresh"
+                            title="Refresh"
+                            class="p-1.5 text-zinc-400 rounded transition-colors hover:text-zinc-100 hover:bg-zinc-800 shrink-0"
+                        >
+                            <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 4v5h1m15 2A8 8 0 0 0 5 9m0 0h4m11 11v-5h-1m0 0a8 8 0 0 1-15-2m15 2h-4"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Actions Bar -->
+                    <div id="fileOperations" class="flex items-center justify-between gap-2 mb-4">
+                        <div class="flex items-center gap-2">
+                            <input type="file" id="fileUpload" class="hidden" name="files" multiple />
+                            <label
+                                for="fileUpload"
+                                class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors cursor-pointer flex items-center gap-2"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-width="2" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8-4-4m0 0L8 8m4-4v12"/>
+                                </svg>
+                                <span class="hidden sm:inline">Upload</span>
+                            </label>
                             <button
                                 id="downloadFile"
-                                class="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-xs text-zinc-300 transition-colors"
+                                title="Download selected"
+                                class="hidden px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
                             >
-                                Download
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/>
+                                </svg>
+                                <span class="hidden sm:inline">Receive</span>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            <button
+                                id="homeButton"
+                                title="Home directory"
+                                class="p-2 text-zinc-400 rounded-md transition-colors hover:text-zinc-100 hover:bg-zinc-800"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m3 12 9-9 9 9M5 10v10h5v-5h4v5h5V10"/></svg>
+                            </button>
+                            <button
+                                id="createFolder"
+                                title="Create folder"
+                                class="p-2 text-zinc-400 rounded-md transition-colors hover:text-zinc-100 hover:bg-zinc-800"
+                            >
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2m9 4v4m-2-2h4"/></svg>
                             </button>
                             <button
                                 id="deleteItem"
-                                class="px-2 py-1.5 bg-red-950 hover:bg-red-900 rounded-md text-xs text-red-400 transition-colors"
+                                title="Delete selected"
+                                class="hidden p-2 text-red-400 rounded-md transition-colors hover:bg-red-950/50"
                             >
-                                Delete
+                                <svg fill="none" stroke="currentColor" class="w-4 h-4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M9 7V4l1-1h4l1 1v3M7 7v13l1 1h8l1-1V7m-7 4v6m4-6v6"/></svg>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Create Folder / Rename Modal -->
+                    <div
+                        id="promptModal"
+                        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4"
+                    >
+                        <div class="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg animate-in fade-in duration-150">
+                            <h3 id="promptModalTitle" class="text-sm font-medium text-zinc-100 mb-3">Create folder</h3>
+                            <label id="promptModalLabel" class="block text-xs text-zinc-500 mb-1.5">
+                                Please enter the folder name
+                            </label>
+                            <input
+                                type="text"
+                                id="promptModalInput"
+                                spellcheck="false"
+                                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none transition-colors"
+                            />
+                            <div class="flex justify-end gap-2 mt-5">
+                                <button
+                                    id="promptModalCancel"
+                                    class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Cancel
+                                </button>
+                                <button
+                                    id="promptModalConfirm"
+                                    class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    OK
+                                </button>
+                            </div>
                         </div>
                     </div>
 

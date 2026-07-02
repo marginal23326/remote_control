@@ -137,6 +137,11 @@ pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
     }
 }
 
+pub async fn get_home_handler() -> Response {
+    let path = FileManager::get_home_dir();
+    Json(json!({ "path": path })).into_response()
+}
+
 pub async fn create_folder_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
     let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) else {
         return Err(AppError::BadRequest("Missing parentPath or folderName".to_string()));

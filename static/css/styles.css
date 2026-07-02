@@ -131,10 +131,6 @@ thead th {
     border-bottom: 1px solid var(--border-subtle);
 }
 
-tbody tr:hover {
-    background: #27272a; /* zinc-800 */
-}
-
 td {
     border-bottom: 1px solid var(--border-subtle);
 }
