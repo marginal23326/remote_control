@@ -24,12 +24,17 @@ use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
 
 async fn serve_no_cache(file: &str, req: Request) -> Response {
-    let mut res = ServeFile::new(file).try_call(req).await.unwrap().into_response();
-    res.headers_mut().insert(
-        header::CACHE_CONTROL,
-        "no-cache, no-store, must-revalidate".parse().unwrap(),
-    );
-    res
+    match ServeFile::new(file).try_call(req).await {
+        Ok(res) => {
+            let mut res = res.into_response();
+            res.headers_mut().insert(
+                header::CACHE_CONTROL,
+                "no-cache, no-store, must-revalidate".parse().unwrap(),
+            );
+            res
+        }
+        Err(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 async fn index_handler(State(state): State<SharedState>, req: Request) -> Response {
