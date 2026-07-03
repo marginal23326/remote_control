@@ -343,7 +343,7 @@ function initializeInputHandlers(socket) {
 
         streamUI.view.addEventListener("wheel", (event) => {
             event.preventDefault();
-            sendMouseEvent("scroll", event, { dx: 0, dy: -Math.sign(event.deltaY) });
+            sendMouseEvent("scroll", event, { dx: 0, dy: Math.sign(event.deltaY) });
         });
 
         streamUI.view.addEventListener("touchstart", (event) => {
@@ -370,7 +370,7 @@ function initializeInputHandlers(socket) {
                 const currentTouchY = event.touches[1].clientY;
                 const deltaY = initialTouchY - currentTouchY;
                 if (Math.abs(deltaY) > 5) {
-                    sendMouseEvent("scroll", event.touches[0], { dx: 0, dy: -Math.sign(deltaY) });
+                    sendMouseEvent("scroll", event.touches[0], { dx: 0, dy: Math.sign(deltaY) });
                     initialTouchY = currentTouchY;
                 }
                 return;

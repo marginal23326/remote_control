@@ -14,8 +14,7 @@ use ashpd::desktop::{
     Session,
     remote_desktop::{
         Axis, DeviceType, KeyState, NotifyKeyboardKeysymOptions, NotifyPointerAxisDiscreteOptions,
-        NotifyPointerAxisOptions, NotifyPointerButtonOptions, NotifyPointerMotionAbsoluteOptions, RemoteDesktop,
-        SelectDevicesOptions,
+        NotifyPointerButtonOptions, NotifyPointerMotionAbsoluteOptions, RemoteDesktop, SelectDevicesOptions,
     },
     screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream},
 };
@@ -536,15 +535,6 @@ impl PortalSessionManager {
                 )
                 .await?;
         }
-        session
-            .remote_desktop
-            .notify_pointer_axis(
-                &session.session,
-                dx as f64,
-                dy as f64,
-                NotifyPointerAxisOptions::default().set_finish(true),
-            )
-            .await?;
         Ok(())
     }
 
