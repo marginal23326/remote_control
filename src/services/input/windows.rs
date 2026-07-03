@@ -79,7 +79,7 @@ impl OsInputManager {
     pub async fn scroll_mouse(&self, dx: i32, dy: i32) -> anyhow::Result<()> {
         // Vertical Scroll
         if dy != 0 {
-            self.send_mouse_input(MOUSEEVENTF_WHEEL, 0, 0, (dy * 120) as u32);
+            self.send_mouse_input(MOUSEEVENTF_WHEEL, 0, 0, (dy * -120) as u32);
         }
         // Horizontal Scroll
         if dx != 0 {
