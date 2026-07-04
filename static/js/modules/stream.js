@@ -458,13 +458,7 @@ function updateSettingsDisplay(settings) {
     document.getElementById("bitrateValue").textContent =
         bitrateVal >= 1000 ? (bitrateVal / 1000).toFixed(1) + " Mbps" : bitrateVal + " kbps";
 
-    const resPct = settings.resolution_percentage;
-    const w = nativeWidth || 1920;
-    const h = nativeHeight || 1080;
-    const resText =
-        resPct == 100
-            ? "100% (Native)"
-            : `${resPct}% (${Math.round((w * resPct) / 100)} x ${Math.round((h * resPct) / 100)})`;
+    const resText = formatResolutionLabel(settings.resolution_percentage);
     document.getElementById("resolutionValue").textContent = resText;
 
     document.getElementById("fpsValue").textContent = `(Target: ${settings.target_fps} FPS)`;
@@ -481,13 +475,19 @@ function updateSettingsDisplay(settings) {
     }
 }
 
+function formatResolutionLabel(pct) {
+    const w = nativeWidth || 1920;
+    const h = nativeHeight || 1080;
+    return pct === 100 ? "100% (Native)" : `${pct}% (${Math.round((w * pct) / 100)} x ${Math.round((h * pct) / 100)})`;
+}
+
 function updateSliderLabels() {
     const bitrate = parseInt(document.getElementById("streamBitrate").value);
     const resolution = parseInt(document.getElementById("streamResolution").value);
     const fps = parseInt(document.getElementById("streamFPS").value);
     document.getElementById("bitrateValue").textContent =
         bitrate >= 1000 ? (bitrate / 1000).toFixed(1) + " Mbps" : bitrate + " kbps";
-    document.getElementById("resolutionValue").textContent = resolution + "%";
+    document.getElementById("resolutionValue").textContent = formatResolutionLabel(resolution);
     document.getElementById("fpsValue").textContent = `(Target: ${fps} FPS)`;
 }
 
