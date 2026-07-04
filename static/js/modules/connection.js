@@ -33,6 +33,10 @@ function initializeSocketIO(authCallback) {
         authCallback(data.authenticated);
     });
 
+    socket.on("auth_error", () => {
+        authCallback(false);
+    });
+
     return socket;
 }
 
