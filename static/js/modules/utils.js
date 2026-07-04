@@ -19,7 +19,7 @@ async function apiCall(endpoint, method = "GET", data = null) {
 
     if (response.status === 401) {
         window.location.href = "/login";
-        return;
+        await new Promise(() => {});
     }
 
     if (!response.ok) {
