@@ -22,14 +22,7 @@ pub struct Claims {
 }
 
 pub fn extract_token_from_cookie(cookie_str: &str) -> Option<&str> {
-    cookie_str.split(';').find_map(|s| {
-        let s = s.trim();
-        if s.starts_with("auth_token=") {
-            Some(s.trim_start_matches("auth_token="))
-        } else {
-            None
-        }
-    })
+    cookie_str.split(';').find_map(|s| s.trim().strip_prefix("auth_token="))
 }
 
 pub fn create_jwt(claims: &Claims, secret: &str) -> anyhow::Result<String> {
