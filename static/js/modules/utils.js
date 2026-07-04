@@ -277,18 +277,20 @@ class SelectionManager {
 
         const container = document.querySelector(this.config.containerSelector);
         const scrollThreshold = 60;
-        const maxScrollSpeed = 15;
+        const maxScrollSpeed = 80;
         const scrollContainer = container.closest(".overflow-auto");
 
         if (scrollContainer) {
             const containerRect = scrollContainer.getBoundingClientRect();
+            const distFromTop = this.lastClientY - containerRect.top;
+            const distFromBottom = containerRect.bottom - this.lastClientY;
 
-            if (this.lastClientY < containerRect.top + scrollThreshold) {
-                const distance = this.lastClientY - containerRect.top;
-                this.currentScrollSpeed = -maxScrollSpeed * Math.max(0, (scrollThreshold - distance) / scrollThreshold);
-            } else if (this.lastClientY > containerRect.bottom - scrollThreshold) {
-                const distance = containerRect.bottom - this.lastClientY;
-                this.currentScrollSpeed = maxScrollSpeed * Math.max(0, (scrollThreshold - distance) / scrollThreshold);
+            if (distFromTop < scrollThreshold) {
+                const multiplier = Math.min(1, Math.max(0, (scrollThreshold - distFromTop) / scrollThreshold));
+                this.currentScrollSpeed = -maxScrollSpeed * multiplier;
+            } else if (distFromBottom < scrollThreshold) {
+                const multiplier = Math.min(1, Math.max(0, (scrollThreshold - distFromBottom) / scrollThreshold));
+                this.currentScrollSpeed = maxScrollSpeed * multiplier;
             } else {
                 this.currentScrollSpeed = 0;
             }
