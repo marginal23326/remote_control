@@ -269,11 +269,11 @@ function initializeStream(sessionId, socket) {
     });
 
     document.getElementById("streamBitrate").addEventListener("input", updateSliderLabels);
-    document.getElementById("streamBitrate").addEventListener("change", updateStreamSettings);
+    document.getElementById("streamBitrate").addEventListener("change", () => updateStreamSettings());
     document.getElementById("streamResolution").addEventListener("input", updateSliderLabels);
-    document.getElementById("streamResolution").addEventListener("change", updateStreamSettings);
+    document.getElementById("streamResolution").addEventListener("change", () => updateStreamSettings());
     document.getElementById("streamFPS").addEventListener("input", updateSliderLabels);
-    document.getElementById("streamFPS").addEventListener("change", updateStreamSettings);
+    document.getElementById("streamFPS").addEventListener("change", () => updateStreamSettings());
     document.getElementById("autoFpsButton").addEventListener("click", setAutoFPS);
 
     const fullscreenBtn = document.getElementById("fullscreenBtn");
