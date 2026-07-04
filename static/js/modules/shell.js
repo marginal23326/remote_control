@@ -84,21 +84,21 @@ export class InteractiveShell {
             this.updateTerminalSize();
         }, 100);
 
-        // Resize handling
-        const resizeObserver = new ResizeObserver(() => {
+        // Resize handling (debounced)
+        let resizeTimeout;
+        const handleResize = () => {
             if (this.isStarted) {
-                this.fitAddon.fit();
-                this.updateTerminalSize();
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    this.fitAddon.fit();
+                    this.updateTerminalSize();
+                }, 150);
             }
-        });
-        resizeObserver.observe(terminalElement);
+        };
 
-        window.addEventListener("resize", () => {
-            if (this.isStarted) {
-                this.fitAddon.fit();
-                this.updateTerminalSize();
-            }
-        });
+        const resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(terminalElement);
+        window.addEventListener("resize", handleResize);
 
         // Font size adjustment with Ctrl+Wheel
         terminalElement.addEventListener("wheel", (e) => {
