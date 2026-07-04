@@ -70,9 +70,9 @@ fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf
     if paths.is_empty() {
         return None;
     }
-    let mut common = paths[0].parent()?.to_path_buf();
+    let mut common = paths[0].parent().unwrap_or(&paths[0]).to_path_buf();
     for path in paths.iter().skip(1) {
-        let parent = path.parent()?;
+        let parent = path.parent().unwrap_or(path);
         let mut new_common = std::path::PathBuf::new();
         for (c, p) in common.components().zip(parent.components()) {
             if c == p {
