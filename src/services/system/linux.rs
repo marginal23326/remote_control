@@ -4,25 +4,31 @@ use tokio::process::Command;
 use super::OsSpecificInfo;
 
 pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
-    let disks = get_disk_labels();
-    let cpu_max_speed = if cpu_frequency > 0 {
-        format!("{:.2} GHz", cpu_frequency as f64 / 1000.0)
-    } else {
-        "N/A".to_string()
-    };
+    tokio::task::spawn_blocking(move || {
+        let disks = get_disk_labels();
+        let cpu_max_speed = if cpu_frequency > 0 {
+            format!("{:.2} GHz", cpu_frequency as f64 / 1000.0)
+        } else {
+            "N/A".to_string()
+        };
 
-    OsSpecificInfo {
-        os: linux_os_name(),
-        gpu: read_gpu_info(),
-        monitors: read_monitor_info(),
-        disks,
-        battery: read_battery_status(),
-        domain: "N/A".to_string(),
-        system_drive: "/".to_string(),
-        antivirus: "N/A".to_string(),
-        firewall: get_firewall_status().await,
-        cpu_max_speed,
-    }
+        let firewall = tokio::runtime::Handle::current().block_on(get_firewall_status());
+
+        OsSpecificInfo {
+            os: linux_os_name(),
+            gpu: read_gpu_info(),
+            monitors: read_monitor_info(),
+            disks,
+            battery: read_battery_status(),
+            domain: "N/A".to_string(),
+            system_drive: "/".to_string(),
+            antivirus: "N/A".to_string(),
+            firewall,
+            cpu_max_speed,
+        }
+    })
+    .await
+    .unwrap()
 }
 
 fn read_monitor_info() -> String {
