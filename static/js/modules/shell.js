@@ -222,6 +222,7 @@ export class InteractiveShell {
         this.terminal.attachCustomKeyEventHandler((event) => {
             if (event.type !== "keydown") return true;
 
+            // Clipboard handled natively by xterm via DOM events on the hidden textarea.
             if (event.ctrlKey && ((event.key === "c" && this.terminal.hasSelection()) || event.key === "v")) {
                 if (event.key === "c") {
                     setTimeout(() => this.terminal.clearSelection(), 0);

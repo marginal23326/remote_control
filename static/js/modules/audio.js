@@ -171,6 +171,7 @@ class AudioManager {
             this.streamActive[type] = true;
         } catch (error) {
             console.error(`Error starting ${type} audio:`, error);
+            this.streamActive[type] = true;
             await this.stopAudioStream(type);
             showNotification("Audio Error: " + error.message, "error");
         }
