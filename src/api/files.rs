@@ -196,8 +196,10 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
 
             if !dir_created {
                 if let Err(e) = tokio::fs::create_dir_all(dir_path).await {
-                    tracing::error!("Failed to create directory {}: {}", query.path, e);
-                    continue;
+                    return Err(AppError::BadRequest(format!(
+                        "Failed to create directory {}: {}",
+                        query.path, e
+                    )));
                 }
                 dir_created = true;
             }
