@@ -536,6 +536,14 @@ class UIManager {
                 this.contextMenu.hide();
             }
         });
+
+        window.addEventListener(
+            "scroll",
+            () => {
+                this.contextMenu.hide();
+            },
+            { capture: true, passive: true },
+        );
     }
 
     initializePreventDefaults() {
