@@ -36,9 +36,9 @@ From another device on the network:
 http://<server-ip>:5000
 ```
 
-## Local Network Audio (Secure Context Workaround)
+## Local Network Secure Context Workaround
 
-If you are accessing the Remote Control panel from another device on the local network using `http://<server-ip>:5000`, client-side audio capture will be blocked by default.
+If you are accessing the Remote Control panel from another device on the local network using `http://<server-ip>:5000`, browser features that require a Secure Context (such as client-side audio capture and clipboard share) will be blocked by default.
 
 ### Chromium-Based Browsers (Chrome, Helium, Brave)
 
