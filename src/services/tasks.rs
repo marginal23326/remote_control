@@ -121,6 +121,7 @@ impl TaskManager {
         self.refresh_sysinfo_if_needed();
 
         let sys = self.sys.read();
+        let num_cpus = sys.cpus().len().max(1) as f32;
         let mut result: Vec<ProcessDTO> = Vec::new();
 
         for (pid, proc_info) in sys.processes() {
@@ -132,7 +133,7 @@ impl TaskManager {
 
             let mut mem_mb = proc_info.memory() as f64 / 1024.0 / 1024.0;
 
-            let mut cpu = proc_info.cpu_usage();
+            let mut cpu = proc_info.cpu_usage() / num_cpus;
             if cpu.is_nan() {
                 cpu = 0.0;
             }
