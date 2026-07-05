@@ -502,7 +502,10 @@ class FileManager extends UIManager {
     }
 
     async handleDownload(paths) {
-        if (!paths || paths.length === 0) return;
+        if (!paths || paths.length === 0) {
+            showNotification("No files selected for download.", "warning");
+            return;
+        }
 
         let iframe = document.getElementById("global-download-iframe");
         if (!iframe) {
@@ -512,6 +515,18 @@ class FileManager extends UIManager {
             iframe.style.display = "none";
             document.body.appendChild(iframe);
         }
+
+        iframe.onload = () => {
+            try {
+                const text = iframe.contentDocument?.body?.textContent;
+                if (text) {
+                    const data = JSON.parse(text);
+                    if (data.status === "error") {
+                        showNotification(data.message || "Download failed.", "error");
+                    }
+                }
+            } catch {}
+        };
 
         const form = document.createElement("form");
         form.method = "POST";
