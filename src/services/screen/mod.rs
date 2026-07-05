@@ -570,13 +570,14 @@ impl ScreenManager {
             }
         });
 
+        let mut inner_guard = self.inner.lock();
         if !self.is_running.load(Ordering::SeqCst) {
             let _ = inner.pipeline.set_state(gst::State::Null);
             return Err(anyhow::anyhow!("Client disconnected during stream startup"));
         }
 
         inner.emit_handle = Some(emit_handle);
-        *self.inner.lock() = Some(inner);
+        *inner_guard = Some(inner);
 
         startup_guard.success = true;
 
