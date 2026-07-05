@@ -89,7 +89,7 @@ function initializeTaskManager(socket) {
                     ${process.name}
                 </td>
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.cpu_percent.toFixed(1)}%</td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.memory_usage.toFixed(1)} MB</td>
+                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.memory_usage.toFixed(2)} MB</td>
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-500">${process.pid}</td>
             `;
 

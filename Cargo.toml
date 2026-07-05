@@ -95,6 +95,7 @@ features = [
     "Win32_System_Wmi",
     "Win32_System_Ole",
     "Win32_System_Variant",
+    "Wdk_System_SystemInformation",
 ]
 
 # --- Linux Portal / PipeWire ---

@@ -3,6 +3,8 @@ use anyhow::{Result, anyhow};
 use parking_lot::Mutex;
 use parking_lot::RwLock;
 use serde::Serialize;
+#[cfg(target_os = "windows")]
+use std::collections::HashMap;
 use std::sync::Arc;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
@@ -72,6 +74,51 @@ impl CpuTracker {
     }
 }
 
+#[cfg(target_os = "windows")]
+unsafe fn get_all_private_working_sets() -> HashMap<u32, u64> {
+    use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
+
+    let mut required_len: u32 = 0;
+    unsafe {
+        let _ = NtQuerySystemInformation(SystemProcessInformation, std::ptr::null_mut(), 0, &mut required_len);
+    }
+
+    let alloc_size = (required_len as usize) + 4096;
+    let mut buffer: Vec<u8> = vec![0u8; alloc_size];
+
+    let status = unsafe {
+        NtQuerySystemInformation(
+            SystemProcessInformation,
+            buffer.as_mut_ptr() as *mut _,
+            buffer.len() as u32,
+            &mut required_len,
+        )
+    };
+
+    if !status.is_ok() {
+        return HashMap::new();
+    }
+
+    let mut map = HashMap::new();
+    let mut offset = 0usize;
+    loop {
+        if offset + 0x58 > buffer.len() {
+            break;
+        }
+        let next_offset = u32::from_ne_bytes(buffer[offset..offset + 4].try_into().unwrap()) as usize;
+        let pid = usize::from_ne_bytes(buffer[offset + 0x50..offset + 0x58].try_into().unwrap()) as u32;
+        let pws = i64::from_ne_bytes(buffer[offset + 0x08..offset + 0x10].try_into().unwrap());
+        if pws > 0 {
+            map.insert(pid, pws as u64);
+        }
+        if next_offset == 0 {
+            break;
+        }
+        offset += next_offset;
+    }
+    map
+}
+
 pub struct TaskManager {
     sys: Arc<RwLock<System>>,
     last_refresh: RwLock<std::time::Instant>,
@@ -120,6 +167,9 @@ impl TaskManager {
     pub fn get_processes(&self) -> Vec<ProcessDTO> {
         self.refresh_sysinfo_if_needed();
 
+        #[cfg(target_os = "windows")]
+        let pws_map = unsafe { get_all_private_working_sets() };
+
         let sys = self.sys.read();
         let num_cpus = sys.cpus().len().max(1) as f32;
         let mut result: Vec<ProcessDTO> = Vec::new();
@@ -131,7 +181,10 @@ impl TaskManager {
                 continue;
             }
 
+            #[cfg(not(target_os = "windows"))]
             let mut mem_mb = proc_info.memory() as f64 / 1024.0 / 1024.0;
+            #[cfg(target_os = "windows")]
+            let mut mem_mb = pws_map.get(&pid_u32).copied().unwrap_or(0) as f64 / 1024.0 / 1024.0;
 
             let mut cpu = proc_info.cpu_usage() / num_cpus;
             if cpu.is_nan() {
