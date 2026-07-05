@@ -331,6 +331,14 @@ function initializeStream(sessionId, socket) {
 
     ["pull", "push"].forEach((action) => {
         document.getElementById(`${action}ClipboardBtn`)?.addEventListener("click", async (e) => {
+            if (!navigator.clipboard) {
+                showNotification(
+                    "Clipboard sync requires a Secure Context (HTTPS or localhost). See the README for the Chrome flag workaround.",
+                    "error",
+                );
+                return;
+            }
+
             const loader = new LoadingButton(e.currentTarget, "").startLoading();
             try {
                 if (action === "pull") {
