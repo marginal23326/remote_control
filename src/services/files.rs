@@ -121,6 +121,11 @@ impl FileManager {
         let old_path = Path::new(old);
         let parent = old_path.parent().ok_or_else(|| anyhow!("Invalid path"))?;
         let new_path = parent.join(new_name);
+
+        if new_path.exists() {
+            return Err(anyhow!("A file or folder with that name already exists"));
+        }
+
         fs::rename(old_path, new_path)?;
         Ok(())
     }
