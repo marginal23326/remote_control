@@ -310,13 +310,23 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
     }
 
     let paths_clone = paths.clone();
-    let files_to_zip = tokio::task::spawn_blocking(move || {
+    let (files_to_zip, skipped) = tokio::task::spawn_blocking(move || -> Result<_, anyhow::Error> {
         let mut collected = Vec::new();
+        let mut skipped = Vec::new();
         let path_bufs: Vec<std::path::PathBuf> = paths_clone.iter().map(std::path::PathBuf::from).collect();
         let common_parent = find_common_parent(&path_bufs);
 
         for root_path in path_bufs {
-            for entry in walkdir::WalkDir::new(&root_path).into_iter().filter_map(|e| e.ok()) {
+            for entry in walkdir::WalkDir::new(&root_path) {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(e) => {
+                        if let Some(path) = e.path() {
+                            skipped.push(path.to_string_lossy().into_owned());
+                        }
+                        continue;
+                    }
+                };
                 let path = entry.path();
                 if path.is_file() {
                     let zip_path_name = common_parent
@@ -336,15 +346,32 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
                 }
             }
         }
-        collected
+        Ok((collected, skipped))
     })
     .await
-    .map_err(|e| anyhow!("Task failed: {}", e))?;
+    .map_err(|e| anyhow!("Task failed: {}", e))??;
+
+    if files_to_zip.is_empty() {
+        return Err(AppError::BadRequest(
+            "None of the selected items could be read".to_string(),
+        ));
+    }
 
     let (w, r) = duplex(1024 * 1024);
 
     tokio::spawn(async move {
         let mut writer = ZipFileWriter::with_tokio(w);
+
+        if !skipped.is_empty() {
+            let header = "The following paths could not be read and were excluded from the archive:\n\n";
+            let content = format!("{}{}", header, skipped.join("\n"));
+            let entry = ZipEntryBuilder::new("_skipped.txt".into(), Compression::Stored);
+            if let Ok(entry_writer) = writer.write_entry_stream(entry).await {
+                let mut compat_writer = entry_writer.compat_write();
+                let _ = tokio::io::copy(&mut content.as_bytes(), &mut compat_writer).await;
+                let _ = compat_writer.into_inner().close().await;
+            }
+        }
 
         for (fs_path, zip_path, last_modified) in files_to_zip {
             if let Ok(mut f) = tokio::fs::File::open(&fs_path).await {
