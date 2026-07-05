@@ -29,28 +29,45 @@ function initializeInputHandlers(socket) {
         });
     }
 
-    const keyboardCaptureBtn = document.getElementById("keyboardCaptureBtn");
     let isKeyboardCaptureActive = false;
+    let isMouseCaptureActive = false;
 
-    if (keyboardCaptureBtn) {
-        keyboardCaptureBtn.addEventListener("click", () => {
-            isKeyboardCaptureActive = !isKeyboardCaptureActive;
+    function updateCaptureUI() {
+        const anyActive = isKeyboardCaptureActive || isMouseCaptureActive;
+        const container = document.getElementById("streamContainer");
 
-            keyboardCaptureBtn.classList.toggle("bg-zinc-800", isKeyboardCaptureActive);
-            keyboardCaptureBtn.classList.toggle("text-zinc-100", isKeyboardCaptureActive);
-            keyboardCaptureBtn.classList.toggle("text-zinc-400", !isKeyboardCaptureActive);
+        if (container) {
+            container.classList.toggle("ring-2", anyActive);
+            container.classList.toggle("ring-zinc-300/80", anyActive);
+            container.classList.toggle("border-zinc-400/60", anyActive);
+            container.classList.toggle("border-zinc-800", !anyActive);
+        }
 
-            const container = document.getElementById("streamContainer");
-            if (container) {
-                container.classList.toggle("ring-2", isKeyboardCaptureActive);
-                container.classList.toggle("ring-zinc-500/50", isKeyboardCaptureActive);
-                container.classList.toggle("border-zinc-500/30", isKeyboardCaptureActive);
-                container.classList.toggle("border-zinc-800", !isKeyboardCaptureActive);
-            }
+        const toggleBtn = (id, active) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.classList.toggle("bg-zinc-200", active);
+            btn.classList.toggle("text-zinc-900", active);
+            btn.classList.toggle("hover:bg-zinc-800", !active);
+            btn.classList.toggle("hover:text-zinc-100", !active);
+            btn.classList.toggle("text-zinc-400", !active);
+        };
 
-            keyboardCaptureBtn.blur();
-        });
+        toggleBtn("keyboardCaptureBtn", isKeyboardCaptureActive);
+        toggleBtn("mouseCaptureBtn", isMouseCaptureActive);
     }
+
+    document.getElementById("keyboardCaptureBtn")?.addEventListener("click", (e) => {
+        isKeyboardCaptureActive = !isKeyboardCaptureActive;
+        updateCaptureUI();
+        e.currentTarget.blur();
+    });
+
+    document.getElementById("mouseCaptureBtn")?.addEventListener("click", (e) => {
+        isMouseCaptureActive = !isMouseCaptureActive;
+        updateCaptureUI();
+        e.currentTarget.blur();
+    });
 
     // Helper to collect currently active modifiers if sticky mode is enabled
     function getActiveModifiers() {
@@ -256,7 +273,6 @@ function initializeInputHandlers(socket) {
 
     // 5. Mouse Event Handlers
     let touchStarted = false;
-    let isCtrlPressed = false;
     let initialTouchY = null;
     let isScrolling = false;
     let isDragging = false;
@@ -289,8 +305,6 @@ function initializeInputHandlers(socket) {
     document.addEventListener(
         "keydown",
         (event) => {
-            if (event.key === "Control") isCtrlPressed = true;
-
             if (isKeyboardCaptureActive) {
                 if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
 
@@ -312,8 +326,6 @@ function initializeInputHandlers(socket) {
     document.addEventListener(
         "keyup",
         (event) => {
-            if (event.key === "Control") isCtrlPressed = false;
-
             if (isKeyboardCaptureActive) {
                 if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
 
@@ -331,7 +343,6 @@ function initializeInputHandlers(socket) {
     );
 
     window.addEventListener("blur", () => {
-        isCtrlPressed = false;
         isDragging = false;
 
         heldKeys.forEach((key) => emitKeyboardEvent("keyUp", { key }));
@@ -405,7 +416,7 @@ function initializeInputHandlers(socket) {
 
         streamUI.view.addEventListener("mousemove", (event) => {
             event.preventDefault();
-            if (isDragging || isCtrlPressed) {
+            if (isDragging || isMouseCaptureActive) {
                 sendMouseEvent("move", event);
             }
         });
