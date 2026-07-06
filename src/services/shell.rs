@@ -1,15 +1,19 @@
 use anyhow::Result;
+use parking_lot::Mutex;
 use portable_pty::{ChildKiller, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use serde_json::json;
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 pub struct ShellSession {
     pub master: Box<dyn MasterPty + Send>,
     pub input_tx: std::sync::mpsc::Sender<String>,
     pub killer: Box<dyn ChildKiller + Send + Sync>,
+    pub active: Arc<AtomicBool>,
 }
 
 impl Drop for ShellSession {
@@ -18,18 +22,26 @@ impl Drop for ShellSession {
     }
 }
 
+#[derive(Clone)]
 pub struct ShellManager {
-    sessions: HashMap<String, ShellSession>,
+    sessions: Arc<Mutex<HashMap<String, ShellSession>>>,
 }
 
 impl ShellManager {
     pub fn new() -> Self {
         Self {
-            sessions: HashMap::new(),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    pub fn create_session(session_id: String, cols: u16, rows: u16, socket: SocketRef) -> Result<ShellSession> {
+    pub fn create_session(
+        &self,
+        socket_id: &str,
+        session_id: &str,
+        cols: u16,
+        rows: u16,
+        socket: SocketRef,
+    ) -> Result<ShellSession> {
         let size = PtySize {
             rows,
             cols,
@@ -42,10 +54,9 @@ impl ShellManager {
         let mut child = pair.slave.spawn_command(cmd)?;
         let killer = child.clone_killer();
 
-        // 3. Clone the reader to move into a background thread
         let mut reader = pair.master.try_clone_reader()?;
         let socket_clone = socket.clone();
-        let sid = session_id.clone();
+        let sid = session_id.to_string();
 
         thread::spawn(move || {
             let mut buffer = [0u8; 1024];
@@ -90,17 +101,27 @@ impl ShellManager {
             }
         });
 
-        let sid_wait = session_id.clone();
+        let sid_wait = session_id.to_string();
+        let socket_id_wait = socket_id.to_string();
         let socket_wait = socket.clone();
+        let sessions_for_wait = self.sessions.clone();
+        let active = Arc::new(AtomicBool::new(true));
+        let active_for_wait = active.clone();
         thread::spawn(move || {
             let _ = child.wait();
             let _ = socket_wait.emit(
                 "shell_output",
                 &json!({ "session_id": sid_wait, "output": "\r\n\x1b[33m[Process Terminated]\x1b[0m\r\n" }),
             );
+
+            if active_for_wait.load(Ordering::Acquire) {
+                let removed = sessions_for_wait.lock().remove(&socket_id_wait);
+                if let Some(session) = removed {
+                    thread::spawn(move || drop(session));
+                }
+            }
         });
 
-        // 5. Set up input channel and dedicated background writer thread
         let mut writer = pair.master.take_writer()?;
         let (input_tx, input_rx) = std::sync::mpsc::channel::<String>();
 
@@ -117,22 +138,27 @@ impl ShellManager {
             master: pair.master,
             input_tx,
             killer,
+            active,
         })
     }
 
-    pub fn add_session(&mut self, session_id: String, session: ShellSession) {
-        self.sessions.insert(session_id, session);
+    pub fn add_session(&self, session_id: String, session: ShellSession) {
+        let replaced = self.sessions.lock().insert(session_id, session);
+        if let Some(old_session) = replaced {
+            old_session.active.store(false, Ordering::Release);
+            std::thread::spawn(move || drop(old_session));
+        }
     }
 
-    pub fn write_to_shell(&mut self, session_id: &str, data: &str) -> Result<()> {
-        if let Some(session) = self.sessions.get_mut(session_id) {
+    pub fn write_to_shell(&self, session_id: &str, data: &str) -> Result<()> {
+        if let Some(session) = self.sessions.lock().get_mut(session_id) {
             let _ = session.input_tx.send(data.to_string());
         }
         Ok(())
     }
 
-    pub fn resize_shell(&mut self, session_id: &str, cols: u16, rows: u16) -> Result<()> {
-        if let Some(session) = self.sessions.get_mut(session_id) {
+    pub fn resize_shell(&self, session_id: &str, cols: u16, rows: u16) -> Result<()> {
+        if let Some(session) = self.sessions.lock().get_mut(session_id) {
             session.master.resize(PtySize {
                 rows,
                 cols,
@@ -143,9 +169,10 @@ impl ShellManager {
         Ok(())
     }
 
-    // Clean up session
-    pub fn close_session(&mut self, session_id: &str) {
-        if let Some(session) = self.sessions.remove(session_id) {
+    pub fn close_session(&self, session_id: &str) {
+        let removed = self.sessions.lock().remove(session_id);
+        if let Some(session) = removed {
+            session.active.store(false, Ordering::Release);
             std::thread::spawn(move || {
                 drop(session);
             });

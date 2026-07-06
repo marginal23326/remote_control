@@ -4,7 +4,7 @@ use crate::services::input::InputManager;
 use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
 use crate::services::tasks::TaskManager;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use std::sync::Arc;
 use sysinfo::{Networks, System};
 use tokio::sync::OnceCell;
@@ -17,7 +17,7 @@ pub struct AppState {
     pub sys: Arc<RwLock<System>>,
     pub networks: Arc<RwLock<Networks>>,
     pub input: InputManager,
-    pub shell: Arc<Mutex<ShellManager>>,
+    pub shell: ShellManager,
     pub screen: Arc<ScreenManager>,
     pub tasks: Arc<TaskManager>,
     pub audio: Arc<AudioManager>,
@@ -43,7 +43,7 @@ impl AppState {
             sys: sys_shared,
             networks: Arc::new(RwLock::new(networks)),
             input,
-            shell: Arc::new(Mutex::new(shell)),
+            shell,
             screen: Arc::new(screen),
             tasks: Arc::new(tasks),
             audio: Arc::new(audio),
