@@ -31,6 +31,7 @@ pub enum KeyboardEvent {
 pub struct ShellCreateEvent {
     pub cols: u16,
     pub rows: u16,
+    pub session_id: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -88,7 +89,7 @@ pub async fn handle_shell_create(
 
     state.shell.lock().close_session(&socket_id);
 
-    let session_id = uuid::Uuid::new_v4().to_string();
+    let session_id = data.session_id;
     let sid = session_id.clone();
     let socket_clone = socket.clone();
     let cols = data.cols;

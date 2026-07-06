@@ -269,8 +269,8 @@ export class InteractiveShell {
 
     createShellSession() {
         const { cols, rows } = this.terminal;
-        // Emit event instead of API call
-        this.socket.emit("shell_create", { cols, rows });
+        this.sessionId = Math.random().toString(36).substring(2);
+        this.socket.emit("shell_create", { cols, rows, session_id: this.sessionId });
     }
 
     updateTerminalSize() {
