@@ -79,10 +79,15 @@ class FileManager extends UIManager {
                 }
             });
 
+            this.lastContainerHeight = this.elements.scrollContainer?.clientHeight || 0;
             this.resizeObserver = new ResizeObserver(() => {
                 if (this.filteredList.length > 0) {
-                    this.rowHeightNeedsUpdate = true;
-                    window.requestAnimationFrame(() => this.renderViewport(true));
+                    const newHeight = this.elements.scrollContainer.clientHeight || 0;
+                    if (newHeight !== this.lastContainerHeight) {
+                        this.lastContainerHeight = newHeight;
+                        this.rowHeightNeedsUpdate = true;
+                        window.requestAnimationFrame(() => this.renderViewport(true));
+                    }
                 }
             });
             this.resizeObserver.observe(this.elements.scrollContainer);
