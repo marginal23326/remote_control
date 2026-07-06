@@ -82,21 +82,22 @@ pub async fn handle_shell_create(
 ) {
     let socket_id = socket.id.to_string();
 
-    if socket.extensions.get::<ShellPendingMarker>().is_some() {
+    if socket.extensions.insert(ShellPendingMarker).is_some() {
         return;
     }
-    socket.extensions.insert(ShellPendingMarker);
 
-    state.shell.lock().close_session(&socket_id);
+    state.shell.close_session(&socket_id);
 
     let session_id = data.session_id;
     let sid = session_id.clone();
     let socket_clone = socket.clone();
     let cols = data.cols;
     let rows = data.rows;
+    let shell_manager = state.shell.clone();
+    let socket_id_for_create = socket_id.clone();
 
     let session_result = tokio::task::spawn_blocking(move || {
-        crate::services::shell::ShellManager::create_session(sid, cols, rows, socket_clone)
+        shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, socket_clone)
     })
     .await;
 
@@ -105,7 +106,7 @@ pub async fn handle_shell_create(
     match session_result {
         Ok(Ok(session)) => {
             if socket.connected() {
-                state.shell.lock().add_session(socket_id, session);
+                state.shell.add_session(socket_id, session);
                 let _ = socket.emit(
                     "shell_created",
                     &json!({ "status": "success", "session_id": session_id }),
@@ -127,8 +128,7 @@ pub async fn handle_shell_input(
     Data(data): Data<ShellInputEvent>,
     State(state): State<SharedState>,
 ) {
-    let mut shell_manager = state.shell.lock();
-    if let Err(e) = shell_manager.write_to_shell(&socket.id.to_string(), &data.command) {
+    if let Err(e) = state.shell.write_to_shell(&socket.id.to_string(), &data.command) {
         tracing::error!("Shell write error: {}", e);
     }
 }
@@ -138,8 +138,7 @@ pub async fn handle_shell_resize(
     Data(data): Data<ShellResizeEvent>,
     State(state): State<SharedState>,
 ) {
-    let mut shell_manager = state.shell.lock();
-    if let Err(e) = shell_manager.resize_shell(&socket.id.to_string(), data.cols, data.rows) {
+    if let Err(e) = state.shell.resize_shell(&socket.id.to_string(), data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
     }
 }
@@ -149,7 +148,7 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
         ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
     }
 
-    state.shell.lock().close_session(&socket.id.to_string());
+    state.shell.close_session(&socket.id.to_string());
 
     let socket_id = socket.id.to_string();
     let was_screen_owner = state.screen.disconnect_if_owner(&socket_id);
