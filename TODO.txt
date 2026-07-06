@@ -1,0 +1,26 @@
+audio:
+- rename to 'system sound'
+- get actual microphone list from server
+- only show start button; show stop button only if already started; if another option is selected from dropdown, show start again
+
+stream:
+- view camera option
+- option to not capture remote cursor
+- only show start button; show stop button only if already started
+
+task:
+- add search
+- show how many selected items
+- use consistent name for killing processes
+
+terminal:
+- option to select other shell
+- option to end current session
+
+toast:
+- fix overflow with long text
+
+file:
+- better error message when deleting one item
+- show how many selected items
+- cancel option during uploading
