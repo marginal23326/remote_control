@@ -1,6 +1,7 @@
+use bytes::Bytes;
 use parking_lot::Mutex;
 use std::sync::{
-    Arc,
+    Arc, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
@@ -206,10 +207,50 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
     }
 }
 
-pub(crate) async fn take_screenshot() -> anyhow::Result<(Vec<u8>, &'static str)> {
+type CachedScreenshot = (Bytes, u32, u32);
+
+static LAST_SCREENSHOT: OnceLock<Mutex<Option<CachedScreenshot>>> = OnceLock::new();
+
+fn last_screenshot_cache() -> &'static Mutex<Option<CachedScreenshot>> {
+    LAST_SCREENSHOT.get_or_init(|| Mutex::new(None))
+}
+
+fn try_capture_frame(
+    dup: &mut windows_capture::dxgi_duplication_api::DxgiDuplicationApi,
+) -> anyhow::Result<Option<CachedScreenshot>> {
+    use windows_capture::dxgi_duplication_api::Error as DupError;
+    use windows_capture::encoder::{ImageEncoder, ImageEncoderPixelFormat, ImageFormat};
+
+    let mut frame = match dup.acquire_next_frame(1_000) {
+        Ok(frame) => frame,
+        Err(DupError::Timeout) => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+
+    if frame.frame_info().LastPresentTime == 0 {
+        frame = match dup.acquire_next_frame(1_000) {
+            Ok(frame) => frame,
+            Err(DupError::Timeout) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+    }
+
+    let buf = frame.buffer()?;
+    let (width, height) = (buf.width(), buf.height());
+
+    let mut scratch = Vec::new();
+    let packed = buf.as_nopadding_buffer(&mut scratch);
+
+    let png_bytes: Bytes = ImageEncoder::new(ImageFormat::Png, ImageEncoderPixelFormat::Bgra8)?
+        .encode(packed, width, height)?
+        .into();
+
+    Ok(Some((png_bytes, width, height)))
+}
+
+pub(crate) async fn take_screenshot() -> anyhow::Result<(Bytes, &'static str)> {
     tokio::task::spawn_blocking(|| {
         use windows_capture::dxgi_duplication_api::DxgiDuplicationApi;
-        use windows_capture::encoder::{ImageEncoder, ImageEncoderPixelFormat, ImageFormat};
         use windows_capture::monitor::Monitor;
 
         let monitor = Monitor::primary()?;
@@ -227,24 +268,29 @@ pub(crate) async fn take_screenshot() -> anyhow::Result<(Vec<u8>, &'static str)>
             Err(e) => return Err(e.into()),
         };
 
-        let mut frame = dup.acquire_next_frame(100)?;
+        match try_capture_frame(&mut dup)? {
+            Some((png_bytes, width, height)) => {
+                *last_screenshot_cache().lock() = Some((png_bytes.clone(), width, height));
+                Ok((png_bytes, "image/png"))
+            }
+            None => {
+                let (dup_width, dup_height) = (dup.width(), dup.height());
+                let cached = last_screenshot_cache()
+                    .lock()
+                    .clone()
+                    .filter(|(_, w, h)| *w == dup_width && *h == dup_height);
 
-        if frame.frame_info().LastPresentTime == 0 {
-            frame = dup.acquire_next_frame(100)?;
+                match cached {
+                    Some((png_bytes, _, _)) => {
+                        tracing::debug!("Screen appears static; serving the last captured screenshot");
+                        Ok((png_bytes, "image/png"))
+                    }
+                    None => anyhow::bail!(
+                        "Timed out waiting for a screen update; try again after interacting with the screen."
+                    ),
+                }
+            }
         }
-
-        let buf = frame.buffer()?;
-
-        let mut scratch = Vec::new();
-        let packed = buf.as_nopadding_buffer(&mut scratch);
-
-        let png_bytes = ImageEncoder::new(ImageFormat::Png, ImageEncoderPixelFormat::Bgra8)?.encode(
-            packed,
-            buf.width(),
-            buf.height(),
-        )?;
-
-        Ok((png_bytes, "image/png"))
     })
     .await?
 }
