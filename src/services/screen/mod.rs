@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
+use bytes::Bytes;
 use crossbeam_channel::{Sender, bounded};
 
 use gst::prelude::*;
@@ -863,7 +864,7 @@ mod windows;
 #[allow(unused_imports)]
 use windows::{get_active_window_title, get_display_native_size, get_max_fps, start_os_capture};
 
-pub async fn take_screenshot() -> anyhow::Result<(Vec<u8>, &'static str)> {
+pub async fn take_screenshot() -> anyhow::Result<(Bytes, &'static str)> {
     #[cfg(windows)]
     {
         windows::take_screenshot().await

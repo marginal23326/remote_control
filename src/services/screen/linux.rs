@@ -19,6 +19,7 @@ use ashpd::desktop::{
     screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream},
 };
 use ashpd::enumflags2::BitFlags;
+use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
 use futures_util::StreamExt;
 use pipewire as pw;
@@ -622,7 +623,7 @@ fn write_restore_token(token: &str) {
     }
 }
 
-pub(crate) async fn take_screenshot() -> Result<(Vec<u8>, &'static str)> {
+pub(crate) async fn take_screenshot() -> Result<(Bytes, &'static str)> {
     let response = ashpd::desktop::screenshot::Screenshot::request()
         .interactive(false)
         .send()
@@ -635,5 +636,5 @@ pub(crate) async fn take_screenshot() -> Result<(Vec<u8>, &'static str)> {
     let data = tokio::fs::read(&path).await?;
     let _ = tokio::fs::remove_file(&path).await;
 
-    Ok((data, "image/png"))
+    Ok((data.into(), "image/png"))
 }
