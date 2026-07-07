@@ -156,7 +156,18 @@ export class InteractiveShell {
             }
         });
 
-        restartButton.addEventListener("click", () => this.restartShell());
+        restartButton.addEventListener("click", (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            btn.classList.add("opacity-50", "cursor-not-allowed");
+
+            this.restartShell();
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.classList.remove("opacity-50", "cursor-not-allowed");
+            }, 1500);
+        });
 
         // --- Socket Events ---
 
