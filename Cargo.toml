@@ -35,6 +35,7 @@ arboard = { version = "3.6", default-features = false, features = ["wayland-data
 minreq = { version = "3", features = ["https-native-tls", "json-using-serde"] }
 
 # --- Security (Auth) ---
+cookie = { version = "0.18", default-features = false }
 hmac = "0.13"
 sha2 = "0.11"
 
