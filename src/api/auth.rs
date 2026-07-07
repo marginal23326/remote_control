@@ -9,9 +9,11 @@ use axum::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use cookie::{Cookie, SameSite};
 use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use time::Duration;
 
 fn verify_password(password: &str, stored: &str) -> bool {
     let Some((salt_b64, hash_b64)) = stored.split_once(':') else {
@@ -57,8 +59,12 @@ pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json
         let token = create_jwt(&claims, &config.jwt_secret)?;
 
         let mut headers = HeaderMap::new();
-        let cookie_value = format!("auth_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400", token);
-        headers.insert(header::SET_COOKIE, cookie_value.parse().unwrap());
+        let cookie = Cookie::build(("auth_token", token))
+            .path("/")
+            .http_only(true)
+            .same_site(SameSite::Strict)
+            .max_age(Duration::hours(24));
+        headers.insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
 
         Ok((headers, Json(json!({"status": "success"}))).into_response())
     } else {
@@ -68,11 +74,7 @@ pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json
 
 pub async fn logout_handler() -> Response {
     let mut headers = HeaderMap::new();
-    headers.insert(
-        header::SET_COOKIE,
-        "auth_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
-            .parse()
-            .unwrap(),
-    );
+    let cookie = Cookie::build(("auth_token", "")).path("/").max_age(Duration::ZERO);
+    headers.insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     (headers, Json(json!({"status": "logged_out"}))).into_response()
 }
