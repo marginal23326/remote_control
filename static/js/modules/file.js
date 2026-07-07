@@ -133,25 +133,64 @@ class FileManager extends UIManager {
         Array.from(files).forEach((file) => formData.append("files", file));
 
         if (isDropZone) this.dropZone.setLoading();
+
         const uploadLabel = document.querySelector('label[for="fileUpload"] span');
-        if (uploadLabel) uploadLabel.textContent = "Uploading...";
+        if (uploadLabel) uploadLabel.textContent = "Uploading... 0%";
 
         try {
             const encodedPath = encodeURIComponent(this.currentPath);
-            await this.handleApiCall(`/api/upload?path=${encodedPath}`, "POST", formData, async (res) => {
-                if (res.count !== files.length) {
-                    showNotification(
-                        `Only ${res.count} of ${files.length} files were uploaded successfully.`,
-                        "warning",
-                    );
-                }
-                const lastFile = files[files.length - 1].name;
-                const scrollToPath = this.joinPath(this.currentPath, lastFile);
-                await this.listFiles(this.currentPath, scrollToPath);
+
+            const response = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("POST", `/api/upload?path=${encodedPath}`, true);
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        if (uploadLabel) uploadLabel.textContent = `Uploading... ${pct}%`;
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status === 401) {
+                        window.location.href = "/login";
+                        return reject(new Error("Unauthorized"));
+                    }
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(data);
+                        } else {
+                            reject(new Error(data.message || `Upload failed: ${xhr.status}`));
+                        }
+                    } catch {
+                        reject(new Error(`HTTP error! status: ${xhr.status}`));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error("Network Error"));
+                xhr.send(formData);
             });
+
+            if (response.message) showNotification(response.message, "info");
+
+            if (response.count !== files.length) {
+                showNotification(
+                    `Only ${response.count} of ${files.length} files were uploaded successfully.`,
+                    "warning",
+                );
+            }
+
+            const lastFile = files[files.length - 1].name;
+            const scrollToPath = this.joinPath(this.currentPath, lastFile);
+            await this.listFiles(this.currentPath, scrollToPath);
+        } catch (error) {
+            console.error(`Error in upload:`, error);
+            showNotification(`Error: ${error.message}`, "error");
         } finally {
             if (isDropZone) this.dropZone.reset();
             if (uploadLabel) uploadLabel.textContent = "Upload";
+
             const fileInput = document.getElementById("fileUpload");
             if (fileInput) fileInput.value = "";
         }
