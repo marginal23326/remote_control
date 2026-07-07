@@ -94,13 +94,13 @@ impl ConfigManager {
 
     fn prompt_password() -> Result<String> {
         loop {
-            let p1 = Self::prompt_input("Enter password: ")?;
+            let p1 = rpassword::prompt_password("Enter password: ")?;
             if p1.is_empty() {
                 println!("Password cannot be empty.");
                 continue;
             }
 
-            let p2 = Self::prompt_input("Confirm password: ")?;
+            let p2 = rpassword::prompt_password("Confirm password: ")?;
 
             if p1 == p2 {
                 return Ok(p1);
