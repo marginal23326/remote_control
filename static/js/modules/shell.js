@@ -4,11 +4,24 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { SVG_TEMPLATES } from "./utils.js";
 
+const SHELL_LABELS = {
+    bash: "Bash",
+    zsh: "Zsh",
+    fish: "Fish",
+    sh: "sh",
+    dash: "Dash",
+    ksh: "Ksh",
+    "cmd.exe": "Command Prompt",
+    "pwsh.exe": "PowerShell",
+    "powershell.exe": "Windows PowerShell",
+    "bash.exe": "Git Bash",
+};
+
 export class InteractiveShell {
     constructor(containerId, socket) {
         this.container = document.getElementById(containerId);
         this.sessionId = null;
-        this.socket = socket; // Use the shared socket instance
+        this.socket = socket;
         this.isStarted = false;
 
         this.terminal = new Terminal({
@@ -137,6 +150,7 @@ export class InteractiveShell {
         const terminalContainer = document.getElementById("terminalContainer");
         const textModeBtn = document.getElementById("shellTextModeBtn");
         const closeTextBtn = document.getElementById("shellCloseTextBtn");
+        this.shellTypeSelect = document.getElementById("shellTypeSelect");
 
         if (textModeBtn) {
             textModeBtn.addEventListener("click", () => this.toggleTextMode());
@@ -171,6 +185,8 @@ export class InteractiveShell {
 
         // --- Socket Events ---
 
+        this.socket.on("available_shells", (data) => this.populateShellOptions(data.shells || [], data.default));
+
         // 1. Success: Shell Created
         this.socket.on("shell_created", (data) => {
             if (data.status === "success") {
@@ -179,6 +195,7 @@ export class InteractiveShell {
 
                 startButton.classList.add("hidden");
                 restartButton.classList.remove("hidden");
+                if (this.shellTypeSelect) this.shellTypeSelect.disabled = true;
 
                 this.fitAddon.fit();
                 this.updateTerminalSize();
@@ -190,6 +207,7 @@ export class InteractiveShell {
         this.socket.on("shell_error", (data) => {
             this.terminal.writeln(`\r\n\x1b[31mError: ${data.message}\x1b[0m`);
             this.isStarted = false;
+            if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
         });
 
         // --- Handle Network Drops ---
@@ -202,10 +220,13 @@ export class InteractiveShell {
                 this.sessionId = null;
 
                 this.terminal.writeln("\r\n\x1b[33m[Connection lost]\x1b[0m\r\n");
+                if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
             }
         });
 
         this.socket.on("connect", () => {
+            this.requestAvailableShells();
+
             if (wasStarted) {
                 wasStarted = false;
                 this.terminal.writeln("\r\n\x1b[32m[Reconnected]\x1b[0m\r\n");
@@ -275,13 +296,39 @@ export class InteractiveShell {
         if (!this.isStarted) return;
         this.sessionId = null;
         this.terminal.clear();
+        if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
         this.createShellSession();
+    }
+
+    requestAvailableShells() {
+        this.socket.emit("list_shells");
+    }
+
+    populateShellOptions(shells, defaultShell) {
+        if (!this.shellTypeSelect) return;
+
+        const previous = this.shellTypeSelect.value;
+        this.shellTypeSelect.replaceChildren();
+
+        shells.forEach((shell) => {
+            const option = document.createElement("option");
+            option.value = shell;
+            option.textContent = SHELL_LABELS[shell] || shell;
+            this.shellTypeSelect.appendChild(option);
+        });
+
+        if (shells.includes(previous)) {
+            this.shellTypeSelect.value = previous;
+        } else if (defaultShell) {
+            this.shellTypeSelect.value = defaultShell;
+        }
     }
 
     createShellSession() {
         const { cols, rows } = this.terminal;
         this.sessionId = Math.random().toString(36).substring(2);
-        this.socket.emit("shell_create", { cols, rows, session_id: this.sessionId });
+        const shell = this.shellTypeSelect && this.shellTypeSelect.value ? this.shellTypeSelect.value : undefined;
+        this.socket.emit("shell_create", { cols, rows, session_id: this.sessionId, shell });
     }
 
     updateTerminalSize() {

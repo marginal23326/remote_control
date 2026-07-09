@@ -40,6 +40,7 @@ impl ShellManager {
         session_id: &str,
         cols: u16,
         rows: u16,
+        shell: Option<&str>,
         socket: SocketRef,
     ) -> Result<ShellSession> {
         let size = PtySize {
@@ -50,7 +51,7 @@ impl ShellManager {
         };
         let pair = NativePtySystem::default().openpty(size)?;
 
-        let cmd = CommandBuilder::new(default_shell());
+        let cmd = CommandBuilder::new(resolve_shell(shell));
         let mut child = pair.slave.spawn_command(cmd)?;
         let killer = child.clone_killer();
 
@@ -178,6 +179,19 @@ impl ShellManager {
             });
         }
     }
+
+    pub fn list_available_shells(&self) -> (Vec<String>, String) {
+        let shells = detect_available_shells();
+        let default = default_shell_id();
+
+        let default = if shells.iter().any(|s| s.eq_ignore_ascii_case(&default)) {
+            default
+        } else {
+            shells.first().cloned().unwrap_or(default)
+        };
+
+        (shells, default)
+    }
 }
 
 fn default_shell() -> String {
@@ -190,4 +204,67 @@ fn default_shell() -> String {
     {
         std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
     }
+}
+
+fn default_shell_id() -> String {
+    let default = default_shell();
+
+    let name = std::path::Path::new(&default)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&default);
+
+    if let Some(matched) = ALLOWED_SHELLS.iter().find(|s| s.eq_ignore_ascii_case(name)) {
+        matched.to_string()
+    } else {
+        name.to_string()
+    }
+}
+
+#[cfg(windows)]
+const ALLOWED_SHELLS: &[&str] = &["cmd.exe", "pwsh.exe", "powershell.exe", "bash.exe"];
+
+#[cfg(target_os = "linux")]
+const ALLOWED_SHELLS: &[&str] = &["bash", "zsh", "fish", "sh", "dash", "ksh"];
+
+fn resolve_shell(requested: Option<&str>) -> String {
+    match requested.map(str::trim) {
+        Some(name) if ALLOWED_SHELLS.iter().any(|s| s.eq_ignore_ascii_case(name)) => name.to_string(),
+        _ => default_shell(),
+    }
+}
+
+fn exists_in_path(name: &str) -> bool {
+    let Some(path_var) = std::env::var_os("PATH") else {
+        return false;
+    };
+
+    std::env::split_paths(&path_var).any(|dir| {
+        let candidate = dir.join(name);
+        if !candidate.is_file() {
+            return false;
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            candidate
+                .metadata()
+                .map(|m| m.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false)
+        }
+
+        #[cfg(not(unix))]
+        {
+            true
+        }
+    })
+}
+
+pub fn detect_available_shells() -> Vec<String> {
+    ALLOWED_SHELLS
+        .iter()
+        .filter(|name| exists_in_path(name))
+        .map(|s| s.to_string())
+        .collect()
 }
