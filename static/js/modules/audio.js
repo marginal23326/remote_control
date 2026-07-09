@@ -97,6 +97,7 @@ class AudioManager {
 
             if (this.streamActive[type]) {
                 if (!settingsChanged) {
+                    this.updateAudioToggleButton(type);
                     return;
                 }
                 await this.stopAudioStream(type, true);
@@ -168,6 +169,7 @@ class AudioManager {
 
             this.socket.emit(`start_${type}_audio`, targetSettings);
             this.streamActive[type] = true;
+            this.updateAudioToggleButton(type);
         } catch (error) {
             console.error(`Error starting ${type} audio:`, error);
             this.streamActive[type] = true;
@@ -220,6 +222,19 @@ class AudioManager {
         if ([...select.options].some((option) => option.value === previousValue)) {
             select.value = previousValue;
         }
+    }
+
+    updateAudioToggleButton(type, active = this.streamActive[type]) {
+        const button = document.getElementById(type === "server" ? "toggleServerAudio" : "toggleClientAudio");
+        if (!button) return;
+
+        button.textContent = active ? "Stop" : "Start";
+        button.classList.toggle("bg-zinc-100", !active);
+        button.classList.toggle("hover:bg-white", !active);
+        button.classList.toggle("text-zinc-900", !active);
+        button.classList.toggle("bg-zinc-800", active);
+        button.classList.toggle("hover:bg-zinc-700", active);
+        button.classList.toggle("text-zinc-100", active);
     }
 
     setupWorkletNode(bufferSize) {
@@ -286,6 +301,7 @@ class AudioManager {
         }
 
         this.streamActive[type] = false;
+        this.updateAudioToggleButton(type);
 
         if (!isResetting && !this.streamActive["server"] && !this.streamActive["client"] && this.audioContext) {
             await this.audioContext.close();
@@ -319,34 +335,47 @@ class AudioManager {
         }
     }
 
+    getServerAudioSettingsFromForm() {
+        const select = document.getElementById("audioSourceSelect");
+        const selected = select.selectedOptions[0];
+        const isDefault = selected.value === "mic" || selected.value === "system";
+
+        return {
+            source: selected.dataset.kind || "mic",
+            device_id: isDefault ? null : selected.value,
+            rate: parseInt(document.getElementById("serverAudioRate").value),
+        };
+    }
+
     initializeEventListeners() {
-        document.getElementById("startServerAudio").addEventListener("click", async () => {
-            const select = document.getElementById("audioSourceSelect");
-            const selected = select.selectedOptions[0];
-            const isDefault = selected.value === "mic" || selected.value === "system";
+        document.getElementById("toggleServerAudio").addEventListener("click", async (e) => {
+            if (e.currentTarget.textContent.trim() === "Stop") {
+                await this.stopAudioStream("server");
+                return;
+            }
 
-            const settings = {
-                source: selected.dataset.kind || "mic",
-                device_id: isDefault ? null : selected.value,
-                rate: parseInt(document.getElementById("serverAudioRate").value),
-            };
-            await this.startAudioStream("server", settings);
+            await this.startAudioStream("server", this.getServerAudioSettingsFromForm());
         });
 
-        document.getElementById("stopServerAudio").addEventListener("click", () => {
-            this.stopAudioStream("server");
+        document.getElementById("audioSourceSelect").addEventListener("change", () => {
+            const targetSettings = { ...this.currentSettings.server, ...this.getServerAudioSettingsFromForm() };
+            const matchesRunning =
+                this.streamActive.server &&
+                JSON.stringify(this.currentSettings.server) === JSON.stringify(targetSettings);
+            this.updateAudioToggleButton("server", matchesRunning);
         });
 
-        document.getElementById("startClientAudio").addEventListener("click", async () => {
+        document.getElementById("toggleClientAudio").addEventListener("click", async (e) => {
+            if (e.currentTarget.textContent.trim() === "Stop") {
+                await this.stopAudioStream("client");
+                return;
+            }
+
             const settings = {
                 rate: parseInt(document.getElementById("clientAudioRate").value),
                 chunk: parseInt(document.getElementById("clientAudioChunk").value),
             };
             await this.startAudioStream("client", settings);
-        });
-
-        document.getElementById("stopClientAudio").addEventListener("click", () => {
-            this.stopAudioStream("client");
         });
 
         this.socket.on("disconnect", () => {

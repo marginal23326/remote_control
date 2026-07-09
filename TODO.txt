@@ -1,7 +1,3 @@
-audio:
-- only show start button; show stop button only if already started; if another option is selected from dropdown, show start again
-
 stream:
-- view camera option
+- view webcam option
 - option to not capture remote cursor
-- only show start button; show stop button only if already started
