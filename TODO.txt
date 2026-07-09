@@ -7,7 +7,6 @@ stream:
 - only show start button; show stop button only if already started
 
 task:
-- add search
 - use consistent name for killing processes
 
 terminal:

@@ -5,9 +5,12 @@ import { showNotification } from "./dom.js";
 function initializeTaskManager(socket) {
     let _selectedProcess = null;
     let currentSort = { column: "memory_usage", order: "desc" };
+    let allProcesses = [];
     let processes = [];
+    let searchTerm = "";
 
     const taskList = document.getElementById("taskList");
+    const searchInput = document.getElementById("taskSearchInput");
 
     async function killProcesses(items) {
         if (!items.length) return;
@@ -79,7 +82,12 @@ function initializeTaskManager(socket) {
     });
 
     function renderTaskList(newProcesses) {
-        processes = newProcesses;
+        if (newProcesses) {
+            allProcesses = newProcesses;
+        }
+
+        const term = searchTerm.trim().toLowerCase();
+        processes = term ? allProcesses.filter((process) => process.name.toLowerCase().includes(term)) : allProcesses;
         sortProcesses(processes, currentSort.column, currentSort.order);
 
         const fragment = document.createDocumentFragment();
@@ -150,10 +158,30 @@ function initializeTaskManager(socket) {
             if (column) {
                 currentSort.order = currentSort.column === column && currentSort.order === "asc" ? "desc" : "asc";
                 currentSort.column = column;
-                renderTaskList(processes);
+                renderTaskList();
             }
         });
     });
+
+    // Handle searching
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener("input", () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchTerm = searchInput.value;
+                renderTaskList();
+            }, 50);
+        });
+        searchInput.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                searchInput.value = "";
+                searchTerm = "";
+                renderTaskList();
+                searchInput.blur();
+            }
+        });
+    }
 
     // Socket events
     socket.on("task_list", (data) => {
