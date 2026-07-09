@@ -6,8 +6,5 @@ stream:
 - option to not capture remote cursor
 - only show start button; show stop button only if already started
 
-terminal:
-- option to end current session
-
 file:
 - cancel option during uploading

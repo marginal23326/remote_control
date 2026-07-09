@@ -147,10 +147,14 @@ export class InteractiveShell {
     setupEventHandlers() {
         const startButton = document.getElementById("startShellBtn");
         const restartButton = document.getElementById("restartShellBtn");
+        const stopButton = document.getElementById("stopShellBtn");
         const terminalContainer = document.getElementById("terminalContainer");
         const textModeBtn = document.getElementById("shellTextModeBtn");
         const closeTextBtn = document.getElementById("shellCloseTextBtn");
         this.shellTypeSelect = document.getElementById("shellTypeSelect");
+        this.startButton = startButton;
+        this.restartButton = restartButton;
+        this.stopButton = stopButton;
 
         if (textModeBtn) {
             textModeBtn.addEventListener("click", () => this.toggleTextMode());
@@ -183,6 +187,8 @@ export class InteractiveShell {
             }, 1500);
         });
 
+        stopButton.addEventListener("click", () => this.stopShell());
+
         // --- Socket Events ---
 
         this.socket.on("available_shells", (data) => this.populateShellOptions(data.shells || [], data.default));
@@ -195,6 +201,7 @@ export class InteractiveShell {
 
                 startButton.classList.add("hidden");
                 restartButton.classList.remove("hidden");
+                stopButton.classList.remove("hidden");
                 if (this.shellTypeSelect) this.shellTypeSelect.disabled = true;
 
                 this.fitAddon.fit();
@@ -206,8 +213,14 @@ export class InteractiveShell {
         // 2. Error: Shell Creation Failed
         this.socket.on("shell_error", (data) => {
             this.terminal.writeln(`\r\n\x1b[31mError: ${data.message}\x1b[0m`);
-            this.isStarted = false;
-            if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
+            this.resetToIdle();
+        });
+
+        // 2b. Session Ended
+        this.socket.on("shell_closed", (data) => {
+            if (this.sessionId && data.session_id === this.sessionId) {
+                this.resetToIdle();
+            }
         });
 
         // --- Handle Network Drops ---
@@ -298,6 +311,20 @@ export class InteractiveShell {
         this.terminal.clear();
         if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
         this.createShellSession();
+    }
+
+    stopShell() {
+        if (!this.isStarted) return;
+        this.socket.emit("shell_close");
+    }
+
+    resetToIdle() {
+        this.isStarted = false;
+        this.sessionId = null;
+        this.startButton.classList.remove("hidden");
+        this.restartButton.classList.add("hidden");
+        this.stopButton.classList.add("hidden");
+        if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
     }
 
     requestAvailableShells() {

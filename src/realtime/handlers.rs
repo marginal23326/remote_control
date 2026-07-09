@@ -147,6 +147,10 @@ pub async fn handle_shell_resize(
     }
 }
 
+pub async fn handle_shell_close(socket: SocketRef, State(state): State<SharedState>) {
+    state.shell.close_session(&socket.id.to_string());
+}
+
 pub async fn handle_list_shells(socket: SocketRef, State(state): State<SharedState>) {
     let shell = state.shell.clone();
     let (shells, default) = tokio::task::spawn_blocking(move || shell.list_available_shells())
