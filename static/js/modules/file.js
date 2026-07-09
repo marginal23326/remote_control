@@ -208,9 +208,16 @@ class FileManager extends UIManager {
     }
 
     updateFileOperationsUI() {
-        const hasSelection = (this.selectionManager?.selectedIds?.size || 0) > 0;
+        const selectedCount = this.selectionManager?.selectedIds?.size || 0;
+        const hasSelection = selectedCount > 0;
         document.getElementById("downloadFile")?.classList.toggle("hidden", !hasSelection);
         document.getElementById("deleteItem")?.classList.toggle("hidden", !hasSelection);
+
+        const countEl = document.getElementById("fileSelectionCount");
+        if (countEl) {
+            countEl.classList.toggle("hidden", !hasSelection);
+            countEl.textContent = `${selectedCount} selected`;
+        }
     }
 
     updateBreadcrumbs() {

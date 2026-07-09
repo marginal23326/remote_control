@@ -8,7 +8,6 @@ stream:
 
 task:
 - add search
-- show how many selected items
 - use consistent name for killing processes
 
 terminal:
@@ -17,5 +16,4 @@ terminal:
 
 file:
 - better error message when deleting one item
-- show how many selected items
 - cancel option during uploading
