@@ -767,6 +767,7 @@
                                 </svg>
                                 <span class="hidden sm:inline">Download</span>
                             </button>
+                            <span id="fileSelectionCount" class="hidden text-xs text-zinc-500"></span>
                         </div>
 
                         <div class="flex items-center gap-1">
@@ -870,7 +871,8 @@
                     class="section hidden h-full flex flex-col animate-in fade-in duration-200"
                 >
                     <div class="flex justify-end items-center mb-4 min-h-8">
-                        <div id="endTaskContainer" class="hidden">
+                        <div id="endTaskContainer" class="hidden flex items-center">
+                            <span id="taskSelectionCount" class="mr-3 text-xs text-zinc-500"></span>
                             <button
                                 id="endTaskButton"
                                 class="px-3 py-1.5 bg-red-950 hover:bg-red-900 text-red-400 rounded-md text-sm font-medium transition-colors"

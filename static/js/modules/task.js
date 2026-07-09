@@ -70,7 +70,11 @@ function initializeTaskManager(socket) {
         },
         onSelectionChange: (selectedItems) => {
             const endTaskContainer = document.getElementById("endTaskContainer");
+            const countEl = document.getElementById("taskSelectionCount");
             endTaskContainer.classList.toggle("hidden", selectedItems.length === 0);
+            if (countEl) {
+                countEl.textContent = `${selectedItems.length} selected`;
+            }
         },
     });
 
