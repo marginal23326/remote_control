@@ -210,8 +210,10 @@ class FileManager extends UIManager {
     updateFileOperationsUI() {
         const selectedCount = this.selectionManager?.selectedIds?.size || 0;
         const hasSelection = selectedCount > 0;
-        document.getElementById("downloadFile")?.classList.toggle("hidden", !hasSelection);
-        document.getElementById("deleteItem")?.classList.toggle("hidden", !hasSelection);
+        const downloadBtn = document.getElementById("downloadFile");
+        const deleteBtn = document.getElementById("deleteItem");
+        if (downloadBtn) downloadBtn.style.display = hasSelection ? "" : "none";
+        if (deleteBtn) deleteBtn.style.display = hasSelection ? "" : "none";
 
         const countEl = document.getElementById("fileSelectionCount");
         if (countEl) {
