@@ -15,9 +15,6 @@ terminal:
 - option to select other shell
 - option to end current session
 
-toast:
-- fix overflow with long text
-
 file:
 - better error message when deleting one item
 - show how many selected items
