@@ -1,6 +1,4 @@
 audio:
-- rename to 'system sound'
-- get actual microphone list from server
 - only show start button; show stop button only if already started; if another option is selected from dropdown, show start again
 
 stream:

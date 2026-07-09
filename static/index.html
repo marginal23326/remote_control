@@ -504,8 +504,12 @@
                                         id="audioSourceSelect"
                                         class="w-full text-sm bg-zinc-950 border border-zinc-800 rounded-md px-3 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-100 transition-colors"
                                     >
-                                        <option value="mic">Microphone</option>
-                                        <option value="system">System Sound</option>
+                                        <optgroup label="Microphone">
+                                            <option value="mic" data-kind="mic">Default Microphone</option>
+                                        </optgroup>
+                                        <optgroup label="System Sound">
+                                            <option value="system" data-kind="system">Default Output</option>
+                                        </optgroup>
                                     </select>
                                 </div>
                                 <div>

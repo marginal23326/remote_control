@@ -1,3 +1,5 @@
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -7,11 +9,12 @@ use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 
 use pipewire as pw;
-use pw::{properties::properties, spa};
+use pw::{properties::properties, spa, types::ObjectType};
 
 pub(crate) fn server_loop(
     socket: SocketRef,
     source: String,
+    device_id: Option<String>,
     rate: u32,
     is_running: Arc<AtomicBool>,
 ) -> Result<(), String> {
@@ -39,7 +42,7 @@ pub(crate) fn server_loop(
         socket: socket.clone(),
     };
 
-    let props = if source == "system" {
+    let mut props = if source == "system" {
         properties! {
             *pw::keys::MEDIA_TYPE => "Audio",
             *pw::keys::MEDIA_CATEGORY => "Capture",
@@ -53,6 +56,10 @@ pub(crate) fn server_loop(
             *pw::keys::MEDIA_ROLE => "Communication",
         }
     };
+
+    if let Some(id) = device_id.filter(|id| !id.is_empty()) {
+        props.insert(*pw::keys::TARGET_OBJECT, id);
+    }
 
     let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props).map_err(|e| e.to_string())?;
 
@@ -180,7 +187,7 @@ pub(crate) fn server_loop(
         )
         .map_err(|e| e.to_string())?;
 
-    mainloop.run(); // Blocks until pw_main_loop_quit is called
+    mainloop.run();
     Ok(())
 }
 
@@ -289,4 +296,67 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
 
     mainloop.run();
     Ok(())
+}
+
+pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
+    let mainloop = pw::main_loop::MainLoopBox::new(None).map_err(|e| e.to_string())?;
+    let context = pw::context::ContextBox::new(mainloop.loop_(), None).map_err(|e| e.to_string())?;
+    let core = context.connect(None).map_err(|e| e.to_string())?;
+    let registry = core.get_registry().map_err(|e| e.to_string())?;
+
+    let sources = Rc::new(RefCell::new(Vec::new()));
+    let done = Rc::new(Cell::new(false));
+    let main_loop_ptr = mainloop.as_raw_ptr();
+
+    let sources_for_global = sources.clone();
+    let _listener_reg = registry
+        .add_listener_local()
+        .global(move |global| {
+            if global.type_ != ObjectType::Node {
+                return;
+            }
+            let Some(props) = global.props else { return };
+
+            let kind = match props.get("media.class") {
+                Some("Audio/Source") | Some("Audio/Source/Virtual") => "mic",
+                Some("Audio/Sink") => "system",
+                _ => return,
+            };
+
+            let Some(node_name) = props.get(*pw::keys::NODE_NAME) else {
+                return;
+            };
+            let display_name = props
+                .get(*pw::keys::NODE_DESCRIPTION)
+                .or_else(|| props.get(*pw::keys::NODE_NICK))
+                .unwrap_or(node_name);
+
+            sources_for_global.borrow_mut().push(super::AudioSourceInfo {
+                id: node_name.to_string(),
+                name: display_name.to_string(),
+                kind: kind.to_string(),
+            });
+        })
+        .register();
+
+    let pending = core.sync(0).map_err(|e| e.to_string())?;
+    let done_for_core = done.clone();
+    let _listener_core = core
+        .add_listener_local()
+        .done(move |id, seq| {
+            if id == pw::core::PW_ID_CORE && seq == pending {
+                done_for_core.set(true);
+                unsafe { pw::sys::pw_main_loop_quit(main_loop_ptr) };
+            }
+        })
+        .register();
+
+    while !done.get() {
+        mainloop.run();
+    }
+
+    drop(_listener_reg);
+    drop(_listener_core);
+
+    Ok(Rc::try_unwrap(sources).map(RefCell::into_inner).unwrap_or_default())
 }

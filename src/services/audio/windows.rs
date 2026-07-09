@@ -9,19 +9,24 @@ use wasapi::*;
 pub(crate) fn server_loop(
     socket: SocketRef,
     source: String,
-    _rate: u32, // We ignore the requested rate and use the hardware's zero-latency native rate
+    device_id: Option<String>,
+    _rate: u32,
     is_running: Arc<AtomicBool>,
 ) -> Result<(), String> {
     let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
 
-    // Direction::Capture on a Render device automatically enables loopback capture
-    let direction = if source == "system" {
-        Direction::Render
-    } else {
-        Direction::Capture
+    let device = match device_id.filter(|id| !id.is_empty()) {
+        Some(id) => enumerator.get_device(&id).map_err(|e| e.to_string())?,
+        None => {
+            let direction = if source == "system" {
+                Direction::Render
+            } else {
+                Direction::Capture
+            };
+            enumerator.get_default_device(&direction).map_err(|e| e.to_string())?
+        }
     };
 
-    let device = enumerator.get_default_device(&direction).map_err(|e| e.to_string())?;
     let mut audio_client = device.get_iaudioclient().map_err(|e| e.to_string())?;
     let mix_format = audio_client.get_mixformat().map_err(|e| e.to_string())?;
 
@@ -176,4 +181,40 @@ pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Ar
         let _ = h_event.wait_for_event(100);
     }
     Ok(())
+}
+
+pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
+    let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
+    let mut sources = Vec::new();
+    let mut name_counts = std::collections::HashMap::new();
+
+    for (direction, kind) in [(Direction::Capture, "mic"), (Direction::Render, "system")] {
+        let collection = enumerator
+            .get_device_collection(&direction)
+            .map_err(|e| e.to_string())?;
+
+        for device in &collection {
+            let Ok(device) = device else { continue };
+            let (Ok(id), Ok(name)) = (device.get_id(), device.get_friendlyname()) else {
+                continue;
+            };
+
+            let count = name_counts.entry(name.clone()).or_insert(0u32);
+            *count += 1;
+
+            let display_name = if *count > 1 {
+                format!("{} #{}", name, count)
+            } else {
+                name
+            };
+
+            sources.push(super::AudioSourceInfo {
+                id,
+                name: display_name,
+                kind: kind.to_string(),
+            });
+        }
+    }
+
+    Ok(sources)
 }

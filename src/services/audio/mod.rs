@@ -1,4 +1,5 @@
 use parking_lot::Mutex;
+use serde::Serialize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -15,6 +16,13 @@ mod windows;
 use linux as backend;
 #[cfg(windows)]
 use windows as backend;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioSourceInfo {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+}
 
 pub struct AudioManager {
     server_thread: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
@@ -42,7 +50,13 @@ impl AudioManager {
         }
     }
 
-    pub fn start_server_stream(&self, socket: SocketRef, source: String, rate: u32) -> Result<(), String> {
+    pub fn start_server_stream(
+        &self,
+        socket: SocketRef,
+        source: String,
+        device_id: Option<String>,
+        rate: u32,
+    ) -> Result<(), String> {
         self.stop_server_stream();
 
         *self.server_owner.lock() = Some(socket.id.to_string());
@@ -51,7 +65,7 @@ impl AudioManager {
         let handle = {
             let is_running = is_running.clone();
             thread::spawn(move || {
-                if let Err(e) = backend::server_loop(socket, source, rate, is_running) {
+                if let Err(e) = backend::server_loop(socket, source, device_id, rate, is_running) {
                     tracing::error!("Server audio capture error: {}", e);
                 }
             })
@@ -59,6 +73,10 @@ impl AudioManager {
 
         *self.server_thread.lock() = Some((handle, is_running));
         Ok(())
+    }
+
+    pub fn list_sources(&self) -> Result<Vec<AudioSourceInfo>, String> {
+        backend::list_sources()
     }
 
     pub fn stop_server_stream(&self) {
