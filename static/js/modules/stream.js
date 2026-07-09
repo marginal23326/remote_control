@@ -98,8 +98,8 @@ const streamUI = {
     },
 };
 
-const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>`;
-const STREAM_ICON_STOP = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>`;
+const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5L19 12L7 19Z"></path></svg>`;
+const STREAM_ICON_STOP = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" stroke-width="2"></rect></svg>`;
 
 function setStreamToggleUI(active) {
     const btn = document.getElementById("toggleStream");
@@ -237,6 +237,10 @@ function initializeStream(sessionId, socket) {
             streamUI.hideScreenshot();
             await executeStopStream();
         }
+    });
+
+    document.getElementById("streamOverlayPlayButton")?.addEventListener("click", () => {
+        document.getElementById("toggleStream").click();
     });
 
     async function executeStopStream() {
