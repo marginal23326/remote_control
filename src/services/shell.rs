@@ -114,6 +114,7 @@ impl ShellManager {
                 "shell_output",
                 &json!({ "session_id": sid_wait, "output": "\r\n\x1b[33m[Process Terminated]\x1b[0m\r\n" }),
             );
+            let _ = socket_wait.emit("shell_closed", &json!({ "session_id": sid_wait }));
 
             if active_for_wait.load(Ordering::Acquire) {
                 let removed = sessions_for_wait.lock().remove(&socket_id_wait);
