@@ -11,5 +11,4 @@ terminal:
 - option to end current session
 
 file:
-- better error message when deleting one item
 - cancel option during uploading

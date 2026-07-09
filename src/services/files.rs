@@ -108,7 +108,7 @@ impl FileManager {
         }
 
         if !failed.is_empty() {
-            return Err(anyhow!("Failed to delete some items: {:?}", failed));
+            return Err(anyhow!("Failed to delete: {}", failed.join(", ")));
         }
         Ok(vec![])
     }
