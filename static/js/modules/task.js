@@ -17,9 +17,9 @@ function initializeTaskManager(socket) {
         const pids = items.map((pid) => parseInt(pid));
 
         const confirmed = await showConfirmModal({
-            title: "Kill Process",
-            message: `Are you sure you want to kill ${pids.length} process(es)?`,
-            confirmLabel: "Kill Process",
+            title: "End Task",
+            message: `Are you sure you want to end ${pids.length} task(s)?`,
+            confirmLabel: "End Task",
             danger: true,
         });
         if (!confirmed) return;
@@ -132,7 +132,7 @@ function initializeTaskManager(socket) {
 
         const endTaskButton = document.getElementById("endTaskButton");
         if (!endTaskButton.hasListener) {
-            endTaskButton.innerHTML = `Kill Process`;
+            endTaskButton.innerHTML = `End Task`;
             endTaskButton.addEventListener("click", () => {
                 const selectedItems = taskManager.getSelectedItems();
                 killProcesses(selectedItems);
