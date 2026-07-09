@@ -136,7 +136,7 @@
                                         class="w-full flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 overflow-x-auto hide-scrollbar"
                                     >
                                         <button
-                                            id="startStream"
+                                            id="toggleStream"
                                             class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
                                             title="Start Stream"
                                         >
@@ -146,18 +146,6 @@
                                                     stroke-linejoin="round"
                                                     stroke-width="2"
                                                     d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                                                ></path>
-                                            </svg>
-                                        </button>
-                                        <button
-                                            id="stopStream"
-                                            class="p-1 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors"
-                                            title="Stop Stream"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path
-                                                    stroke-width="2"
-                                                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
                                                 ></path>
                                             </svg>
                                         </button>
@@ -523,16 +511,10 @@
                                 </div>
                                 <div class="flex gap-3 pt-2">
                                     <button
-                                        id="startServerAudio"
+                                        id="toggleServerAudio"
                                         class="flex-1 py-2 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors"
                                     >
                                         Start
-                                    </button>
-                                    <button
-                                        id="stopServerAudio"
-                                        class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
-                                    >
-                                        Stop
                                     </button>
                                 </div>
                             </div>
@@ -563,16 +545,10 @@
                                 </div>
                                 <div class="flex gap-3 pt-2">
                                     <button
-                                        id="startClientAudio"
+                                        id="toggleClientAudio"
                                         class="flex-1 py-2 bg-zinc-100 hover:bg-white text-zinc-900 rounded-md text-sm font-medium transition-colors"
                                     >
                                         Start
-                                    </button>
-                                    <button
-                                        id="stopClientAudio"
-                                        class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors"
-                                    >
-                                        Stop
                                     </button>
                                 </div>
                             </div>

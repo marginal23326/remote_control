@@ -98,6 +98,18 @@ const streamUI = {
     },
 };
 
+const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>`;
+const STREAM_ICON_STOP = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>`;
+
+function setStreamToggleUI(active) {
+    const btn = document.getElementById("toggleStream");
+    if (!btn) return;
+    btn.innerHTML = active ? STREAM_ICON_STOP : STREAM_ICON_PLAY;
+    btn.title = active ? "Stop Stream" : "Start Stream";
+    btn.classList.toggle("hover:text-red-400", active);
+    btn.classList.toggle("hover:text-zinc-100", !active);
+}
+
 let streamActive = false;
 let peerConnection = null;
 let isFullscreen = false;
@@ -130,6 +142,7 @@ function initializeStream(sessionId, socket) {
 
         if (startBtnLoader) startBtnLoader.stopLoading();
         streamUI.show();
+        setStreamToggleUI(true);
 
         if (!peerConnection) {
             const rtcConfig = {};
@@ -201,23 +214,28 @@ function initializeStream(sessionId, socket) {
         streamActive = false;
 
         if (startBtnLoader) startBtnLoader.stopLoading();
+        setStreamToggleUI(false);
 
         cleanupPeerConnection();
         streamUI.hide();
     });
 
-    document.getElementById("startStream").addEventListener("click", () => {
+    document.getElementById("toggleStream").addEventListener("click", async () => {
         if (!streamActive) {
             streamUI.hideScreenshot();
             streamActive = true;
 
-            const btn = document.getElementById("startStream");
+            const btn = document.getElementById("toggleStream");
             if (btn && !startBtnLoader) {
                 startBtnLoader = new LoadingButton(btn, "");
             }
             if (startBtnLoader) startBtnLoader.startLoading();
 
             socket.emit("start_stream", { sessionId });
+        } else {
+            streamUI.hide();
+            streamUI.hideScreenshot();
+            await executeStopStream();
         }
     });
 
@@ -226,16 +244,11 @@ function initializeStream(sessionId, socket) {
         streamActive = false;
 
         if (startBtnLoader) startBtnLoader.stopLoading();
+        setStreamToggleUI(false);
         await apiCall("/api/stream/stop").catch(() => {});
         cleanupPeerConnection();
         streamUI.clear();
     }
-
-    document.getElementById("stopStream").addEventListener("click", async () => {
-        streamUI.hide();
-        streamUI.hideScreenshot();
-        await executeStopStream();
-    });
 
     let currentScreenshotUrl = null;
 
@@ -315,6 +328,7 @@ function initializeStream(sessionId, socket) {
             streamActive = false;
 
             if (startBtnLoader) startBtnLoader.stopLoading();
+            setStreamToggleUI(false);
 
             cleanupPeerConnection();
         }
@@ -324,6 +338,7 @@ function initializeStream(sessionId, socket) {
         if (wasStreamActive) {
             wasStreamActive = false;
             streamActive = true;
+            setStreamToggleUI(true);
 
             socket.emit("start_stream", { sessionId });
         }
