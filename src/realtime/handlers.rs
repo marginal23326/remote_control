@@ -55,6 +55,7 @@ struct ShellPendingMarker;
 pub struct AudioConfig {
     pub source: Option<String>,
     pub rate: Option<u32>,
+    pub device_id: Option<String>,
 }
 
 // --- HANDLERS ---
@@ -99,12 +100,13 @@ pub async fn handle_shell_create(
     let session_result = tokio::task::spawn_blocking(move || {
         shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, socket_clone)
     })
-    .await;
+    .await
+    .unwrap();
 
     socket.extensions.remove::<ShellPendingMarker>();
 
     match session_result {
-        Ok(Ok(session)) => {
+        Ok(session) => {
             if socket.connected() {
                 state.shell.add_session(socket_id, session);
                 let _ = socket.emit(
@@ -115,11 +117,10 @@ pub async fn handle_shell_create(
                 std::thread::spawn(move || drop(session));
             }
         }
-        Ok(Err(e)) => {
+        Err(e) => {
             tracing::error!("Failed to create shell: {}", e);
             let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
         }
-        _ => {}
     }
 }
 
@@ -186,9 +187,25 @@ pub async fn handle_start_server_audio(
     let audio = &state.audio;
     let source = data.source.unwrap_or("mic".to_string());
     let rate = data.rate.unwrap_or(48000);
+    let device_id = data.device_id.filter(|id| !id.is_empty());
 
-    if let Err(e) = audio.start_server_stream(socket.clone(), source, rate) {
+    if let Err(e) = audio.start_server_stream(socket.clone(), source, device_id, rate) {
         tracing::error!("Failed to start server audio: {}", e);
+    }
+}
+
+pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<SharedState>) {
+    let audio = state.audio.clone();
+    let sources = tokio::task::spawn_blocking(move || audio.list_sources()).await.unwrap();
+
+    match sources {
+        Ok(sources) => {
+            let _ = socket.emit("audio_sources", &json!({ "sources": sources }));
+        }
+        Err(e) => {
+            tracing::error!("Failed to list audio sources: {}", e);
+            let _ = socket.emit("audio_sources_error", &json!({ "message": e }));
+        }
     }
 }
 

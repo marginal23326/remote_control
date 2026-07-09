@@ -176,6 +176,52 @@ class AudioManager {
         }
     }
 
+    async refreshAudioSources() {
+        const select = document.getElementById("audioSourceSelect");
+        if (!select) return;
+
+        let sources = [];
+        try {
+            sources = await new Promise((resolve, reject) => {
+                this.socket.once("audio_sources", (data) => resolve(data.sources || []));
+                this.socket.once("audio_sources_error", (data) => reject(new Error(data?.message)));
+                this.socket.emit("list_audio_sources");
+            });
+        } catch (error) {
+            console.error("Failed to load audio sources:", error);
+            return;
+        }
+
+        const previousValue = select.value;
+
+        select.innerHTML = "";
+        const micGroup = document.createElement("optgroup");
+        micGroup.label = "Microphone";
+        const systemGroup = document.createElement("optgroup");
+        systemGroup.label = "System Sound";
+
+        const defaultMic = new Option("Default Microphone", "mic");
+        defaultMic.dataset.kind = "mic";
+        micGroup.appendChild(defaultMic);
+
+        const defaultSystem = new Option("Default Output", "system");
+        defaultSystem.dataset.kind = "system";
+        systemGroup.appendChild(defaultSystem);
+
+        for (const source of sources) {
+            const option = new Option(source.name, source.id);
+            option.dataset.kind = source.kind;
+            (source.kind === "system" ? systemGroup : micGroup).appendChild(option);
+        }
+
+        select.appendChild(micGroup);
+        select.appendChild(systemGroup);
+
+        if ([...select.options].some((option) => option.value === previousValue)) {
+            select.value = previousValue;
+        }
+    }
+
     setupWorkletNode(bufferSize) {
         this.workletNode = new AudioWorkletNode(this.audioContext, "client-audio-processor", {
             processorOptions: { bufferSize },
@@ -275,8 +321,13 @@ class AudioManager {
 
     initializeEventListeners() {
         document.getElementById("startServerAudio").addEventListener("click", async () => {
+            const select = document.getElementById("audioSourceSelect");
+            const selected = select.selectedOptions[0];
+            const isDefault = selected.value === "mic" || selected.value === "system";
+
             const settings = {
-                source: document.getElementById("audioSourceSelect").value,
+                source: selected.dataset.kind || "mic",
+                device_id: isDefault ? null : selected.value,
                 rate: parseInt(document.getElementById("serverAudioRate").value),
             };
             await this.startAudioStream("server", settings);
@@ -310,6 +361,8 @@ class AudioManager {
         });
 
         this.socket.on("connect", () => {
+            this.refreshAudioSources();
+
             if (this.wasActive.server) {
                 this.wasActive.server = false;
                 this.startAudioStream("server", this.currentSettings.server);
@@ -319,6 +372,10 @@ class AudioManager {
                 this.startAudioStream("client", this.currentSettings.client);
             }
         });
+
+        if (this.socket.connected) {
+            this.refreshAudioSources();
+        }
     }
 }
 

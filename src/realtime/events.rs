@@ -1,8 +1,8 @@
 use crate::realtime::handlers::{
-    handle_client_audio_data, handle_disconnect, handle_keyboard_event, handle_mouse_event, handle_shell_create,
-    handle_shell_input, handle_shell_resize, handle_start_client_audio, handle_start_server_audio, handle_start_stream,
-    handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
-    handle_webrtc_answer, handle_webrtc_ice,
+    handle_client_audio_data, handle_disconnect, handle_keyboard_event, handle_list_audio_sources, handle_mouse_event,
+    handle_shell_create, handle_shell_input, handle_shell_resize, handle_start_client_audio, handle_start_server_audio,
+    handle_start_stream, handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start,
+    handle_task_poll_stop, handle_webrtc_answer, handle_webrtc_ice,
 };
 use crate::state::SharedState;
 use crate::utils::auth::is_authenticated;
@@ -96,6 +96,7 @@ async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
     socket.on("task_poll_start", handle_task_poll_start);
     socket.on("task_poll_stop", handle_task_poll_stop);
 
+    socket.on("list_audio_sources", handle_list_audio_sources);
     socket.on("start_server_audio", handle_start_server_audio);
     socket.on("stop_server_audio", handle_stop_server_audio);
     socket.on("start_client_audio", handle_start_client_audio);
