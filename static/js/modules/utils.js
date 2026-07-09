@@ -655,7 +655,7 @@ function showPromptModal({ title, label = "", initialValue = "", confirmLabel = 
 function showConfirmModal({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false }) {
     const overlay = _createModal(
         `<h3 class="text-sm font-medium text-zinc-100 mb-2">${escapeHtml(title)}</h3>
-         <p class="text-sm text-zinc-400">${escapeHtml(message)}</p>`,
+         <p class="text-sm text-zinc-400 break-all">${escapeHtml(message)}</p>`,
         { confirmLabel, cancelLabel, danger },
     );
     return _runModal(overlay, { focusSelector: ".modal-confirm-btn" }).then((v) => v === true);
