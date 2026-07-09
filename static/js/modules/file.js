@@ -60,6 +60,7 @@ class FileManager extends UIManager {
         this.ticking = false;
         this.isLoading = false;
         this.scrollToPath = null;
+        this.currentUploadXhr = null;
     }
 
     initializeElements() {
@@ -135,13 +136,16 @@ class FileManager extends UIManager {
         if (isDropZone) this.dropZone.setLoading();
 
         const uploadLabel = document.querySelector('label[for="fileUpload"] span');
+        const cancelBtn = document.getElementById("cancelUpload");
         if (uploadLabel) uploadLabel.textContent = "Uploading... 0%";
+        if (cancelBtn) cancelBtn.classList.remove("hidden");
 
         try {
             const encodedPath = encodeURIComponent(this.currentPath);
 
             const response = await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
+                this.currentUploadXhr = xhr;
                 xhr.open("POST", `/api/upload?path=${encodedPath}`, true);
 
                 xhr.upload.onprogress = (e) => {
@@ -169,6 +173,7 @@ class FileManager extends UIManager {
                 };
 
                 xhr.onerror = () => reject(new Error("Network Error"));
+                xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
                 xhr.send(formData);
             });
 
@@ -185,11 +190,18 @@ class FileManager extends UIManager {
             const scrollToPath = this.joinPath(this.currentPath, lastFile);
             await this.listFiles(this.currentPath, scrollToPath);
         } catch (error) {
-            console.error(`Error in upload:`, error);
-            showNotification(`Error: ${error.message}`, "error");
+            if (error.name === "AbortError") {
+                showNotification("Upload cancelled", "info");
+                await this.listFiles(this.currentPath);
+            } else {
+                console.error(`Error in upload:`, error);
+                showNotification(`Error: ${error.message}`, "error");
+            }
         } finally {
+            this.currentUploadXhr = null;
             if (isDropZone) this.dropZone.reset();
             if (uploadLabel) uploadLabel.textContent = "Upload";
+            if (cancelBtn) cancelBtn.classList.add("hidden");
 
             const fileInput = document.getElementById("fileUpload");
             if (fileInput) fileInput.value = "";
@@ -650,6 +662,10 @@ class FileManager extends UIManager {
         document.getElementById("fileUpload")?.addEventListener("change", async (e) => {
             if (!e.target.files.length) return;
             await this.handleFileUpload(e.target.files);
+        });
+
+        document.getElementById("cancelUpload")?.addEventListener("click", () => {
+            this.currentUploadXhr?.abort();
         });
 
         document.getElementById("deleteItem")?.addEventListener("click", () =>

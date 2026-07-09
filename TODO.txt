@@ -5,6 +5,3 @@ stream:
 - view camera option
 - option to not capture remote cursor
 - only show start button; show stop button only if already started
-
-file:
-- cancel option during uploading
