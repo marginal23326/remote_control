@@ -6,9 +6,6 @@ stream:
 - option to not capture remote cursor
 - only show start button; show stop button only if already started
 
-task:
-- use consistent name for killing processes
-
 terminal:
 - option to select other shell
 - option to end current session
