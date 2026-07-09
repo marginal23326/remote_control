@@ -32,6 +32,8 @@ pub struct ShellCreateEvent {
     pub cols: u16,
     pub rows: u16,
     pub session_id: String,
+    #[serde(default)]
+    pub shell: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -94,11 +96,12 @@ pub async fn handle_shell_create(
     let socket_clone = socket.clone();
     let cols = data.cols;
     let rows = data.rows;
+    let shell = data.shell;
     let shell_manager = state.shell.clone();
     let socket_id_for_create = socket_id.clone();
 
     let session_result = tokio::task::spawn_blocking(move || {
-        shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, socket_clone)
+        shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, shell.as_deref(), socket_clone)
     })
     .await
     .unwrap();
@@ -142,6 +145,15 @@ pub async fn handle_shell_resize(
     if let Err(e) = state.shell.resize_shell(&socket.id.to_string(), data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
     }
+}
+
+pub async fn handle_list_shells(socket: SocketRef, State(state): State<SharedState>) {
+    let shell = state.shell.clone();
+    let (shells, default) = tokio::task::spawn_blocking(move || shell.list_available_shells())
+        .await
+        .unwrap_or_default();
+
+    let _ = socket.emit("available_shells", &json!({ "shells": shells, "default": default }));
 }
 
 pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedState>) {

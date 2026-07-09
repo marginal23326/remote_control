@@ -7,7 +7,6 @@ stream:
 - only show start button; show stop button only if already started
 
 terminal:
-- option to select other shell
 - option to end current session
 
 file:
