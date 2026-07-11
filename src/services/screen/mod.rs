@@ -124,14 +124,55 @@ pub struct EncoderPropertyConstraint {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub enum_values: Option<&'static [&'static str]>,
+    pub enum_values: Option<Vec<String>>,
+}
+
+fn constraint_from_pspec(pspec: &glib::ParamSpec) -> EncoderPropertyConstraint {
+    let plain = |value_type, min: Option<i64>, max: Option<i64>| EncoderPropertyConstraint {
+        value_type,
+        min,
+        max,
+        enum_values: None,
+    };
+
+    if pspec.downcast_ref::<glib::ParamSpecBoolean>().is_some() {
+        return plain("bool", None, None);
+    }
+    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt>() {
+        return plain("int", Some(p.minimum().into()), Some(p.maximum().into()));
+    }
+    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt>() {
+        return plain("int", Some(p.minimum().into()), Some(p.maximum().into()));
+    }
+    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt64>() {
+        return plain("int", Some(p.minimum()), Some(p.maximum()));
+    }
+    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt64>() {
+        return plain("int", Some(p.minimum() as i64), Some(p.maximum() as i64));
+    }
+    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecEnum>() {
+        let values = p.enum_class().values().iter().map(|v| v.nick().to_string()).collect();
+        return EncoderPropertyConstraint {
+            value_type: "enum",
+            min: None,
+            max: None,
+            enum_values: Some(values),
+        };
+    }
+    plain("string", None, None)
+}
+
+fn encoder_constraints(encoder: &gst::Element, names: &[&str]) -> HashMap<String, EncoderPropertyConstraint> {
+    names
+        .iter()
+        .filter_map(|&name| Some((name.to_string(), constraint_from_pspec(&encoder.find_property(name)?))))
+        .collect()
 }
 
 pub(crate) struct EncoderInfo {
     pub(crate) name: &'static str,
     pub(crate) pipeline_str: &'static str,
     pub(crate) default_properties: &'static [(&'static str, &'static str)],
-    pub(crate) property_constraints: &'static [(&'static str, EncoderPropertyConstraint)],
     pub(crate) min_dim: u32,
 }
 
@@ -150,13 +191,6 @@ pub(crate) fn detect_encoder() -> EncoderInfo {
                     ("rc-mode", "0"),
                     ("gop-size", "30"),
                     ("ref", "1"),
-                ],
-                #[rustfmt::skip]
-                property_constraints: &[
-                    ("low-latency", EncoderPropertyConstraint { value_type: "bool", min: None, max: None, enum_values: None }),
-                    ("rc-mode", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(3), enum_values: None }),
-                    ("gop-size", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(1000), enum_values: None }),
-                    ("ref", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(16), enum_values: None }),
                 ],
                 min_dim: 64,
             };
@@ -179,14 +213,6 @@ pub(crate) fn detect_encoder() -> EncoderInfo {
                     ("ref-frames", "1"),
                     ("cpb-size", "100"),
                 ],
-                #[rustfmt::skip]
-                property_constraints: &[
-                    ("target-usage", EncoderPropertyConstraint { value_type: "int", min: Some(1), max: Some(7), enum_values: None }),
-                    ("rate-control", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["cbr", "vbr", "cqp"]) }),
-                    ("key-int-max", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(1024), enum_values: None }),
-                    ("ref-frames", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(16), enum_values: None }),
-                    ("cpb-size", EncoderPropertyConstraint { value_type: "int", min: Some(0), max: Some(2048000), enum_values: None }),
-                ],
                 min_dim: 128,
             };
         }
@@ -197,11 +223,6 @@ pub(crate) fn detect_encoder() -> EncoderInfo {
         name: "x264enc",
         pipeline_str: "x264enc name=enc tune=zerolatency speed-preset=ultrafast",
         default_properties: &[("tune", "zerolatency"), ("speed-preset", "ultrafast")],
-        #[rustfmt::skip]
-        property_constraints: &[
-            ("tune", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["stillimage", "fastdecode", "zerolatency"]) }),
-            ("speed-preset", EncoderPropertyConstraint { value_type: "enum", min: None, max: None, enum_values: Some(&["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"]) }),
-        ],
         min_dim: 2,
     }
 }
@@ -284,11 +305,6 @@ impl ScreenManager {
         let encoder_str = encoder_info.pipeline_str;
         let min_dim = encoder_info.min_dim;
         *self.encoder_type.lock() = encoder_info.name.to_string();
-        *self.encoder_property_constraints.lock() = encoder_info
-            .property_constraints
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.clone()))
-            .collect();
 
         {
             let mut s = self.settings.lock();
@@ -348,6 +364,9 @@ impl ScreenManager {
         let encoder = pipeline
             .by_name("enc")
             .ok_or_else(|| anyhow::anyhow!("Encoder not found"))?;
+
+        let property_names: Vec<&str> = encoder_info.default_properties.iter().map(|(k, _)| *k).collect();
+        *self.encoder_property_constraints.lock() = encoder_constraints(&encoder, &property_names);
 
         let default_bitrate = self.settings.lock().bitrate;
         encoder.set_property_from_str("bitrate", &default_bitrate.to_string());
