@@ -1,5 +1,6 @@
 use crate::config::AppConfig;
 use crate::services::audio::AudioManager;
+use crate::services::camera::CameraManager;
 use crate::services::input::InputManager;
 use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
@@ -21,6 +22,7 @@ pub struct AppState {
     pub screen: Arc<ScreenManager>,
     pub tasks: Arc<TaskManager>,
     pub audio: Arc<AudioManager>,
+    pub camera: Arc<CameraManager>,
     pub wan_info: Arc<OnceCell<WanInfo>>,
 }
 
@@ -37,6 +39,7 @@ impl AppState {
         let screen = ScreenManager::new();
         let tasks = TaskManager::new(sys_shared.clone());
         let audio = AudioManager::new();
+        let camera = CameraManager::new();
 
         Self {
             config: Arc::new(config),
@@ -47,6 +50,7 @@ impl AppState {
             screen: Arc::new(screen),
             tasks: Arc::new(tasks),
             audio: Arc::new(audio),
+            camera: Arc::new(camera),
             wan_info: Arc::new(OnceCell::new()),
         }
     }

@@ -4,6 +4,7 @@ import "../css/styles.css";
 import { initializeSocketIO } from "./modules/connection.js";
 import { AudioManager } from "./modules/audio.js";
 import { initializeStream, updateSettingsDisplay } from "./modules/stream.js";
+import { initializeCamera } from "./modules/camera.js";
 import { InteractiveShell } from "./modules/shell.js";
 import { initializeFileManagement } from "./modules/file.js";
 import { renderInputGrids } from "./modules/input-render.js";
@@ -57,6 +58,7 @@ document.addEventListener("click", (e) => {
 
     // Initialize different parts of the application
     initializeStream(sessionId, socket);
+    initializeCamera(socket);
     initializeFileManagement();
 
     renderInputGrids();

@@ -132,6 +132,20 @@
                                         muted
                                         class="absolute inset-0 w-full h-full object-contain object-center pointer-events-auto opacity-0 transition-opacity duration-300"
                                     ></video>
+
+                                    <!-- Webcam Picture-in-Picture -->
+                                    <div
+                                        id="cameraPip"
+                                        class="hidden absolute bottom-3 right-3 z-30 w-32 sm:w-44 rounded-md overflow-hidden border border-zinc-700 shadow-lg bg-zinc-950 cursor-grab active:cursor-grabbing touch-none select-none"
+                                    >
+                                        <video
+                                            id="cameraPipView"
+                                            autoplay
+                                            playsinline
+                                            muted
+                                            class="w-full aspect-video object-cover bg-black pointer-events-none"
+                                        ></video>
+                                    </div>
                                 </div>
 
                                 <!-- Controls Panel -->
@@ -241,20 +255,41 @@
                                                     class="w-4 h-4"
                                                     fill="none"
                                                     stroke="currentColor"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="1.5"
                                                     viewBox="0 0 24 24"
                                                 >
                                                     <path
-                                                        stroke-linecap="round"
-                                                        stroke-width="2"
-                                                        d="M3 9a2 2 0 012-2h1a2 2 0 002-1V5a2 2 0 012-1h4a2 2 0 012 1v1a2 2 0 002 1h1a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                                                        d="M8.7 4H4.4v4.3M15.7 4H20v4.3M8.7 19.5H4.4v-4.3m11.3 4.3H20v-4.3m-12.4-5h1.6l1.6-1.5h2.8l1.6 1.5h1.6v4.6H7.6Z"
                                                     ></path>
-                                                    <path
-                                                        stroke-linecap="round"
-                                                        stroke-width="2"
-                                                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                                                    ></path>
+                                                    <circle cx="12.2" cy="12.1" r="1.2"></circle>
                                                 </svg>
                                             </button>
+                                            <button
+                                                id="toggleCamera"
+                                                class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+                                                title="View Webcam"
+                                            >
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <circle cx="12" cy="10" r="8"></circle>
+                                                    <circle cx="12" cy="10" r="3"></circle>
+                                                    <path d="M7 22h10m-5 0v-4"></path>
+                                                </svg>
+                                            </button>
+                                            <select
+                                                id="cameraDeviceSelect"
+                                                title="Webcam device"
+                                                class="hidden text-[11px] leading-tight bg-zinc-950 border border-zinc-700 rounded px-1 py-1 text-zinc-300 max-w-[6rem] sm:max-w-[9rem] shrink-0"
+                                            ></select>
                                             <button
                                                 id="fullscreenBtn"
                                                 class="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"

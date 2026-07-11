@@ -1,3 +1,2 @@
 stream:
-- view webcam option
 - option to not capture remote cursor

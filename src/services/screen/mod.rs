@@ -127,15 +127,15 @@ pub struct EncoderPropertyConstraint {
     pub enum_values: Option<&'static [&'static str]>,
 }
 
-struct EncoderInfo {
-    name: &'static str,
-    pipeline_str: &'static str,
-    default_properties: &'static [(&'static str, &'static str)],
-    property_constraints: &'static [(&'static str, EncoderPropertyConstraint)],
-    min_dim: u32,
+pub(crate) struct EncoderInfo {
+    pub(crate) name: &'static str,
+    pub(crate) pipeline_str: &'static str,
+    pub(crate) default_properties: &'static [(&'static str, &'static str)],
+    pub(crate) property_constraints: &'static [(&'static str, EncoderPropertyConstraint)],
+    pub(crate) min_dim: u32,
 }
 
-fn detect_encoder() -> EncoderInfo {
+pub(crate) fn detect_encoder() -> EncoderInfo {
     #[cfg(windows)]
     {
         if gst::Registry::get()
