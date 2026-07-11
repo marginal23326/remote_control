@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod camera;
 pub mod files;
 pub mod input;
 pub mod screen;

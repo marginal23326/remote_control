@@ -1,8 +1,10 @@
 use crate::realtime::handlers::{
-    handle_client_audio_data, handle_disconnect, handle_keyboard_event, handle_list_audio_sources, handle_list_shells,
-    handle_mouse_event, handle_shell_close, handle_shell_create, handle_shell_input, handle_shell_resize,
-    handle_start_client_audio, handle_start_server_audio, handle_start_stream, handle_stop_client_audio,
-    handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop, handle_webrtc_answer, handle_webrtc_ice,
+    handle_camera_webrtc_answer, handle_camera_webrtc_ice, handle_client_audio_data, handle_disconnect,
+    handle_keyboard_event, handle_list_audio_sources, handle_list_cameras, handle_list_shells, handle_mouse_event,
+    handle_shell_close, handle_shell_create, handle_shell_input, handle_shell_resize, handle_start_camera_stream,
+    handle_start_client_audio, handle_start_server_audio, handle_start_stream, handle_stop_camera_stream,
+    handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
+    handle_webrtc_answer, handle_webrtc_ice,
 };
 use crate::state::SharedState;
 use crate::utils::auth::is_authenticated;
@@ -109,6 +111,13 @@ async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
 
     socket.on("webrtc_answer", handle_webrtc_answer);
     socket.on("webrtc_ice_candidate", handle_webrtc_ice);
+
+    socket.on("list_cameras", handle_list_cameras);
+    socket.on("start_camera_stream", handle_start_camera_stream);
+    socket.on("stop_camera_stream", handle_stop_camera_stream);
+
+    socket.on("camera_webrtc_answer", handle_camera_webrtc_answer);
+    socket.on("camera_webrtc_ice_candidate", handle_camera_webrtc_ice);
 
     socket.on_disconnect(handle_disconnect);
 }

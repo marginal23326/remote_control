@@ -1,3 +1,4 @@
+use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
 use crate::state::SharedState;
 use serde::Deserialize;
@@ -57,6 +58,11 @@ struct ShellPendingMarker;
 pub struct AudioConfig {
     pub source: Option<String>,
     pub rate: Option<u32>,
+    pub device_id: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Default)]
+pub struct CameraStartConfig {
     pub device_id: Option<String>,
 }
 
@@ -170,6 +176,7 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedStat
     let socket_id = socket.id.to_string();
     let was_screen_owner = state.screen.disconnect_if_owner(&socket_id);
     state.audio.disconnect_if_owner(&socket_id);
+    state.camera.disconnect_if_owner(&socket_id);
 
     if was_screen_owner {
         let input = state.input.clone();
@@ -259,6 +266,29 @@ pub async fn handle_start_stream(socket: SocketRef, State(state): State<SharedSt
     }
 }
 
+pub async fn handle_list_cameras(socket: SocketRef) {
+    let cameras = tokio::task::spawn_blocking(CameraManager::list_cameras)
+        .await
+        .unwrap_or_default();
+    let _ = socket.emit("camera_list", &json!({ "cameras": cameras }));
+}
+
+pub async fn handle_start_camera_stream(
+    socket: SocketRef,
+    Data(data): Data<CameraStartConfig>,
+    State(state): State<SharedState>,
+) {
+    let camera = state.camera.clone();
+    if let Err(e) = camera.start_stream(socket.clone(), state, data.device_id).await {
+        tracing::error!("Failed to start webcam stream: {e:#}");
+        let _ = socket.emit("camera_stream_error", &json!({ "message": e.to_string() }));
+    }
+}
+
+pub async fn handle_stop_camera_stream(State(state): State<SharedState>) {
+    state.camera.stop_stream();
+}
+
 pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
     let sdp_str = if let Some(s) = data.as_str() {
         s.to_string()
@@ -285,5 +315,26 @@ pub async fn handle_webrtc_ice(Data(data): Data<serde_json::Value>, State(state)
             sdp_mline_index: idx as u32,
             candidate: candidate.to_string(),
         });
+    }
+}
+
+pub async fn handle_camera_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
+    let sdp_str = if let Some(s) = data.as_str() {
+        s.to_string()
+    } else if let Some(s) = data.as_array().and_then(|a| a.first()).and_then(|v| v.as_str()) {
+        s.to_string()
+    } else {
+        return;
+    };
+
+    state.camera.set_remote_description(sdp_str);
+}
+
+pub async fn handle_camera_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
+    if let (Some(idx), Some(candidate)) = (
+        data.get("sdp_mline_index").and_then(|v| v.as_u64()),
+        data.get("candidate").and_then(|v| v.as_str()),
+    ) {
+        state.camera.add_ice_candidate(idx as u32, candidate.to_string());
     }
 }
