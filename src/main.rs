@@ -33,6 +33,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    #[cfg(target_os = "linux")]
+    if std::env::var("WAYLAND_DISPLAY").is_err() {
+        // SAFETY: called once in main() before any threads are spawned.
+        unsafe { std::env::set_var("WAYLAND_DISPLAY", "wayland-0") };
+    }
+
     tracing::info!("Initializing Remote Control System...");
 
     // 1. Load Config
