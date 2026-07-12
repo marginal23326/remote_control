@@ -1,7 +1,5 @@
 stream:
 - option to not capture remote cursor
-- clipboard pull erroring on linux; push is hanging
-2026-07-11T12:06:40.226181Z ERROR remote_control::utils::error: Unknown error while interacting with the clipboard: X11 server connection timed out because it was unreachable status=500
 
 terminal:
 on linux, previous texts seems to not get cleared for some shells
