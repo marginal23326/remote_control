@@ -1,5 +1,2 @@
 stream:
 - option to not capture remote cursor
-
-terminal:
-on linux, previous texts seems to not get cleared for some shells
