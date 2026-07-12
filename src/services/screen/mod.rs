@@ -283,6 +283,7 @@ impl ScreenManager {
         &self,
         socket: socketioxide::extract::SocketRef,
         state: crate::state::SharedState,
+        capture_cursor: bool,
     ) -> anyhow::Result<()> {
         if self
             .is_running
@@ -432,7 +433,7 @@ impl ScreenManager {
         let mut inner = {
             let (pw_node_id, pw_size, pw_fd) = {
                 let portal = linux::portal_session();
-                portal.open_pipewire_remote().await
+                portal.open_pipewire_remote(capture_cursor).await
             }?;
             *self.native_size.lock() = pw_size;
 
@@ -480,6 +481,7 @@ impl ScreenManager {
                 settings.clone(),
                 is_running.clone(),
                 self.native_size.clone(),
+                capture_cursor,
             )
             .await?;
 

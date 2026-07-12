@@ -66,6 +66,24 @@ pub struct CameraStartConfig {
     pub device_id: Option<String>,
 }
 
+fn default_capture_cursor() -> bool {
+    true
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StartStreamConfig {
+    #[serde(default = "default_capture_cursor")]
+    pub capture_cursor: bool,
+}
+
+impl Default for StartStreamConfig {
+    fn default() -> Self {
+        Self {
+            capture_cursor: default_capture_cursor(),
+        }
+    }
+}
+
 // --- HANDLERS ---
 
 pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<SharedState>) {
@@ -258,9 +276,13 @@ pub async fn handle_client_audio_data(Data(data): Data<bytes::Bytes>, State(stat
     audio.process_client_audio(data.to_vec());
 }
 
-pub async fn handle_start_stream(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_start_stream(
+    socket: SocketRef,
+    Data(data): Data<StartStreamConfig>,
+    State(state): State<SharedState>,
+) {
     let screen = state.screen.clone();
-    if let Err(e) = screen.start_stream(socket.clone(), state).await {
+    if let Err(e) = screen.start_stream(socket.clone(), state, data.capture_cursor).await {
         tracing::error!("Failed to start stream: {e:#}");
         let _ = socket.emit("stream_error", &json!({ "message": e.to_string() }));
     }

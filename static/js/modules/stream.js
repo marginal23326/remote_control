@@ -101,6 +101,11 @@ const streamUI = {
 const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5L19 12L7 19Z"></path></svg>`;
 const STREAM_ICON_STOP = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" stroke-width="2"></rect></svg>`;
 
+function isCursorCaptureEnabled() {
+    const checkbox = document.getElementById("showCursorToggle");
+    return checkbox ? checkbox.checked : true;
+}
+
 function setStreamToggleUI(active) {
     const btn = document.getElementById("toggleStream");
     if (!btn) return;
@@ -231,7 +236,7 @@ function initializeStream(sessionId, socket) {
             }
             if (startBtnLoader) startBtnLoader.startLoading();
 
-            socket.emit("start_stream", { sessionId });
+            socket.emit("start_stream", { sessionId, capture_cursor: isCursorCaptureEnabled() });
         } else {
             streamUI.hide();
             streamUI.hideScreenshot();
@@ -344,7 +349,7 @@ function initializeStream(sessionId, socket) {
             streamActive = true;
             setStreamToggleUI(true);
 
-            socket.emit("start_stream", { sessionId });
+            socket.emit("start_stream", { sessionId, capture_cursor: isCursorCaptureEnabled() });
         }
     });
 

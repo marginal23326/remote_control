@@ -43,6 +43,7 @@ pub(crate) async fn start_os_capture(
     settings: Arc<Mutex<StreamSettings>>,
     is_running: Arc<AtomicBool>,
     native_size: Arc<Mutex<(i32, i32)>>,
+    capture_cursor: bool,
 ) -> anyhow::Result<()> {
     unsafe {
         *native_size.lock() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
@@ -53,9 +54,15 @@ pub(crate) async fn start_os_capture(
     thread::spawn(move || {
         let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings, native_size.clone());
 
+        let cursor_capture_settings = if capture_cursor {
+            CursorCaptureSettings::WithCursor
+        } else {
+            CursorCaptureSettings::WithoutCursor
+        };
+
         let settings = Settings::new(
             monitor,
-            CursorCaptureSettings::Default,
+            cursor_capture_settings,
             DrawBorderSettings::WithoutBorder,
             SecondaryWindowSettings::Default,
             MinimumUpdateIntervalSettings::Custom(std::time::Duration::ZERO),

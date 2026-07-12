@@ -450,18 +450,18 @@ impl PortalSessionManager {
         }
     }
 
-    async fn ensure_started(&self) -> Result<PortalStreamInfo> {
+    async fn ensure_started(&self, capture_cursor: bool) -> Result<PortalStreamInfo> {
         let mut state = self.state.lock().await;
         if let Some(session) = state.as_ref() {
             return Ok(session.stream);
         }
 
         let restore_token = read_restore_token();
-        let session = match create_portal_session(restore_token.as_deref()).await {
+        let session = match create_portal_session(restore_token.as_deref(), capture_cursor).await {
             Ok(session) => session,
             Err(err) if restore_token.is_some() => {
                 tracing::warn!("Portal restore token failed: {err:#}");
-                create_portal_session(None).await?
+                create_portal_session(None, capture_cursor).await?
             }
             Err(err) => return Err(err),
         };
@@ -470,8 +470,8 @@ impl PortalSessionManager {
         Ok(stream)
     }
 
-    pub(crate) async fn open_pipewire_remote(&self) -> Result<(u32, (i32, i32), OwnedFd)> {
-        let info = self.ensure_started().await?;
+    pub(crate) async fn open_pipewire_remote(&self, capture_cursor: bool) -> Result<(u32, (i32, i32), OwnedFd)> {
+        let info = self.ensure_started(capture_cursor).await?;
         let state = self.state.lock().await;
         let session = state.as_ref().ok_or_else(|| anyhow!("Portal session uninitialized"))?;
         let fd = session
@@ -482,7 +482,7 @@ impl PortalSessionManager {
     }
 
     pub(crate) async fn notify_pointer_motion_absolute(&self, x: f64, y: f64) -> Result<()> {
-        self.ensure_started().await?;
+        self.ensure_started(true).await?;
         let state = self.state.lock().await;
         let session = state.as_ref().unwrap();
         session
@@ -499,7 +499,7 @@ impl PortalSessionManager {
     }
 
     pub(crate) async fn notify_pointer_button(&self, button: i32, state: KeyState) -> Result<()> {
-        self.ensure_started().await?;
+        self.ensure_started(true).await?;
         let guard = self.state.lock().await;
         let session = guard.as_ref().unwrap();
         session
@@ -510,7 +510,7 @@ impl PortalSessionManager {
     }
 
     pub(crate) async fn notify_pointer_axis(&self, dx: i32, dy: i32) -> Result<()> {
-        self.ensure_started().await?;
+        self.ensure_started(true).await?;
         let guard = self.state.lock().await;
         let session = guard.as_ref().unwrap();
 
@@ -540,7 +540,7 @@ impl PortalSessionManager {
     }
 
     pub(crate) async fn notify_keyboard_keysym(&self, keysym: i32, state: KeyState) -> Result<()> {
-        self.ensure_started().await?;
+        self.ensure_started(true).await?;
         let guard = self.state.lock().await;
         let session = guard.as_ref().unwrap();
         session
@@ -551,7 +551,7 @@ impl PortalSessionManager {
     }
 }
 
-async fn create_portal_session(restore_token: Option<&str>) -> Result<PortalSession> {
+async fn create_portal_session(restore_token: Option<&str>, capture_cursor: bool) -> Result<PortalSession> {
     let remote_desktop = RemoteDesktop::new().await?;
     let screencast = Screencast::new().await?;
     let session = remote_desktop.create_session(Default::default()).await?;
@@ -571,7 +571,11 @@ async fn create_portal_session(restore_token: Option<&str>) -> Result<PortalSess
             SelectSourcesOptions::default()
                 .set_sources(BitFlags::from_flag(SourceType::Monitor))
                 .set_multiple(false)
-                .set_cursor_mode(CursorMode::Embedded)
+                .set_cursor_mode(if capture_cursor {
+                    CursorMode::Embedded
+                } else {
+                    CursorMode::Hidden
+                })
                 .set_restore_token(restore_token),
         )
         .await?
