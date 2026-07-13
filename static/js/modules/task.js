@@ -1,6 +1,7 @@
 // static/js/modules/task.js
 import { apiCall, UIManager, showConfirmModal } from "./utils.js";
 import { showNotification } from "./dom.js";
+import { registerShortcuts } from "./shortcuts.js";
 
 function initializeTaskManager(socket) {
     let _selectedProcess = null;
@@ -66,7 +67,7 @@ function initializeTaskManager(socket) {
             }
 
             if (selectedItems.length > 0) {
-                items.push({ label: "End Task", action: () => killProcesses(selectedItems) });
+                items.push({ label: "End Task (Del)", action: () => killProcesses(selectedItems) });
             }
 
             return items;
@@ -207,6 +208,10 @@ function initializeTaskManager(socket) {
         } else {
             socket.emit("task_poll_stop");
         }
+    });
+
+    registerShortcuts("processSection", {
+        delete: () => document.getElementById("endTaskButton")?.click(),
     });
 
     taskManager.initialize();

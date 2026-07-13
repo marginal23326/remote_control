@@ -11,6 +11,7 @@ import {
     showConfirmModal,
 } from "./utils.js";
 import { LoadingButton, showNotification } from "./dom.js";
+import { registerShortcuts } from "./shortcuts.js";
 
 class FileManager extends UIManager {
     constructor() {
@@ -25,10 +26,10 @@ class FileManager extends UIManager {
                 const items = [{ label: "Download", action: () => this.handleDownload(selectedItems) }];
 
                 if (selectedItems.length === 1) {
-                    items.push({ label: "Rename", action: () => this.openRenameModal(selectedItems[0]) });
+                    items.push({ label: "Rename (F2)", action: () => this.renameSelectedItem() });
                 }
 
-                items.push({ label: "Delete", action: () => this.handleDelete(selectedItems) });
+                items.push({ label: "Delete (Del)", action: () => this.handleDelete(selectedItems) });
                 return items;
             },
             onSelectionChange: () => this.updateFileOperationsUI(),
@@ -777,6 +778,11 @@ class FileManager extends UIManager {
                 if (e.key === "Escape") this.setSearchMode(false, true);
             });
         }
+
+        registerShortcuts("fileSection", {
+            delete: () => document.getElementById("deleteItem")?.click(),
+            f2: () => this.renameSelectedItem(),
+        });
     }
 
     setSearchMode(active, refilter = false) {
@@ -791,6 +797,11 @@ class FileManager extends UIManager {
             if (this.elements.searchInput) this.elements.searchInput.value = "";
             if (refilter) this.applySortAndFilter(true);
         }
+    }
+
+    renameSelectedItem() {
+        const selected = this.getSelectedItems();
+        if (selected.length === 1) this.openRenameModal(selected[0]);
     }
 
     async openRenameModal(oldPath) {

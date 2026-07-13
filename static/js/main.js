@@ -13,6 +13,7 @@ import { updateSystemInfo } from "./modules/system.js";
 import { apiCall } from "./modules/utils.js";
 import { initializeNavigation } from "./modules/nav.js";
 import { initializeTaskManager } from "./modules/task.js";
+import { initializeShortcuts } from "./modules/shortcuts.js";
 
 function updateUIBasedOnAuthentication(isAuthenticated) {
     const sections = [
@@ -64,6 +65,7 @@ document.addEventListener("click", (e) => {
     renderInputGrids();
     initializeInputHandlers(socket);
     initializeTaskManager(socket);
+    initializeShortcuts();
 
     // Update system info on load
     updateSystemInfo();
