@@ -17,7 +17,6 @@ pub fn is_authenticated(headers: &HeaderMap, secret: &str) -> bool {
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,
     pub exp: usize,
 }
 
