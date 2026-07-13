@@ -301,6 +301,15 @@ class FileManager extends UIManager {
         this.applySortAndFilter();
     }
 
+    selectPath(path) {
+        if (!this.selectionManager) return;
+        this.selectionManager.clearSelection(false);
+        this.selectionManager.selectedIds.add(path);
+        this.selectionManager.lastSelectedId = path;
+        this.selectionManager.selectionAnchorId = path;
+        this.selectionManager.config.onSelectionChange(this.selectionManager.getSelectedItems());
+    }
+
     applySortAndFilter(resetScroll = false) {
         const term = (this.elements.searchInput?.value || "").toLowerCase();
         let list = this.currentFileList.filter((item) => !term || item._nameLower.includes(term));
@@ -532,6 +541,15 @@ class FileManager extends UIManager {
             this.currentPath = path;
             this.updateBreadcrumbs();
             this.updateNavButtons();
+
+            if (!isSamePath) {
+                const sep = this.getSeparator();
+                const parent = path.endsWith(sep) ? path : path + sep;
+                if (previousPath.startsWith(parent)) {
+                    scrollToPath = previousPath;
+                    this.selectPath(previousPath);
+                }
+            }
 
             await this.updateFileList(response, scrollToPath);
         } catch (error) {
