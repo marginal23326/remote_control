@@ -30,7 +30,7 @@ pub(crate) fn get_max_fps() -> u64 {
         let mut dev_mode: windows::Win32::Graphics::Gdi::DEVMODEW = std::mem::zeroed();
         dev_mode.dmSize = std::mem::size_of::<windows::Win32::Graphics::Gdi::DEVMODEW>() as u16;
         if EnumDisplaySettingsW(None, ENUM_CURRENT_SETTINGS, &mut dev_mode).as_bool() {
-            dev_mode.dmDisplayFrequency as u64
+            (dev_mode.dmDisplayFrequency as u64).max(1)
         } else {
             60
         }
