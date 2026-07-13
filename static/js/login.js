@@ -19,8 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const password = document.getElementById("password").value;
 
         try {
-            await new Promise((r) => setTimeout(r, 300)); // Natural interaction delay
-
             const response = await fetch("/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
