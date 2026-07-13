@@ -12,7 +12,6 @@ const CONFIG_FILE: &str = "user_config.json";
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct AppConfig {
-    pub username: String,
     pub password_hash: String,
     pub jwt_secret: String,
     pub port: u16,
@@ -23,7 +22,6 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            username: "admin".to_string(),
             password_hash: "".to_string(),
             jwt_secret: "".to_string(),
             port: 5000,
@@ -41,9 +39,8 @@ impl ConfigManager {
             serde_json::from_str(&content)?
         } else {
             println!("\n=== First Time Setup ===");
-            println!("No configuration found. Please create your admin credentials.\n");
+            println!("No configuration found. Please create your admin password.\n");
 
-            let username = Self::prompt_input("Enter username: ")?;
             let password = Self::prompt_password()?;
             let port_str = Self::prompt_input("Enter port (default 5000): ")?;
 
@@ -63,7 +60,6 @@ impl ConfigManager {
             let jwt_secret = Uuid::new_v4().to_string();
 
             let config = AppConfig {
-                username,
                 password_hash,
                 jwt_secret,
                 port,

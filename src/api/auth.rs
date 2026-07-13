@@ -34,27 +34,20 @@ fn verify_password(password: &str, stored: &str) -> bool {
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
-    username: String,
     password: String,
 }
 
 pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json<LoginRequest>) -> AppResult<Response> {
     let config = &state.config;
 
-    let password_valid = verify_password(&payload.password, &config.password_hash);
-    let username_valid = payload.username == config.username;
-
-    if username_valid && password_valid {
+    if verify_password(&payload.password, &config.password_hash) {
         let expiration = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as usize
             + (60 * 60 * 24); // 24 hours
 
-        let claims = Claims {
-            sub: payload.username.clone(),
-            exp: expiration,
-        };
+        let claims = Claims { exp: expiration };
 
         let token = create_jwt(&claims, &config.jwt_secret)?;
 
