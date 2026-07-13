@@ -216,7 +216,7 @@ class SelectionManager {
             if (!this.selectionAnchorId) {
                 let allIds = this._getSelectableIds();
                 if (allIds.length > 0) {
-                    this.selectionAnchorId = allIds[0];
+                    this.selectionAnchorId = allIds[0]; // matches standard explorer behavior
                     this.handleRangeSelection(id, this.selectionAnchorId);
                 } else {
                     this.selectionAnchorId = id;
