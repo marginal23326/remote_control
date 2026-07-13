@@ -24,12 +24,12 @@ function initializeTaskManager(socket) {
         });
         if (!confirmed) return;
 
-        for (const pid of pids) {
-            try {
-                await apiCall("/api/tasks/kill", "POST", { pid });
-            } catch (error) {
-                console.error("Error killing process:", error);
-                showNotification(error.message, "error");
+        const results = await Promise.allSettled(pids.map((pid) => apiCall("/api/tasks/kill", "POST", { pid })));
+
+        for (const result of results) {
+            if (result.status === "rejected") {
+                console.error("Error killing process:", result.reason);
+                showNotification(result.reason.message, "error");
             }
         }
         document.getElementById("endTaskContainer").classList.add("hidden");
