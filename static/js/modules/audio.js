@@ -1,6 +1,9 @@
 // static/js/modules/audio.js
 import { showNotification } from "./dom.js";
 
+const MIN_RATE = 3000;
+const MAX_RATE = 768000;
+
 class AudioManager {
     constructor(socket) {
         this.socket = socket;
@@ -31,21 +34,7 @@ class AudioManager {
         this.initializeEventListeners();
     }
 
-    validateSampleRate(rate) {
-        const MIN_RATE = 3000;
-        const MAX_RATE = 768000;
-        if (rate < MIN_RATE || rate > MAX_RATE) {
-            showNotification(`Sample rate must be between ${MIN_RATE} and ${MAX_RATE}`, "error");
-            return false;
-        }
-        return true;
-    }
-
     async ensureAudioContext(sampleRate) {
-        if (!this.validateSampleRate(sampleRate)) {
-            return false;
-        }
-
         if (this.audioContext) {
             if (this.audioContext.sampleRate !== sampleRate) {
                 await this.audioContext.close();
@@ -61,8 +50,6 @@ class AudioManager {
         if (this.audioContext.state === "suspended") {
             await this.audioContext.resume();
         }
-
-        return true;
     }
 
     async initializeAudioWorklet() {
@@ -104,7 +91,7 @@ class AudioManager {
             }
 
             this.currentSettings[type] = targetSettings;
-            const targetRate = targetSettings.rate || 48000;
+            targetSettings.rate = Math.max(MIN_RATE, Math.min(MAX_RATE, targetSettings.rate || 48000));
 
             if (type === "client") {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -113,10 +100,13 @@ class AudioManager {
                     );
                 }
 
-                await this.ensureAudioContext(targetRate);
+                const rateInput = document.getElementById("clientAudioRate");
+                if (rateInput) rateInput.value = targetSettings.rate;
+
+                await this.ensureAudioContext(targetSettings.rate);
                 this.currentStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
-                        sampleRate: targetRate,
+                        sampleRate: targetSettings.rate,
                         channelCount: 1,
                         echoCancellation: true,
                         noiseSuppression: true,
