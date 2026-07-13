@@ -116,6 +116,88 @@ pub(crate) enum GstCommand {
     Stop,
 }
 
+pub(crate) struct WebRtcSignalConfig {
+    pub label: &'static str,
+    pub offer_event: &'static str,
+    pub ice_event: &'static str,
+}
+
+pub(crate) fn wire_webrtc_signaling(
+    webrtcbin: &gst::Element,
+    cmd_rx: crossbeam_channel::Receiver<GstCommand>,
+    socket: socketioxide::extract::SocketRef,
+    stun_server: Option<String>,
+    config: WebRtcSignalConfig,
+) {
+    if let Some(stun) = stun_server
+        && !stun.is_empty()
+    {
+        webrtcbin.set_property_from_str("stun-server", &stun);
+    }
+
+    {
+        let socket_nego = socket.clone();
+        let offer_event = config.offer_event;
+        webrtcbin.connect("on-negotiation-needed", false, move |args| {
+            let webrtc: gst::Element = args[0].get().unwrap();
+            let socket = socket_nego.clone();
+            let webrtc_promise = webrtc.clone();
+
+            let promise = gst::Promise::with_change_func(move |reply| {
+                if let Ok(Some(structure)) = reply
+                    && let Ok(offer) = structure.get::<gst_webrtc::WebRTCSessionDescription>("offer")
+                    && let Ok(sdp_text) = offer.sdp().as_text()
+                {
+                    webrtc_promise.emit_by_name::<()>("set-local-description", &[&offer, &None::<gst::Promise>]);
+                    let _ = socket.emit(offer_event, &sdp_text);
+                }
+            });
+
+            webrtc.emit_by_name::<()>("create-offer", &[&None::<gst::Structure>, &promise]);
+            None
+        });
+    }
+
+    {
+        let socket_ice = socket.clone();
+        let ice_event = config.ice_event;
+        webrtcbin.connect("on-ice-candidate", false, move |args| {
+            let sdp_mline_index: u32 = args[1].get().unwrap();
+            let candidate: String = args[2].get().unwrap();
+            let data = serde_json::json!({
+                "sdp_mline_index": sdp_mline_index,
+                "candidate": candidate,
+            });
+            let _ = socket_ice.emit(ice_event, &data);
+            None
+        });
+    }
+
+    let webrtc = webrtcbin.clone();
+    let label = config.label;
+    thread::spawn(move || {
+        while let Ok(cmd) = cmd_rx.recv() {
+            match cmd {
+                GstCommand::SetRemoteDescription(sdp_text) => {
+                    if let Ok(sdp) = gst_sdp::SDPMessage::parse_buffer(sdp_text.as_bytes()) {
+                        let desc = gst_webrtc::WebRTCSessionDescription::new(gst_webrtc::WebRTCSDPType::Answer, sdp);
+                        webrtc.emit_by_name::<()>("set-remote-description", &[&desc, &None::<gst::Promise>]);
+                    } else {
+                        tracing::error!("[{label}] Failed to parse SDP answer");
+                    }
+                }
+                GstCommand::AddIceCandidate {
+                    sdp_mline_index,
+                    candidate,
+                } => {
+                    webrtc.emit_by_name::<()>("add-ice-candidate", &[&sdp_mline_index as &dyn ToValue, &candidate]);
+                }
+                GstCommand::Stop => break,
+            }
+        }
+    });
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct EncoderPropertyConstraint {
     pub value_type: &'static str,
@@ -384,15 +466,19 @@ impl ScreenManager {
         let (frame_tx, frame_rx): (Sender<RawFrame>, _) = bounded(3);
         let (recycle_tx, recycle_rx): (Sender<Vec<u8>>, _) = bounded(5);
 
-        let socket_signal = socket.clone();
-        let input_handle = Self::setup_webrtc_signals(
+        wire_webrtc_signaling(
             &webrtcbin,
-            &cmd_rx,
-            socket_signal,
-            state.input.clone(),
-            tokio::runtime::Handle::current(),
+            cmd_rx,
+            socket.clone(),
             state.config.stun_server.clone(),
+            WebRtcSignalConfig {
+                label: "screen",
+                offer_event: "webrtc_offer",
+                ice_event: "webrtc_remote_ice",
+            },
         );
+        let input_handle =
+            Self::setup_input_data_channels(&webrtcbin, state.input.clone(), tokio::runtime::Handle::current());
 
         let is_running = self.is_running.clone();
         let settings = self.settings.clone();
@@ -604,91 +690,6 @@ impl ScreenManager {
         startup_guard.success = true;
 
         Ok(())
-    }
-
-    fn setup_webrtc_signals(
-        webrtcbin: &gst::Element,
-        cmd_rx: &crossbeam_channel::Receiver<GstCommand>,
-        socket: socketioxide::extract::SocketRef,
-        input: crate::services::input::InputManager,
-        runtime: tokio::runtime::Handle,
-        stun_server: Option<String>,
-    ) -> tokio::task::JoinHandle<()> {
-        let wtc = webrtcbin.clone();
-
-        if let Some(stun) = stun_server
-            && !stun.is_empty()
-        {
-            webrtcbin.set_property_from_str("stun-server", &stun);
-        }
-
-        {
-            let socket_nego = socket.clone();
-            wtc.connect("on-negotiation-needed", false, move |args| {
-                let webrtc: gst::Element = args[0].get().unwrap();
-                let socket = socket_nego.clone();
-                let webrtc_promise = webrtc.clone();
-
-                let promise = gst::Promise::with_change_func(move |reply| {
-                    if let Ok(Some(structure)) = reply
-                        && let Ok(offer) = structure.get::<gst_webrtc::WebRTCSessionDescription>("offer")
-                        && let Ok(sdp_text) = offer.sdp().as_text()
-                    {
-                        webrtc_promise.emit_by_name::<()>("set-local-description", &[&offer, &None::<gst::Promise>]);
-                        let _ = socket.emit("webrtc_offer", &sdp_text);
-                    }
-                });
-
-                webrtc.emit_by_name::<()>("create-offer", &[&None::<gst::Structure>, &promise]);
-
-                None
-            });
-        }
-
-        {
-            let socket_ice = socket.clone();
-            wtc.connect("on-ice-candidate", false, move |args| {
-                let sdp_mline_index: u32 = args[1].get().unwrap();
-                let candidate: String = args[2].get().unwrap();
-                let data = serde_json::json!({
-                    "sdp_mline_index": sdp_mline_index,
-                    "candidate": candidate,
-                });
-                let _ = socket_ice.emit("webrtc_remote_ice", &data);
-                None
-            });
-        }
-
-        let input_handle = Self::setup_input_data_channels(webrtcbin, input, runtime);
-
-        let cmd_rx_clone = cmd_rx.clone();
-        let webrtc = wtc.clone();
-        thread::spawn(move || {
-            while let Ok(cmd) = cmd_rx_clone.recv() {
-                match cmd {
-                    GstCommand::SetRemoteDescription(sdp_text) => {
-                        if let Ok(sdp) = gst_sdp::SDPMessage::parse_buffer(sdp_text.as_bytes()) {
-                            let desc =
-                                gst_webrtc::WebRTCSessionDescription::new(gst_webrtc::WebRTCSDPType::Answer, sdp);
-                            webrtc.emit_by_name::<()>("set-remote-description", &[&desc, &None::<gst::Promise>]);
-                        } else {
-                            tracing::error!("Failed to parse SDP answer");
-                        }
-                    }
-                    GstCommand::AddIceCandidate {
-                        sdp_mline_index,
-                        candidate,
-                    } => {
-                        webrtc.emit_by_name::<()>("add-ice-candidate", &[&sdp_mline_index as &dyn ToValue, &candidate]);
-                    }
-                    GstCommand::Stop => {
-                        break;
-                    }
-                }
-            }
-        });
-
-        input_handle
     }
 
     fn setup_input_data_channels(
