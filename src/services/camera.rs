@@ -1,4 +1,4 @@
-use crate::services::screen::{GstCommand, detect_encoder};
+use crate::services::screen::{GstCommand, WebRtcSignalConfig, detect_encoder, wire_webrtc_signaling};
 use crate::state::SharedState;
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -11,8 +11,6 @@ use std::thread;
 
 use gst::prelude::*;
 use gstreamer as gst;
-use gstreamer_sdp as gst_sdp;
-use gstreamer_webrtc as gst_webrtc;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct CameraDeviceInfo {
@@ -127,7 +125,17 @@ impl CameraManager {
 
         let (cmd_tx, cmd_rx) = crossbeam_channel::bounded::<GstCommand>(32);
 
-        setup_webrtc_signals(&webrtcbin, cmd_rx, socket.clone(), state.config.stun_server.clone());
+        wire_webrtc_signaling(
+            &webrtcbin,
+            cmd_rx,
+            socket.clone(),
+            state.config.stun_server.clone(),
+            WebRtcSignalConfig {
+                label: "camera",
+                offer_event: "camera_webrtc_offer",
+                ice_event: "camera_webrtc_remote_ice",
+            },
+        );
 
         let is_running = self.is_running.clone();
         let pipeline_clone = pipeline.clone();
@@ -218,76 +226,4 @@ fn enumerate_devices() -> Vec<gst::Device> {
         .into_iter()
         .filter(|d| d.properties().is_some_and(|p| p.get::<String>("device.api").is_ok()))
         .collect()
-}
-
-fn setup_webrtc_signals(
-    webrtcbin: &gst::Element,
-    cmd_rx: crossbeam_channel::Receiver<GstCommand>,
-    socket: SocketRef,
-    stun_server: Option<String>,
-) {
-    if let Some(stun) = stun_server
-        && !stun.is_empty()
-    {
-        webrtcbin.set_property_from_str("stun-server", &stun);
-    }
-
-    {
-        let socket_nego = socket.clone();
-        webrtcbin.connect("on-negotiation-needed", false, move |args| {
-            let webrtc: gst::Element = args[0].get().unwrap();
-            let socket = socket_nego.clone();
-            let webrtc_promise = webrtc.clone();
-
-            let promise = gst::Promise::with_change_func(move |reply| {
-                if let Ok(Some(structure)) = reply
-                    && let Ok(offer) = structure.get::<gst_webrtc::WebRTCSessionDescription>("offer")
-                    && let Ok(sdp_text) = offer.sdp().as_text()
-                {
-                    webrtc_promise.emit_by_name::<()>("set-local-description", &[&offer, &None::<gst::Promise>]);
-                    let _ = socket.emit("camera_webrtc_offer", &sdp_text);
-                }
-            });
-
-            webrtc.emit_by_name::<()>("create-offer", &[&None::<gst::Structure>, &promise]);
-            None
-        });
-    }
-
-    {
-        let socket_ice = socket.clone();
-        webrtcbin.connect("on-ice-candidate", false, move |args| {
-            let sdp_mline_index: u32 = args[1].get().unwrap();
-            let candidate: String = args[2].get().unwrap();
-            let data = serde_json::json!({
-                "sdp_mline_index": sdp_mline_index,
-                "candidate": candidate,
-            });
-            let _ = socket_ice.emit("camera_webrtc_remote_ice", &data);
-            None
-        });
-    }
-
-    let webrtc = webrtcbin.clone();
-    thread::spawn(move || {
-        while let Ok(cmd) = cmd_rx.recv() {
-            match cmd {
-                GstCommand::SetRemoteDescription(sdp_text) => {
-                    if let Ok(sdp) = gst_sdp::SDPMessage::parse_buffer(sdp_text.as_bytes()) {
-                        let desc = gst_webrtc::WebRTCSessionDescription::new(gst_webrtc::WebRTCSDPType::Answer, sdp);
-                        webrtc.emit_by_name::<()>("set-remote-description", &[&desc, &None::<gst::Promise>]);
-                    } else {
-                        tracing::error!("Failed to parse webcam SDP answer");
-                    }
-                }
-                GstCommand::AddIceCandidate {
-                    sdp_mline_index,
-                    candidate,
-                } => {
-                    webrtc.emit_by_name::<()>("add-ice-candidate", &[&sdp_mline_index as &dyn ToValue, &candidate]);
-                }
-                GstCommand::Stop => break,
-            }
-        }
-    });
 }
