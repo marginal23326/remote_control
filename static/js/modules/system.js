@@ -1,7 +1,6 @@
 // static/js/modules/system.js
 import { apiCall } from "./utils.js";
 
-const fArr = (v) => (Array.isArray(v) ? v.join(", ") : v);
 const svg = (inner) =>
     `<svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">${inner}</svg>`;
 const path = (d) => `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/>`;
@@ -35,8 +34,8 @@ async function updateSystemInfo() {
                 ],
                 ["Cores / Threads", `${info.cpu_cores || "?"} / ${info.cpu_threads || "?"}`],
                 ["Memory", info.memory],
-                ["GPU", fArr(info.gpu)],
-                ["Monitors", fArr(info.monitors)],
+                ["GPU", info.gpu],
+                ["Monitors", info.monitors],
                 ["Battery", info.battery],
             ],
         },
@@ -47,7 +46,7 @@ async function updateSystemInfo() {
                 ["LAN / WAN IP", [info.lan_ip, info.wan_ip].filter(Boolean).join(" / ")],
                 ["MAC Address", info.mac_address],
                 ["ISP", info.isp ? `${info.isp} ${info.asn ? `(${info.asn})` : ""}` : null],
-                ["Antivirus", fArr(info.antivirus)],
+                ["Antivirus", info.antivirus],
                 ["Firewall", info.firewall],
             ],
         },
@@ -58,7 +57,7 @@ async function updateSystemInfo() {
                     path("M4 6v12a8 3 0 0016 0V6M4 10a8 3 0 0016 0M4 14a8 3 0 0016 0"),
             ),
             data: [
-                ["Drives", fArr(info.disks)],
+                ["Drives", info.disks],
                 [
                     "System Drive",
                     `${info.system_drive} (${info.disk_used || "?"} used of ${info.disk_total || "?"}, ${info.disk_free || "?"} free)`,
