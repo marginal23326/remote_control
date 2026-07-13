@@ -83,6 +83,16 @@ const CLASSES = {
     defaultHover: "hover:bg-zinc-800",
 };
 
+function isTypingField(element) {
+    return (
+        !!element &&
+        (element.tagName === "INPUT" ||
+            element.tagName === "TEXTAREA" ||
+            element.tagName === "SELECT" ||
+            element.isContentEditable)
+    );
+}
+
 class SelectionManager {
     constructor(config) {
         this.selectedIds = new Set();
@@ -134,6 +144,7 @@ class SelectionManager {
             const item = e.target.closest(this.config.itemSelector);
             if (item && this.config.getItemId(item)) {
                 if (e.button === 0) {
+                    if (isTypingField(document.activeElement)) document.activeElement.blur();
                     this.handleItemSelection(item, e);
                     this.handleDragStart(e, item);
                 }
@@ -573,6 +584,7 @@ const escapeHtml = (str) => (str || "").replace(/[&<>"']/g, (m) => HTML_ESCAPES[
 
 function _createModal(bodyHtml, { confirmLabel, cancelLabel = "Cancel", danger = false }) {
     const overlay = document.createElement("div");
+    overlay.dataset.appModal = "";
     overlay.className =
         "fixed inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150";
     overlay.innerHTML = `<div class="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
@@ -671,4 +683,5 @@ export {
     escapeHtml,
     showPromptModal,
     showConfirmModal,
+    isTypingField,
 };

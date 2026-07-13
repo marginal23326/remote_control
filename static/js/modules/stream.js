@@ -1,5 +1,6 @@
 import { apiCall, showPromptModal } from "./utils.js";
 import { showNotification, LoadingButton } from "./dom.js";
+import { registerShortcuts } from "./shortcuts.js";
 
 const streamUI = {
     container: document.getElementById("streamContainer"),
@@ -110,7 +111,7 @@ function setStreamToggleUI(active) {
     const btn = document.getElementById("toggleStream");
     if (!btn) return;
     btn.innerHTML = active ? STREAM_ICON_STOP : STREAM_ICON_PLAY;
-    btn.title = active ? "Stop Stream" : "Start Stream";
+    btn.title = active ? "Stop Stream (Space)" : "Start Stream (Space)";
     btn.classList.toggle("hover:text-red-400", active);
     btn.classList.toggle("hover:text-zinc-100", !active);
 }
@@ -379,6 +380,14 @@ function initializeStream(sessionId, socket) {
                 loader.stopLoading();
             }
         });
+    });
+
+    registerShortcuts("streamSection", {
+        " ": () => document.getElementById("toggleStream")?.click(),
+        s: () => document.getElementById("screenshot")?.click(),
+        f: () => document.getElementById("fullscreenBtn")?.click(),
+        k: () => document.getElementById("keyboardCaptureBtn")?.click(),
+        m: () => document.getElementById("mouseCaptureBtn")?.click(),
     });
 }
 
