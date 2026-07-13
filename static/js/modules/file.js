@@ -59,6 +59,7 @@ class FileManager extends UIManager {
         this.lastRenderedRange = { start: -1, end: -1 };
         this.ticking = false;
         this.isLoading = false;
+        this._navToken = 0;
         this.scrollToPath = null;
         this.currentUploadXhr = null;
     }
@@ -497,6 +498,7 @@ class FileManager extends UIManager {
         const fileList = document.getElementById("fileList");
 
         this.isLoading = true;
+        const token = ++this._navToken;
 
         const isSamePath = path === this.currentPath;
         const previousPath = this.currentPath;
@@ -510,6 +512,7 @@ class FileManager extends UIManager {
 
         try {
             const response = await apiCall(`/api/files?path=${encodeURIComponent(path)}`);
+            if (token !== this._navToken) return;
             this.isLoading = false;
 
             if (response.status === "error") {
@@ -532,6 +535,7 @@ class FileManager extends UIManager {
 
             await this.updateFileList(response, scrollToPath);
         } catch (error) {
+            if (token !== this._navToken) return;
             this.isLoading = false;
             console.error("Error listing files:", error);
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
