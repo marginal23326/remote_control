@@ -30,9 +30,9 @@ async function updateSystemInfo() {
             data: [
                 [
                     "Processor",
-                    `${info.processor?.replace(/\s*@\s*[\d.]+\s*GHz/, "") || "?"} · ${info.cpu_base_speed || "?"} / ${info.cpu_max_speed || "?"}`,
+                    `${info.processor?.replace(/\s*@\s*[\d.]+\s*GHz/, "") ?? "?"} · ${info.cpu_base_speed ?? "?"} / ${info.cpu_max_speed ?? "?"}`,
                 ],
-                ["Cores / Threads", `${info.cpu_cores || "?"} / ${info.cpu_threads || "?"}`],
+                ["Cores / Threads", `${info.cpu_cores ?? "?"} / ${info.cpu_threads ?? "?"}`],
                 ["Memory", info.memory],
                 ["GPU", info.gpu],
                 ["Monitors", info.monitors],
@@ -60,7 +60,7 @@ async function updateSystemInfo() {
                 ["Drives", info.disks],
                 [
                     "System Drive",
-                    `${info.system_drive} (${info.disk_used || "?"} used of ${info.disk_total || "?"}, ${info.disk_free || "?"} free)`,
+                    `${info.system_drive} (${info.disk_used ?? "?"} used of ${info.disk_total ?? "?"}, ${info.disk_free ?? "?"} free)`,
                 ],
                 ["Active Processes", info.active_processes],
             ],
@@ -81,7 +81,7 @@ async function updateSystemInfo() {
                         ([k, v]) => `
                     <div>
                         <div class="text-[10px] uppercase tracking-wider font-semibold text-zinc-500 mb-0.5">${k}</div>
-                        <div class="text-sm text-zinc-300 break-words leading-tight">${v || "N/A"}</div>
+                        <div class="text-sm text-zinc-300 break-words leading-tight">${v ?? "N/A"}</div>
                     </div>
                 `,
                     )
