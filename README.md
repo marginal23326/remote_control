@@ -8,8 +8,31 @@ A Rust-based remote desktop application with screen streaming, remote input, she
 
 **Linux (Fedora, KDE Plasma on Wayland only):**
 
+Install Rust via https://rustup.rs.
+
+Install pnpm and Node:
+
 ```bash
-sudo dnf install pipewire wireplumber xdg-desktop-portal xdg-desktop-portal-kde pipewire-devel pkgconf alsa-lib-devel clang cmake nasm
+curl -fsSL https://get.pnpm.io/install.sh | sh - && pnpm runtime install 26
+```
+
+Enable RPM Fusion:
+
+```bash
+sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+```
+
+Install the dependencies:
+
+```bash
+sudo dnf install \
+  gcc clang-devel cmake nasm pkgconf \
+  pipewire pipewire-devel wireplumber \
+  xdg-desktop-portal xdg-desktop-portal-kde \
+  openssl-devel glib2-devel \
+  gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-bad-free-devel \
+  gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-bad-free \
+  gstreamer1-plugins-ugly mesa-va-drivers-freeworld
 ```
 
 **Windows:** Windows 10 version 1903 or later.
