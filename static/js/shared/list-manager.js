@@ -1,4 +1,3 @@
-// static/js/shared/list-manager.js
 import { SelectionManager } from "./selection-manager.js";
 import { ContextMenuManager } from "./context-menu.js";
 

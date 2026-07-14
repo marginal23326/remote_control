@@ -1,5 +1,3 @@
-// static/js/shared/context-menu.js
-
 class ContextMenuManager {
     constructor(config) {
         this.menuElement = null;

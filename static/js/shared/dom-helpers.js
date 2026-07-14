@@ -1,5 +1,3 @@
-// static/js/shared/dom-helpers.js
-
 function isTypingField(element) {
     return (
         !!element &&

@@ -1,5 +1,3 @@
-// static/js/shared/api.js
-
 async function apiCall(endpoint, method = "GET", data = null) {
     const options = {
         method,

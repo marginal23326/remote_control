@@ -1,4 +1,3 @@
-// static/js/shared/modal.js
 import { escapeHtml } from "./dom-helpers.js";
 import { showNotification } from "./feedback.js";
 

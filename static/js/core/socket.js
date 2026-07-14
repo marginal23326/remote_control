@@ -1,4 +1,3 @@
-// static/js/core/socket.js
 import { io } from "socket.io-client";
 import { showConnectionOverlay, hideConnectionOverlay } from "@/shared/feedback.js";
 

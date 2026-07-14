@@ -1,4 +1,3 @@
-// static/js/shared/selection-manager.js
 import { isTypingField } from "./dom-helpers.js";
 
 class SelectionManager {

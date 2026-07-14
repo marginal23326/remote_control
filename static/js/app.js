@@ -1,11 +1,10 @@
-// static/js/app.js
 import "../input.css";
 import "../css/styles.css";
 import { initializeSocketIO } from "@/core/socket.js";
 import { initializeNavigation } from "@/core/navigation.js";
 import { initializeShortcuts } from "@/core/shortcuts.js";
 import { AudioManager } from "@/features/audio/audio-manager.js";
-import { initializeStream, updateSettingsDisplay } from "@/features/stream/stream.js";
+import { initializeStream } from "@/features/stream/stream.js";
 import { initializeCamera } from "@/features/camera/camera.js";
 import { InteractiveShell } from "@/features/shell/shell.js";
 import { initializeFileManagement } from "@/features/files/file-manager.js";
@@ -13,7 +12,6 @@ import { renderInputGrids } from "@/features/input/input-grid.js";
 import { initializeInputHandlers } from "@/features/input/input-controller.js";
 import { updateSystemInfo } from "@/features/system/system-panel.js";
 import { initializeTaskManager } from "@/features/tasks/task-manager.js";
-import { apiCall } from "@/shared/api.js";
 
 function updateUIBasedOnAuthentication(isAuthenticated) {
     const sections = [
@@ -48,7 +46,7 @@ document.addEventListener("click", (e) => {
     }
 });
 
-(async function () {
+(function () {
     const socket = initializeSocketIO(updateUIBasedOnAuthentication);
 
     const sessionId = Math.random().toString(36).substring(2);
@@ -69,14 +67,6 @@ document.addEventListener("click", (e) => {
 
     // Update system info on load
     updateSystemInfo();
-
-    // Get initial stream settings
-    try {
-        const initialSettings = await apiCall("/api/stream/settings", "GET");
-        updateSettingsDisplay(initialSettings);
-    } catch {
-        console.log("Stream settings not yet available");
-    }
 
     // Handle logout
     document.getElementById("logoutButton").addEventListener("click", async (e) => {

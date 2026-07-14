@@ -1,4 +1,3 @@
-// static/js/features/tasks/task-manager.js
 import { apiCall } from "@/shared/api.js";
 import { ListManager } from "@/shared/list-manager.js";
 import { showConfirmModal } from "@/shared/modal.js";
