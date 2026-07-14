@@ -1,6 +1,6 @@
-// static/js/modules/connection.js
+// static/js/core/socket.js
 import { io } from "socket.io-client";
-import { showConnectionOverlay, hideConnectionOverlay } from "./dom.js";
+import { showConnectionOverlay, hideConnectionOverlay } from "@/shared/feedback.js";
 
 function initializeSocketIO(authCallback) {
     const socket = io();

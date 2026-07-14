@@ -1,5 +1,5 @@
-// static/js/modules/shortcuts.js
-import { isTypingField } from "./utils.js";
+// static/js/core/shortcuts.js
+import { isTypingField } from "@/shared/dom-helpers.js";
 
 const sectionShortcuts = new Map();
 

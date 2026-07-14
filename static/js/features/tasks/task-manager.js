@@ -1,7 +1,9 @@
-// static/js/modules/task.js
-import { apiCall, UIManager, showConfirmModal } from "./utils.js";
-import { showNotification } from "./dom.js";
-import { registerShortcuts } from "./shortcuts.js";
+// static/js/features/tasks/task-manager.js
+import { apiCall } from "@/shared/api.js";
+import { ListManager } from "@/shared/list-manager.js";
+import { showConfirmModal } from "@/shared/modal.js";
+import { showNotification } from "@/shared/feedback.js";
+import { registerShortcuts } from "@/core/shortcuts.js";
 
 function initializeTaskManager(socket) {
     let _selectedProcess = null;
@@ -37,7 +39,7 @@ function initializeTaskManager(socket) {
     }
 
     let taskManager;
-    taskManager = new UIManager({
+    taskManager = new ListManager({
         containerSelector: "#taskList",
         itemDataAttribute: "pid",
         getItemId: (element) => element.dataset.pid,

@@ -1,4 +1,4 @@
-// static/js/modules/input-render.js
+// static/js/features/input/input-grid.js
 
 export function renderInputGrids() {
     // Shared button style

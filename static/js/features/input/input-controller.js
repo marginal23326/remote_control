@@ -1,5 +1,10 @@
-// static/js/modules/input.js
-import { streamUI, streamActive, calculateStreamDimensions, sendMouseEventOverDataChannel } from "./stream.js";
+// static/js/features/input/input-controller.js
+import {
+    streamUI,
+    streamActive,
+    calculateStreamDimensions,
+    sendMouseEventOverDataChannel,
+} from "@/features/stream/stream.js";
 
 // Mapping for abstract action names to actual keys
 const SHORTCUT_MAP = {

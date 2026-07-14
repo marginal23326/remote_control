@@ -1,5 +1,5 @@
-// static/js/modules/audio.js
-import { showNotification } from "./dom.js";
+// static/js/features/audio/audio-manager.js
+import { showNotification } from "@/shared/feedback.js";
 
 const MIN_RATE = 3000;
 const MAX_RATE = 768000;
@@ -67,7 +67,7 @@ class AudioManager {
     async ensureAudioWorkletModule() {
         if (!this.audioWorkletModulePromise) {
             this.audioWorkletModulePromise = this.audioContext.audioWorklet
-                .addModule("/static/js/modules/audio-worklet-processor.js")
+                .addModule("/static/js/features/audio/audio-worklet-processor.js")
                 .catch((error) => {
                     this.audioWorkletModulePromise = null;
                     throw error;
@@ -242,7 +242,7 @@ class AudioManager {
     ensureServerAudioWorker() {
         if (this.serverAudioWorker) return;
 
-        this.serverAudioWorker = new Worker("/static/js/modules/server-audio-converter-worker.js");
+        this.serverAudioWorker = new Worker("/static/js/features/audio/audio-converter.worker.js");
         this.serverAudioWorker.onmessage = (event) => {
             const { type, samples } = event.data;
 

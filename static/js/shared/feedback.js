@@ -1,5 +1,5 @@
-// static/js/modules/dom.js
-import { SVG_TEMPLATES } from "./utils.js";
+// static/js/shared/feedback.js
+import { SVG_TEMPLATES } from "./icons.js";
 
 const connectionOverlay = document.getElementById("connectionOverlay");
 const connectionMessage = document.getElementById("connectionMessage");
