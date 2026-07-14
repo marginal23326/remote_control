@@ -1,8 +1,9 @@
+// static/js/features/shell/shell.js
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { SVG_TEMPLATES } from "./utils.js";
+import { SVG_TEMPLATES } from "@/shared/icons.js";
 
 const SHELL_LABELS = {
     bash: "Bash",

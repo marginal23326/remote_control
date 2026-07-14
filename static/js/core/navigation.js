@@ -1,4 +1,4 @@
-// static/js/modules/nav.js
+// static/js/core/navigation.js
 let activeSectionId = "streamSection";
 let isInitialized = false;
 

@@ -1,19 +1,14 @@
-// static/js/modules/file.js
-import {
-    apiCall,
-    SVG_TEMPLATES,
-    CLASSES,
-    formatFileSize,
-    formatDate,
-    UIManager,
-    escapeHtml,
-    showPromptModal,
-    showConfirmModal,
-} from "./utils.js";
-import { LoadingButton, showNotification } from "./dom.js";
-import { registerShortcuts } from "./shortcuts.js";
+// static/js/features/files/file-manager.js
+import { apiCall } from "@/shared/api.js";
+import { SVG_TEMPLATES } from "@/shared/icons.js";
+import { CLASSES, ListManager } from "@/shared/list-manager.js";
+import { formatFileSize, formatDate } from "@/shared/format.js";
+import { escapeHtml } from "@/shared/dom-helpers.js";
+import { showPromptModal, showConfirmModal } from "@/shared/modal.js";
+import { LoadingButton, showNotification } from "@/shared/feedback.js";
+import { registerShortcuts } from "@/core/shortcuts.js";
 
-class FileManager extends UIManager {
+class FileManager extends ListManager {
     constructor() {
         super({
             containerSelector: "#fileList",

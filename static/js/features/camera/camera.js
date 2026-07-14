@@ -1,5 +1,6 @@
-import { apiCall } from "./utils.js";
-import { showNotification, LoadingButton } from "./dom.js";
+// static/js/features/camera/camera.js
+import { apiCall } from "@/shared/api.js";
+import { showNotification, LoadingButton } from "@/shared/feedback.js";
 
 const pip = {
     container: document.getElementById("cameraPip"),

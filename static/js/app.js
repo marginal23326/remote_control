@@ -1,19 +1,19 @@
-// static/js/main.js
+// static/js/app.js
 import "../input.css";
 import "../css/styles.css";
-import { initializeSocketIO } from "./modules/connection.js";
-import { AudioManager } from "./modules/audio.js";
-import { initializeStream, updateSettingsDisplay } from "./modules/stream.js";
-import { initializeCamera } from "./modules/camera.js";
-import { InteractiveShell } from "./modules/shell.js";
-import { initializeFileManagement } from "./modules/file.js";
-import { renderInputGrids } from "./modules/input-render.js";
-import { initializeInputHandlers } from "./modules/input.js";
-import { updateSystemInfo } from "./modules/system.js";
-import { apiCall } from "./modules/utils.js";
-import { initializeNavigation } from "./modules/nav.js";
-import { initializeTaskManager } from "./modules/task.js";
-import { initializeShortcuts } from "./modules/shortcuts.js";
+import { initializeSocketIO } from "@/core/socket.js";
+import { initializeNavigation } from "@/core/navigation.js";
+import { initializeShortcuts } from "@/core/shortcuts.js";
+import { AudioManager } from "@/features/audio/audio-manager.js";
+import { initializeStream, updateSettingsDisplay } from "@/features/stream/stream.js";
+import { initializeCamera } from "@/features/camera/camera.js";
+import { InteractiveShell } from "@/features/shell/shell.js";
+import { initializeFileManagement } from "@/features/files/file-manager.js";
+import { renderInputGrids } from "@/features/input/input-grid.js";
+import { initializeInputHandlers } from "@/features/input/input-controller.js";
+import { updateSystemInfo } from "@/features/system/system-panel.js";
+import { initializeTaskManager } from "@/features/tasks/task-manager.js";
+import { apiCall } from "@/shared/api.js";
 
 function updateUIBasedOnAuthentication(isAuthenticated) {
     const sections = [

@@ -1,5 +1,5 @@
-// static/js/modules/system.js
-import { apiCall } from "./utils.js";
+// static/js/features/system/system-panel.js
+import { apiCall } from "@/shared/api.js";
 
 const svg = (inner) =>
     `<svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">${inner}</svg>`;

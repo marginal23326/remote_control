@@ -1,6 +1,8 @@
-import { apiCall, showPromptModal } from "./utils.js";
-import { showNotification, LoadingButton } from "./dom.js";
-import { registerShortcuts } from "./shortcuts.js";
+// static/js/features/stream/stream.js
+import { apiCall } from "@/shared/api.js";
+import { showPromptModal } from "@/shared/modal.js";
+import { showNotification, LoadingButton } from "@/shared/feedback.js";
+import { registerShortcuts } from "@/core/shortcuts.js";
 
 const streamUI = {
     container: document.getElementById("streamContainer"),
