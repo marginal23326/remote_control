@@ -1,7 +1,3 @@
-// static/js/features/audio/audio-converter.worker.js
-// Runs inside a dedicated Web Worker - loaded via `new Worker(...)` at runtime.
-// No bundler/import support here; keep this file dependency-free.
-
 let audioFormat = { rate: 48000, channels: 1, format: "int16" };
 
 self.onmessage = (event) => {

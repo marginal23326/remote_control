@@ -1,12 +1,16 @@
-// static/js/features/files/file-manager.js
 import { apiCall } from "@/shared/api.js";
-import { SVG_TEMPLATES } from "@/shared/icons.js";
 import { CLASSES, ListManager } from "@/shared/list-manager.js";
 import { formatFileSize, formatDate } from "@/shared/format.js";
 import { escapeHtml } from "@/shared/dom-helpers.js";
 import { showPromptModal, showConfirmModal } from "@/shared/modal.js";
 import { LoadingButton, showNotification } from "@/shared/feedback.js";
 import { registerShortcuts } from "@/core/shortcuts.js";
+import { getSeparator, joinPath, getParentPath } from "./path-utils.js";
+import { renderBreadcrumbs } from "./breadcrumbs.js";
+import { AccessChecker } from "./access-checker.js";
+import { uploadFiles } from "./upload-service.js";
+import { DropZone } from "./drop-zone.js";
+import { computeVisibleRange, renderFileRow, renderSpacerRow, renderEmptyRow } from "./file-list-renderer.js";
 
 class FileManager extends ListManager {
     constructor() {
@@ -48,9 +52,6 @@ class FileManager extends ListManager {
         this.rowHeight = 21;
         this.rowHeightNeedsUpdate = true;
         this.buffer = 15;
-        this.accessCache = new Map();
-        this.accessQueue = new Set();
-        this.accessCheckTimer = null;
         this.resizeObserver = null;
         this.lastRenderedRange = { start: -1, end: -1 };
         this.ticking = false;
@@ -58,6 +59,25 @@ class FileManager extends ListManager {
         this._navToken = 0;
         this.scrollToPath = null;
         this.currentUploadXhr = null;
+
+        this.accessChecker = new AccessChecker({
+            checkAccess: (batch) => apiCall(`/api/files/check-access`, "POST", batch),
+            getVisiblePaths: () => {
+                const { start, end } = this.lastRenderedRange;
+                return new Set(
+                    this.filteredList
+                        .slice(Math.max(0, start), end)
+                        .filter((i) => i.is_dir)
+                        .map((i) => i.path),
+                );
+            },
+            onResolved: (path, accessible) => {
+                if (!accessible) {
+                    const row = this.elements.fileList.querySelector(`tr[data-path=${CSS.escape(path)}]`);
+                    if (row) row.classList.add(CLASSES.noAccess);
+                }
+            },
+        });
     }
 
     initializeElements() {
@@ -127,9 +147,6 @@ class FileManager extends ListManager {
             return;
         }
 
-        const formData = new FormData();
-        Array.from(files).forEach((file) => formData.append("files", file));
-
         if (isDropZone) this.dropZone.setLoading();
 
         const uploadLabel = document.querySelector('label[for="fileUpload"] span');
@@ -138,41 +155,13 @@ class FileManager extends ListManager {
         if (cancelBtn) cancelBtn.classList.remove("hidden");
 
         try {
-            const encodedPath = encodeURIComponent(this.currentPath);
-
-            const response = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                this.currentUploadXhr = xhr;
-                xhr.open("POST", `/api/upload?path=${encodedPath}`, true);
-
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        const pct = Math.round((e.loaded / e.total) * 100);
-                        if (uploadLabel) uploadLabel.textContent = `Uploading... ${pct}%`;
-                    }
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status === 401) {
-                        window.location.href = "/login";
-                        return reject(new Error("Unauthorized"));
-                    }
-                    try {
-                        const data = JSON.parse(xhr.responseText);
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            resolve(data);
-                        } else {
-                            reject(new Error(data.message || `Upload failed: ${xhr.status}`));
-                        }
-                    } catch {
-                        reject(new Error(`HTTP error! status: ${xhr.status}`));
-                    }
-                };
-
-                xhr.onerror = () => reject(new Error("Network Error"));
-                xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
-                xhr.send(formData);
+            const { promise, xhr } = uploadFiles(this.currentPath, files, {
+                onProgress: (pct) => {
+                    if (uploadLabel) uploadLabel.textContent = `Uploading... ${pct}%`;
+                },
             });
+            this.currentUploadXhr = xhr;
+            const response = await promise;
 
             if (response.message) showNotification(response.message, "info");
 
@@ -184,7 +173,7 @@ class FileManager extends ListManager {
             }
 
             const lastFile = files[files.length - 1].name;
-            const scrollToPath = this.joinPath(this.currentPath, lastFile);
+            const scrollToPath = joinPath(this.currentPath, lastFile);
             await this.listFiles(this.currentPath, scrollToPath);
         } catch (error) {
             if (error.name === "AbortError") {
@@ -232,55 +221,7 @@ class FileManager extends ListManager {
     }
 
     updateBreadcrumbs() {
-        const container = this.elements.currentPath;
-        if (!container) return;
-        container.innerHTML = "";
-
-        const path = this.currentPath;
-        const isWindows = path.includes("\\") || /^[A-Z]:/i.test(path);
-        const separator = isWindows ? "\\" : "/";
-
-        const createPartBtn = (text, targetPath, isActive) => {
-            const btn = document.createElement("button");
-            btn.className = `truncate flex-shrink-0 rounded px-1.5 py-0.5 text-sm transition-colors ${
-                isActive
-                    ? "text-zinc-100 font-medium max-w-[200px]"
-                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 max-w-[150px] cursor-pointer"
-            }`;
-            btn.textContent = text;
-            btn.title = text;
-            if (!isActive) {
-                btn.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    this.listFiles(targetPath);
-                });
-            }
-            return btn;
-        };
-
-        const chevron = `<svg class="w-3.5 h-3.5 text-zinc-600 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
-
-        if (!path || path === "/" || path === "") {
-            container.appendChild(createPartBtn(path === "" ? "This PC" : "/", path === "" ? "" : "/", true));
-            return;
-        }
-
-        const parts = path.split(separator).filter(Boolean);
-        container.appendChild(createPartBtn(isWindows ? "This PC" : "root", isWindows ? "" : "/", false));
-
-        let accumulated = "";
-        parts.forEach((part, index) => {
-            container.insertAdjacentHTML("beforeend", chevron);
-            if (isWindows) {
-                accumulated = accumulated ? `${accumulated.replace(/\\$/, "")}\\${part}` : part;
-                if (index === 0 && part.endsWith(":")) accumulated += "\\";
-            } else {
-                accumulated += "/" + part;
-            }
-            container.appendChild(createPartBtn(part, accumulated, index === parts.length - 1));
-        });
-
-        requestAnimationFrame(() => (container.scrollLeft = container.scrollWidth));
+        renderBreadcrumbs(this.elements.currentPath, this.currentPath, (path) => this.listFiles(path));
     }
 
     async updateFileList(items, scrollToPath = null) {
@@ -364,15 +305,16 @@ class FileManager extends ListManager {
 
         const containerHeight = this.elements.scrollContainer.clientHeight || 500;
         const scrollTop = this.elements.scrollContainer.scrollTop;
-
         const totalItems = this.filteredList.length;
         const totalHeight = totalItems * this.rowHeight;
 
-        let startIndex = Math.floor(scrollTop / this.rowHeight) - this.buffer;
-        let endIndex = Math.floor((scrollTop + containerHeight) / this.rowHeight) + this.buffer;
-
-        startIndex = Math.max(0, startIndex);
-        endIndex = Math.min(totalItems, endIndex);
+        const { startIndex, endIndex } = computeVisibleRange({
+            scrollTop,
+            containerHeight,
+            rowHeight: this.rowHeight,
+            totalItems,
+            buffer: this.buffer,
+        });
 
         if (!force && startIndex === this.lastRenderedRange.start && endIndex === this.lastRenderedRange.end) {
             return;
@@ -384,119 +326,41 @@ class FileManager extends ListManager {
 
         let html = "";
         if (paddingTop > 0) {
-            html += `<tr style="height: ${paddingTop}px" class="virtual-spacer"><td colspan="3" style="padding:0; border:0; height: ${paddingTop}px"></td></tr>`;
+            html += renderSpacerRow(paddingTop);
         }
 
         for (let i = startIndex; i < endIndex; i++) {
             const item = this.filteredList[i];
             if (!item) continue;
 
-            const cachedAccess = this.accessCache.get(item.path);
+            const cachedAccess = this.accessChecker.get(item.path);
             const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
 
             if (item.is_dir && cachedAccess === undefined) {
-                this.queueAccessCheck(item.path);
+                this.accessChecker.queuePath(item.path);
             }
 
             const selectedCls = this.selectionManager
                 ? this.selectionManager.getItemClasses(item.path)
                 : CLASSES.defaultHover;
 
-            html += `<tr data-path="${item._safePath}" data-is-dir="${item.is_dir}" data-name="${item._safeName}" class="${CLASSES.row} ${selectedCls} ${accessCls}" style="height: ${this.rowHeight}px">
-                <td class="px-4 py-1 whitespace-nowrap w-full">${this.createItemNameCell(item)}</td>
-                <td class="px-4 py-1 whitespace-nowrap hidden sm:table-cell text-zinc-400">${item._formattedSize}</td>
-                <td class="px-4 py-1 whitespace-nowrap hidden md:table-cell text-zinc-400">${item._formattedDate}</td>
-            </tr>`;
+            html += renderFileRow(item, { rowHeight: this.rowHeight, selectedCls, accessCls });
         }
 
         if (totalItems === 0) {
-            html += `<tr><td colspan="3" class="px-4 py-1 whitespace-nowrap"><div class="text-center text-zinc-500 text-sm py-8 font-mono">Directory is empty</div></td></tr>`;
+            html += renderEmptyRow();
         }
 
         if (paddingBottom > 0) {
-            html += `<tr style="height: ${paddingBottom}px" class="virtual-spacer"><td colspan="3" style="padding:0; border:0; height: ${paddingBottom}px"></td></tr>`;
+            html += renderSpacerRow(paddingBottom);
         }
 
         this.elements.fileList.innerHTML = html;
     }
 
-    queueAccessCheck(path) {
-        this.accessQueue.add(path);
-        if (this.accessCheckTimer) clearTimeout(this.accessCheckTimer);
-        this.accessCheckTimer = setTimeout(() => this.processAccessQueue(), 100);
-    }
-
-    async processAccessQueue() {
-        if (this.accessQueue.size === 0) return;
-
-        const { start, end } = this.lastRenderedRange;
-        const visiblePaths = new Set(
-            this.filteredList
-                .slice(Math.max(0, start), end)
-                .filter((i) => i.is_dir)
-                .map((i) => i.path),
-        );
-
-        const batch = Array.from(this.accessQueue).filter((p) => visiblePaths.has(p));
-        this.accessQueue.clear();
-
-        if (batch.length === 0) return;
-
-        try {
-            const inaccessible = await apiCall(`/api/files/check-access`, "POST", batch);
-            const inaccessibleSet = new Set(inaccessible);
-
-            for (const path of batch) {
-                const accessible = !inaccessibleSet.has(path);
-                this.accessCache.set(path, accessible);
-
-                if (!accessible) {
-                    const row = this.elements.fileList.querySelector(`tr[data-path=${CSS.escape(path)}]`);
-                    if (row) {
-                        row.classList.add(CLASSES.noAccess);
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn("Failed to check directory access:", e);
-        }
-    }
-
-    createItemNameCell(item) {
-        const iconTemplate = item.is_dir ? SVG_TEMPLATES.folder : SVG_TEMPLATES.file;
-        const icon = item.is_dir ? iconTemplate("text-blue-400") : iconTemplate();
-        return `<div class="flex items-center gap-2 truncate overflow-hidden">${icon}<span class="truncate block w-full" title="${item._safeName}">${item._safeName}</span></div>`;
-    }
-
-    getSeparator() {
-        return this.currentPath.includes("\\") ? "\\" : "/";
-    }
-
-    joinPath(parent, child) {
-        const sep = this.getSeparator();
-        return parent.endsWith(sep) ? `${parent}${child}` : `${parent}${sep}${child}`;
-    }
-
-    getParentPath() {
-        const path = this.currentPath;
-        if (/^[A-Z]:\\$/i.test(path) || path === "/") return "";
-
-        const cleaned = path.replace(/[\\/]$/, "");
-        const lastSep = Math.max(cleaned.lastIndexOf("/"), cleaned.lastIndexOf("\\"));
-        if (lastSep <= 0) return "/";
-
-        const parent = cleaned.substring(0, lastSep);
-        return /^[A-Z]:$/i.test(parent) ? parent + "\\" : parent;
-    }
-
     async listFiles(path, scrollToPath = null, { skipHistory = false } = {}) {
         this.clearSelection();
-        this.accessCache.clear();
-        this.accessQueue.clear();
-        if (this.accessCheckTimer) {
-            clearTimeout(this.accessCheckTimer);
-            this.accessCheckTimer = null;
-        }
+        this.accessChecker.reset();
         this.scrollToPath = null;
         this.lastRenderedRange = { start: -1, end: -1 };
         this.updateFileOperationsUI();
@@ -539,7 +403,7 @@ class FileManager extends ListManager {
             this.updateNavButtons();
 
             if (!isSamePath) {
-                const sep = this.getSeparator();
+                const sep = getSeparator(this.currentPath);
                 const parent = path.endsWith(sep) ? path : path + sep;
                 if (previousPath.startsWith(parent)) {
                     scrollToPath = previousPath;
@@ -565,7 +429,7 @@ class FileManager extends ListManager {
 
     async goUp() {
         if (this.currentPath === "") return;
-        await this.listFiles(this.getParentPath());
+        await this.listFiles(getParentPath(this.currentPath));
     }
 
     async goHome() {
@@ -706,7 +570,7 @@ class FileManager extends ListManager {
                 "POST",
                 { parentPath: this.currentPath, folderName },
                 async () => {
-                    await this.listFiles(this.currentPath, this.joinPath(this.currentPath, folderName));
+                    await this.listFiles(this.currentPath, joinPath(this.currentPath, folderName));
                 },
             );
         });
@@ -813,7 +677,7 @@ class FileManager extends ListManager {
         if (!newName || newName === currentName) return;
 
         await this.handleApiCall("/api/rename", "POST", { oldPath, newName }, async () => {
-            await this.listFiles(this.currentPath, this.joinPath(this.currentPath, newName));
+            await this.listFiles(this.currentPath, joinPath(this.currentPath, newName));
         });
     }
 
@@ -862,74 +726,6 @@ class FileManager extends ListManager {
         }
 
         this.listFiles(this.currentPath);
-    }
-}
-
-class DropZone {
-    constructor(elementId, onUpload) {
-        this.element = document.getElementById(elementId);
-        this.overlay = document.getElementById("dropOverlay");
-        this.promptEl = document.getElementById("dropPrompt");
-        this.spinnerEl = document.getElementById("dropSpinner");
-        this.onUpload = onUpload;
-        this.dragCounter = 0;
-        this.setupEventListeners();
-    }
-
-    setupEventListeners() {
-        if (!this.element) return;
-        const preventDefault = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-
-        ["dragenter", "dragover", "dragleave", "drop"].forEach((event) =>
-            this.element.addEventListener(event, preventDefault),
-        );
-
-        this.element.addEventListener("dragenter", () => {
-            this.dragCounter++;
-            if (this.dragCounter === 1) this.highlight();
-        });
-
-        this.element.addEventListener("dragleave", () => {
-            this.dragCounter--;
-            if (this.dragCounter === 0) this.unhighlight();
-        });
-
-        this.element.addEventListener("drop", (e) => {
-            this.dragCounter = 0;
-            this.unhighlight();
-            this.onUpload(e.dataTransfer.files, true);
-        });
-    }
-
-    highlight() {
-        if (this.overlay) {
-            this.overlay.classList.remove("hidden");
-            requestAnimationFrame(() => this.overlay.classList.remove("opacity-0"));
-        }
-        this.element.classList.add("border-zinc-500", "ring-2", "ring-zinc-800/50");
-    }
-
-    unhighlight() {
-        if (this.overlay) {
-            this.overlay.classList.add("opacity-0");
-            setTimeout(() => this.overlay.classList.add("hidden"), 200);
-        }
-        this.element.classList.remove("border-zinc-500", "ring-2", "ring-zinc-800/50");
-    }
-
-    setLoading() {
-        if (this.promptEl) this.promptEl.classList.add("hidden");
-        if (this.spinnerEl) this.spinnerEl.classList.remove("hidden");
-        if (this.overlay) this.overlay.classList.remove("hidden", "opacity-0");
-    }
-
-    reset() {
-        if (this.promptEl) this.promptEl.classList.remove("hidden");
-        if (this.spinnerEl) this.spinnerEl.classList.add("hidden");
-        this.unhighlight();
     }
 }
 

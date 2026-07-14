@@ -1,4 +1,3 @@
-// static/js/pages/login.js
 import "../../input.css";
 import "../../css/styles.css";
 

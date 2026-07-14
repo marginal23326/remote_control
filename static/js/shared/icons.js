@@ -1,5 +1,3 @@
-// static/js/shared/icons.js
-
 const SVG_TEMPLATES = {
     folder: (colorClass = "text-zinc-400") => `
         <svg class="w-4 h-4 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">

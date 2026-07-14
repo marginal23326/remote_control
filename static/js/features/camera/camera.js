@@ -1,4 +1,3 @@
-// static/js/features/camera/camera.js
 import { apiCall } from "@/shared/api.js";
 import { showNotification, LoadingButton } from "@/shared/feedback.js";
 

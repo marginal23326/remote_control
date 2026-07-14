@@ -1,7 +1,3 @@
-// static/js/features/audio/audio-worklet-processor.js
-// Runs inside the AudioWorkletGlobalScope - loaded via AudioContext.audioWorklet.addModule().
-// No bundler/import support here; keep this file dependency-free.
-
 class ClientAudioProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();

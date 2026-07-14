@@ -1,4 +1,3 @@
-// static/js/features/system/system-panel.js
 import { apiCall } from "@/shared/api.js";
 
 const svg = (inner) =>

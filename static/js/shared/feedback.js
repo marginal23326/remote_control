@@ -1,4 +1,3 @@
-// static/js/shared/feedback.js
 import { SVG_TEMPLATES } from "./icons.js";
 
 const connectionOverlay = document.getElementById("connectionOverlay");

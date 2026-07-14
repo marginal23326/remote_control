@@ -1,5 +1,3 @@
-// static/js/shared/format.js
-
 function formatFileSize(bytes) {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;

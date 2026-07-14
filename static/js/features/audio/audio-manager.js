@@ -1,4 +1,3 @@
-// static/js/features/audio/audio-manager.js
 import { showNotification } from "@/shared/feedback.js";
 
 const MIN_RATE = 3000;
