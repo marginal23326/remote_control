@@ -1,0 +1,41 @@
+{
+    "categories": {
+        "suspicious": "warn",
+        "pedantic": "warn",
+        "perf": "warn"
+    },
+    "rules": {
+        "no-magic-numbers": "off",
+        "prefer-query-selector": "off",
+        "id-length": "off",
+        "func-style": "off",
+        "no-ternary": "off",
+        "curly": "off",
+        "prefer-number-coercion": "off",
+        "prefer-at": "off",
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "max-classes-per-file": "off",
+        "ban-types": "off",
+        "require-module-specifiers": "off",
+        "require-post-message-target-origin": "off",
+        "strict-boolean-expressions": "off",
+        "prefer-readonly-parameter-types": "off",
+        "strict-void-return": "off",
+        "prefer-add-event-listener": "off",
+        "no-underscore-dangle": [
+            "warn",
+            {
+                "allow": [
+                    "_safePath",
+                    "_safeName",
+                    "_nameLower",
+                    "_formattedSize",
+                    "_formattedDate",
+                    "_audioManager",
+                    "_shell"
+                ]
+            }
+        ]
+    }
+}
