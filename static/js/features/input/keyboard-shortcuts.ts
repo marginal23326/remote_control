@@ -81,7 +81,7 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                     "hover:bg-zinc-800",
                     "hover:text-white",
                 );
-            }, 80);
+            }, 100);
 
             const rawKey = button.dataset.key!;
             let key = rawKey;
@@ -196,7 +196,7 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                         "hover:bg-zinc-800",
                         "hover:text-white",
                     );
-                }, 80);
+                }, 100);
             }
         });
     });
@@ -217,8 +217,7 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                     delete btn.dataset.active;
                     const led = btn.querySelector(".mod-led");
                     if (led) {
-                        led.className =
-                            "mod-led w-1.5 h-1.5 rounded-full bg-zinc-700/50 transition-all duration-150 hidden";
+                        led.className = "mod-led w-1.5 h-1.5 rounded-full bg-zinc-700/50 hidden";
                     }
                 });
             }
@@ -250,7 +249,7 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                 setTimeout(() => {
                     sendCustomButton.classList.remove("bg-zinc-100", "text-zinc-900");
                     sendCustomButton.classList.add("bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700");
-                }, 80);
+                }, 100);
             }
         });
     }

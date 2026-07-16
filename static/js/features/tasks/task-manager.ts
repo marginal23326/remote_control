@@ -30,7 +30,7 @@ async function killProcesses(items: string[]): Promise<void> {
             showNotification(msg, "error");
         }
     }
-    document.getElementById("endTaskContainer")!.classList.add("hidden");
+    document.getElementById("endTaskContainer")!.classList.remove("is-visible");
 }
 
 function sortProcesses(rows: ProcessInfo[], column: SortColumn, order: SortOrder): ProcessInfo[] {
@@ -90,7 +90,7 @@ export function initializeTaskManager(socket: AppSocket): void {
         onSelectionChange: (selectedItems) => {
             const endTaskContainer = document.getElementById("endTaskContainer")!;
             const countEl = document.getElementById("taskSelectionCount");
-            endTaskContainer.classList.toggle("hidden", selectedItems.length === 0);
+            endTaskContainer.classList.toggle("is-visible", selectedItems.length > 0);
             if (countEl) {
                 countEl.textContent = `${selectedItems.length} selected`;
             }

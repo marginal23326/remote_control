@@ -4,7 +4,7 @@ const renderIcon = (path: string): string =>
 export function renderInputGrids(): void {
     // Shared button style
     const btnCls =
-        "bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-md text-xs font-medium h-8 transition-colors flex items-center justify-center gap-1.5";
+        "bg-zinc-950 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-md text-xs font-medium h-8 transition-colors duration-100 flex items-center justify-center gap-1.5";
 
     // 1. Modifiers
     const modifiers = [
