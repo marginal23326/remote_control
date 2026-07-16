@@ -49,14 +49,12 @@ document.addEventListener("click", (e) => {
 (function () {
     const socket = initializeSocketIO(updateUIBasedOnAuthentication);
 
-    const sessionId = Math.random().toString(36).slice(2);
-
     const _audioManager = new AudioManager(socket);
 
     const _shell = new InteractiveShell("shellSection", socket);
 
     // Initialize different parts of the application
-    initializeStream(sessionId, socket);
+    initializeStream(socket);
     initializeCamera(socket);
     initializeFileManagement();
 

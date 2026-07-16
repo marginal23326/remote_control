@@ -20,7 +20,7 @@ async function executeStopStream(): Promise<void> {
     streamUI.clear();
 }
 
-export function initializeStream(sessionId: string, socket: AppSocket): void {
+export function initializeStream(socket: AppSocket): void {
     window.addEventListener("resize", invalidateDimensionsCache);
     window.addEventListener("scroll", invalidateDimensionsCache, { capture: true, passive: true });
     streamUI.view.addEventListener("resize", () => {
@@ -52,7 +52,7 @@ export function initializeStream(sessionId: string, socket: AppSocket): void {
 
             getStartButtonLoader()?.startLoading();
 
-            socket.emit("start_stream", { capture_cursor: isCursorCaptureEnabled(), sessionId });
+            socket.emit("start_stream", { capture_cursor: isCursorCaptureEnabled() });
         }
     });
 
@@ -141,7 +141,7 @@ export function initializeStream(sessionId: string, socket: AppSocket): void {
             setStreamActive(true);
             setStreamToggleUI(true);
 
-            socket.emit("start_stream", { capture_cursor: isCursorCaptureEnabled(), sessionId });
+            socket.emit("start_stream", { capture_cursor: isCursorCaptureEnabled() });
         }
     });
 
