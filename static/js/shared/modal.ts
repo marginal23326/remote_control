@@ -13,9 +13,8 @@ function createModal(
 ): HTMLDivElement {
     const overlay = document.createElement("div");
     overlay.dataset.appModal = "";
-    overlay.className =
-        "fixed inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150";
-    overlay.innerHTML = `<div class="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
+    overlay.className = "fixed inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4";
+    overlay.innerHTML = `<div class="modal-card w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
         ${bodyHtml}
         <div class="flex justify-end gap-2 mt-5">
             <button class="modal-cancel-btn px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5">
@@ -31,7 +30,19 @@ function createModal(
         </div>
     </div>`;
     document.body.append(overlay);
+    requestAnimationFrame(() => {
+        overlay.classList.add("is-open");
+    });
     return overlay;
+}
+
+const MODAL_EXIT_MS = 150;
+
+function closeModalOverlay(overlay: HTMLDivElement): void {
+    overlay.classList.remove("is-open");
+    setTimeout(() => {
+        overlay.remove();
+    }, MODAL_EXIT_MS);
 }
 
 interface RunModalOptions<T> {
@@ -43,7 +54,7 @@ function runModal<T>(overlay: HTMLDivElement, { getResult, focusSelector }: RunM
     return new Promise((resolve) => {
         const finish = (value: T | null) => {
             document.removeEventListener("keydown", onKeydown);
-            overlay.remove();
+            closeModalOverlay(overlay);
             resolve(value);
         };
         const attemptConfirm = () => {

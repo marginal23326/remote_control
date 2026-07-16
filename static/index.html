@@ -90,7 +90,7 @@
                 <!-- Stream & Input Section -->
                 <section
                     id="streamSection"
-                    class="section flex flex-col animate-in fade-in duration-200 lg:h-full lg:min-h-0 pt-0.5 pl-0.5"
+                    class="section flex flex-col animate-in fade-in duration-150 lg:h-full lg:min-h-0 pt-0.5 pl-0.5"
                 >
                     <div class="flex flex-col lg:flex-row gap-4 lg:h-full lg:min-h-0">
                         <!-- LEFT COLUMN: Video Player, Controls & Meta -->
@@ -377,7 +377,7 @@
                                         />
                                         <button
                                             id="sendCustomShortcut"
-                                            class="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-xs font-medium transition-colors shrink-0"
+                                            class="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-xs font-medium transition-colors duration-100 shrink-0"
                                         >
                                             Send
                                         </button>
@@ -498,31 +498,36 @@
                                     </button>
 
                                     <!-- Advanced Settings Panel (Seamless Layout) -->
-                                    <div id="advancedSettingsPanel" class="hidden mt-3 space-y-3">
-                                        <table class="w-full text-xs" id="encoderPropsTable">
-                                            <thead>
-                                                <tr class="text-zinc-500 text-left border-b border-zinc-800/40">
-                                                    <th class="font-normal pb-2 w-1/2">Property</th>
-                                                    <th class="font-normal pb-2 w-1/3">Value</th>
-                                                    <th class="pb-2 w-6"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="encoderPropsList" class="divide-y divide-zinc-800/30"></tbody>
-                                        </table>
+                                    <div id="advancedSettingsPanel" class="accordion-panel mt-3">
+                                        <div class="accordion-panel-inner space-y-3">
+                                            <table class="w-full text-xs" id="encoderPropsTable">
+                                                <thead>
+                                                    <tr class="text-zinc-500 text-left border-b border-zinc-800/40">
+                                                        <th class="font-normal pb-2 w-1/2">Property</th>
+                                                        <th class="font-normal pb-2 w-1/3">Value</th>
+                                                        <th class="pb-2 w-6"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody
+                                                    id="encoderPropsList"
+                                                    class="divide-y divide-zinc-800/30"
+                                                ></tbody>
+                                            </table>
 
-                                        <div class="flex items-center justify-between pt-1">
-                                            <button
-                                                id="addEncoderProp"
-                                                class="text-xs font-medium text-zinc-500 hover:text-zinc-200 transition-colors"
-                                            >
-                                                + Add Property
-                                            </button>
-                                            <button
-                                                id="applyEncoderProps"
-                                                class="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md transition-colors font-medium"
-                                            >
-                                                Apply
-                                            </button>
+                                            <div class="flex items-center justify-between pt-1">
+                                                <button
+                                                    id="addEncoderProp"
+                                                    class="text-xs font-medium text-zinc-500 hover:text-zinc-200 transition-colors"
+                                                >
+                                                    + Add Property
+                                                </button>
+                                                <button
+                                                    id="applyEncoderProps"
+                                                    class="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md transition-colors font-medium"
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -532,7 +537,7 @@
                 </section>
 
                 <!-- Audio Section -->
-                <section id="audioSection" class="section hidden animate-in fade-in duration-200">
+                <section id="audioSection" class="section hidden animate-in fade-in duration-150">
                     <div class="grid md:grid-cols-2 gap-6">
                         <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                             <div class="flex items-center justify-between mb-5">
@@ -611,7 +616,7 @@
                 </section>
 
                 <!-- Shell Section -->
-                <section id="shellSection" class="section hidden h-full flex flex-col animate-in fade-in duration-200">
+                <section id="shellSection" class="section hidden h-full flex flex-col animate-in fade-in duration-150">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-lg font-medium text-zinc-100">Terminal</h2>
                         <div class="flex gap-2">
@@ -680,7 +685,7 @@
                 </section>
 
                 <!-- File Section -->
-                <section id="fileSection" class="section hidden h-full flex flex-col animate-in fade-in duration-200">
+                <section id="fileSection" class="section hidden h-full flex flex-col animate-in fade-in duration-150">
                     <!-- Navigation Bar -->
                     <div class="flex items-center gap-1 mb-2 bg-zinc-900 border border-zinc-800 rounded-md p-1">
                         <button
@@ -716,31 +721,33 @@
 
                         <div class="w-px h-4 bg-zinc-800 mx-0.5 shrink-0"></div>
 
-                        <div
-                            id="pathContainer"
-                            class="flex-1 min-w-0 flex items-center px-2 h-8 cursor-text relative group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
-                        >
+                        <div class="relative flex-1 min-w-0 h-8">
                             <div
-                                id="currentPath"
-                                class="flex items-center w-full h-full overflow-x-auto hide-scrollbar text-zinc-300 font-mono text-sm whitespace-nowrap select-none"
+                                id="pathContainer"
+                                class="absolute inset-0 flex items-center px-2 h-8 cursor-text group [&.editing_#currentPath]:hidden [&:not(.editing)_#pathInput]:hidden"
                             >
-                                <!-- Dynamic Path -->
+                                <div
+                                    id="currentPath"
+                                    class="flex items-center w-full h-full overflow-x-auto hide-scrollbar text-zinc-300 font-mono text-sm whitespace-nowrap select-none"
+                                >
+                                    <!-- Dynamic Path -->
+                                </div>
+                                <input
+                                    type="text"
+                                    id="pathInput"
+                                    class="absolute inset-0 w-full h-full bg-zinc-950 px-2 font-mono text-sm text-zinc-100 focus:outline-none focus:border focus:border-zinc-700 rounded"
+                                    spellcheck="false"
+                                />
                             </div>
-                            <input
-                                type="text"
-                                id="pathInput"
-                                class="absolute inset-0 w-full h-full bg-zinc-950 px-2 font-mono text-sm text-zinc-100 focus:outline-none focus:border focus:border-zinc-700 rounded"
-                                spellcheck="false"
-                            />
-                        </div>
 
-                        <div id="searchWrapper" class="hidden flex-1 min-w-0">
-                            <input
-                                type="text"
-                                id="searchInput"
-                                placeholder="Search files..."
-                                class="w-full h-8 px-2 text-sm bg-transparent placeholder:text-zinc-600 focus:outline-none border-0!"
-                            />
+                            <div id="searchWrapper" class="is-swapped-out absolute inset-0">
+                                <input
+                                    type="text"
+                                    id="searchInput"
+                                    placeholder="Search files..."
+                                    class="w-full h-8 px-2 text-sm bg-transparent placeholder:text-zinc-600 focus:outline-none border-0!"
+                                />
+                            </div>
                         </div>
 
                         <button
@@ -920,7 +927,7 @@
                 <!-- Process Section -->
                 <section
                     id="processSection"
-                    class="section hidden h-full flex flex-col animate-in fade-in duration-200"
+                    class="section hidden h-full flex flex-col animate-in fade-in duration-150"
                 >
                     <div class="flex justify-between items-center gap-2 mb-4 min-h-8">
                         <div class="relative w-full max-w-xs">
@@ -941,7 +948,7 @@
                                 class="w-full h-8 pl-8 pr-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none transition-colors"
                             />
                         </div>
-                        <div id="endTaskContainer" class="hidden flex items-center shrink-0">
+                        <div id="endTaskContainer" class="flex items-center shrink-0">
                             <span id="taskSelectionCount" class="mr-3 text-xs text-zinc-500"></span>
                             <button
                                 id="endTaskButton"
@@ -993,7 +1000,7 @@
                 </section>
 
                 <!-- System Section -->
-                <section id="systemSection" class="section hidden animate-in fade-in duration-200">
+                <section id="systemSection" class="section hidden animate-in fade-in duration-150">
                     <!-- 4-Column Grid for large screens -->
                     <div id="systemInfo" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
                         <div class="text-sm text-zinc-500">Loading system data...</div>

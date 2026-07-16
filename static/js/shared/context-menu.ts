@@ -30,10 +30,14 @@ export class ContextMenuManager<TContext = unknown> {
     }
 
     hide(): void {
-        if (this.menuElement) {
-            this.menuElement.remove();
-            this.menuElement = null;
-        }
+        const menu = this.menuElement;
+        if (!menu) return;
+        this.menuElement = null;
+
+        menu.classList.remove("is-open");
+        setTimeout(() => {
+            menu.remove();
+        }, 120);
     }
 
     show(x: number, y: number, context?: TContext): void {
@@ -66,5 +70,9 @@ export class ContextMenuManager<TContext = unknown> {
 
         this.menuElement.append(ul);
         document.body.append(this.menuElement);
+
+        requestAnimationFrame(() => {
+            this.menuElement?.classList.add("is-open");
+        });
     }
 }

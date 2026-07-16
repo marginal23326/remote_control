@@ -148,11 +148,11 @@ export function showNotification(message: string, type: NotificationType = "erro
 
     const badge = document.createElement("span");
     badge.className =
-        "notification-badge hidden px-1.5 py-0.5 text-xs font-semibold bg-zinc-800 text-zinc-300 rounded-full leading-none tabular-nums transition-all duration-300 border border-zinc-700";
+        "notification-badge hidden px-1.5 py-0.5 text-xs font-semibold bg-zinc-800 text-zinc-300 rounded-full leading-none tabular-nums border border-zinc-700";
 
     const toast = document.createElement("div");
     toast.className =
-        "bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg px-4 py-3 text-sm flex items-start gap-3 pointer-events-auto max-w-sm transition-all duration-300 translate-x-4 opacity-0";
+        "toast-el bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg px-4 py-3 text-sm flex items-start gap-3 pointer-events-auto max-w-sm translate-x-4 opacity-0";
 
     toast.innerHTML = `
         <div class="shrink-0 ${config.icon} mt-0.5">

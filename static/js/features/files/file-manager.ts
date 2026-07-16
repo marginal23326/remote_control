@@ -655,7 +655,7 @@ class FileManager extends ListManager {
         const searchToggleBtn = document.getElementById("searchToggleBtn");
         searchToggleBtn?.addEventListener("click", () => {
             const searchWrapper = document.getElementById("searchWrapper");
-            if (searchWrapper?.classList.contains("hidden")) {
+            if (searchWrapper?.classList.contains("is-swapped-out")) {
                 this.setSearchMode(true);
             } else {
                 this.setSearchMode(false, true);
@@ -718,8 +718,8 @@ class FileManager extends ListManager {
     }
 
     setSearchMode(active: boolean, refilter = false): void {
-        document.getElementById("pathContainer")?.classList.toggle("hidden", active);
-        document.getElementById("searchWrapper")?.classList.toggle("hidden", !active);
+        document.getElementById("pathContainer")?.classList.toggle("is-swapped-out", active);
+        document.getElementById("searchWrapper")?.classList.toggle("is-swapped-out", !active);
         document.getElementById("searchIcon")?.classList.toggle("hidden", active);
         document.getElementById("searchCloseIcon")?.classList.toggle("hidden", !active);
 

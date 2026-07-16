@@ -50,7 +50,7 @@ function renderEncoderProperties(): void {
         row.innerHTML = `
             <td class="py-1.5 pr-2"><input type="text" class="prop-key ${inputCls}" value="${escapeHtml(key)}"></td>
             <td class="py-1.5 pr-2">${valHtml}</td>
-            <td class="py-1.5"><button class="prop-remove px-1.5 py-0.5 text-sm text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Remove property">&times;</button></td>
+            <td class="py-1.5"><button class="prop-remove px-1.5 py-0.5 text-sm text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100" title="Remove property">&times;</button></td>
         `;
 
         attachEncoderRowListeners(row, key);
@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const icon = document.getElementById("advancedToggleIcon");
     if (toggle && panel) {
         toggle.addEventListener("click", () => {
-            panel.classList.toggle("hidden");
+            panel.classList.toggle("expanded");
             icon!.classList.toggle("-rotate-180");
         });
     }
