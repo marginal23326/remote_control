@@ -22,7 +22,6 @@ export interface ShellCreatePayload {
     rows: number;
     session_id: string;
     shell?: string;
-    sessionId?: string;
 }
 
 export interface ShellInputPayload {
@@ -47,7 +46,6 @@ export interface IceCandidatePayload {
 }
 
 export interface StartStreamPayload {
-    sessionId?: string;
     capture_cursor?: boolean;
 }
 
