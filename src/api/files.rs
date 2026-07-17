@@ -1,6 +1,5 @@
 use crate::services::files::FileManager;
-use crate::utils::error::{AppError, AppResult};
-use anyhow::anyhow;
+use crate::utils::error::{AppError, AppResult, run_blocking};
 use async_zip::tokio::write::ZipFileWriter;
 use async_zip::{Compression, ZipEntryBuilder};
 use axum::{
@@ -147,9 +146,7 @@ pub async fn create_folder_handler(Json(payload): Json<ActionPayload>) -> AppRes
         return Err(AppError::BadRequest("Missing parentPath or folderName".to_string()));
     };
 
-    tokio::task::spawn_blocking(move || FileManager::create_folder(&parent, &name))
-        .await
-        .map_err(|e| anyhow!("Task failed: {}", e))??;
+    run_blocking(move || FileManager::create_folder(&parent, &name)).await??;
 
     Ok(Json(json!({"status": "success"})))
 }
@@ -159,9 +156,7 @@ pub async fn delete_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
         return Err(AppError::BadRequest("Missing paths".to_string()));
     };
 
-    tokio::task::spawn_blocking(move || FileManager::delete_items(paths))
-        .await
-        .map_err(|e| anyhow!("Task failed: {}", e))??;
+    run_blocking(move || FileManager::delete_items(paths)).await??;
 
     Ok(Json(json!({"status": "success"})))
 }
@@ -171,9 +166,7 @@ pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
         return Err(AppError::BadRequest("Missing oldPath or newName".to_string()));
     };
 
-    tokio::task::spawn_blocking(move || FileManager::rename_item(&old, &new))
-        .await
-        .map_err(|e| anyhow!("Task failed: {}", e))??;
+    run_blocking(move || FileManager::rename_item(&old, &new)).await??;
 
     Ok(Json(json!({"status": "success"})))
 }
@@ -312,7 +305,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
     }
 
     let paths_clone = paths.clone();
-    let (files_to_zip, skipped) = tokio::task::spawn_blocking(move || -> Result<_, anyhow::Error> {
+    let (files_to_zip, skipped) = run_blocking(move || -> anyhow::Result<_> {
         let mut collected = Vec::new();
         let mut skipped = Vec::new();
         let path_bufs: Vec<std::path::PathBuf> = paths_clone.iter().map(std::path::PathBuf::from).collect();
@@ -350,8 +343,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         }
         Ok((collected, skipped))
     })
-    .await
-    .map_err(|e| anyhow!("Task failed: {}", e))??;
+    .await??;
 
     if files_to_zip.is_empty() {
         return Err(AppError::BadRequest(
