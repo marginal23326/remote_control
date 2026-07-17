@@ -1,9 +1,8 @@
-use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
+use crate::services::owned_worker::OwnedWorker;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 
@@ -25,11 +24,8 @@ pub struct AudioSourceInfo {
 }
 
 pub struct AudioManager {
-    server_thread: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
-    server_owner: Mutex<Option<String>>,
-
-    client_thread: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
-    client_owner: Mutex<Option<String>>,
+    server: OwnedWorker,
+    client: OwnedWorker,
     client_audio_buffer: Arc<ArrayQueue<f32>>,
 }
 
@@ -42,10 +38,8 @@ impl AudioManager {
         pipewire::init();
 
         Self {
-            server_thread: Mutex::new(None),
-            server_owner: Mutex::new(None),
-            client_thread: Mutex::new(None),
-            client_owner: Mutex::new(None),
+            server: OwnedWorker::new(),
+            client: OwnedWorker::new(),
             client_audio_buffer: Arc::new(ArrayQueue::new(48000 * 2)),
         }
     }
@@ -57,21 +51,13 @@ impl AudioManager {
         device_id: Option<String>,
         rate: u32,
     ) -> Result<(), String> {
-        self.stop_server_stream();
-
-        *self.server_owner.lock() = Some(socket.id.to_string());
-        let is_running = Arc::new(AtomicBool::new(true));
-
-        let handle = {
-            let is_running = is_running.clone();
+        self.server.start(socket.id.to_string(), |is_running| {
             thread::spawn(move || {
                 if let Err(e) = backend::server_loop(socket, source, device_id, rate, is_running) {
                     tracing::error!("Server audio capture error: {}", e);
                 }
             })
-        };
-
-        *self.server_thread.lock() = Some((handle, is_running));
+        });
         Ok(())
     }
 
@@ -79,40 +65,21 @@ impl AudioManager {
         backend::list_sources()
     }
 
-    pub fn stop_server_stream(&self) {
-        *self.server_owner.lock() = None;
-
-        if let Some((handle, is_running)) = self.server_thread.lock().take() {
-            is_running.store(false, Ordering::SeqCst);
-            tokio::task::spawn_blocking(move || {
-                let _ = handle.join();
-            });
-        }
-    }
-
     pub fn stop_server_stream_if_owner(&self, owner_id: &str) {
-        if self.server_owner.lock().as_deref() == Some(owner_id) {
-            self.stop_server_stream();
-        }
+        self.server.stop_if_owner(owner_id);
     }
 
     pub fn start_client_playback(&self, owner_id: String, rate: u32) -> Result<(), String> {
         self.stop_client_playback();
 
-        *self.client_owner.lock() = Some(owner_id);
-        let is_running = Arc::new(AtomicBool::new(true));
         let queue = self.client_audio_buffer.clone();
-
-        let handle = {
-            let is_running = is_running.clone();
+        self.client.start(owner_id, |is_running| {
             thread::spawn(move || {
                 if let Err(e) = backend::client_loop(rate, is_running, queue) {
                     tracing::error!("Client audio playback error: {}", e);
                 }
             })
-        };
-
-        *self.client_thread.lock() = Some((handle, is_running));
+        });
         Ok(())
     }
 
@@ -128,21 +95,13 @@ impl AudioManager {
     }
 
     pub fn stop_client_playback(&self) {
-        *self.client_owner.lock() = None;
-
-        if let Some((handle, is_running)) = self.client_thread.lock().take() {
-            is_running.store(false, Ordering::SeqCst);
-            tokio::task::spawn_blocking(move || {
-                let _ = handle.join();
-            });
-        }
-
+        self.client.stop();
         while self.client_audio_buffer.pop().is_some() {}
     }
 
     pub fn stop_client_playback_if_owner(&self, owner_id: &str) {
-        if self.client_owner.lock().as_deref() == Some(owner_id) {
-            self.stop_client_playback();
+        if self.client.stop_if_owner(owner_id) {
+            while self.client_audio_buffer.pop().is_some() {}
         }
     }
 

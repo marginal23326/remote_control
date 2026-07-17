@@ -1,11 +1,10 @@
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::{Arc, atomic::Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
+
+use crate::services::owned_worker::StreamOwnership;
 
 use serde::Serialize;
 
@@ -315,8 +314,7 @@ pub struct ScreenManager {
     pub encoder_type: Arc<Mutex<String>>,
     pub encoder_property_constraints: Arc<Mutex<HashMap<String, EncoderPropertyConstraint>>>,
     pub(crate) inner: Mutex<Option<InnerState>>,
-    is_running: Arc<AtomicBool>,
-    owner_id: Mutex<Option<String>>,
+    ownership: StreamOwnership,
 }
 
 pub(crate) struct InnerState {
@@ -327,20 +325,6 @@ pub(crate) struct InnerState {
     pw_handle: Option<thread::JoinHandle<()>>,
     title_handle: Option<thread::JoinHandle<()>>,
     emit_handle: Option<thread::JoinHandle<()>>,
-}
-
-struct StreamGuard {
-    is_running: Arc<AtomicBool>,
-    success: bool,
-}
-
-impl Drop for StreamGuard {
-    fn drop(&mut self) {
-        if !self.success {
-            tracing::warn!("Stream startup failed or was interrupted. Resetting is_running flag.");
-            self.is_running.store(false, Ordering::SeqCst);
-        }
-    }
 }
 
 impl ScreenManager {
@@ -355,9 +339,8 @@ impl ScreenManager {
             native_size: Arc::new(Mutex::new(native_size)),
             encoder_type: Arc::new(Mutex::new(String::new())),
             encoder_property_constraints: Arc::new(Mutex::new(HashMap::new())),
-            is_running: Arc::new(AtomicBool::new(false)),
             inner: Mutex::new(None),
-            owner_id: Mutex::new(None),
+            ownership: StreamOwnership::new(),
         }
     }
 
@@ -367,20 +350,10 @@ impl ScreenManager {
         state: crate::state::SharedState,
         capture_cursor: bool,
     ) -> anyhow::Result<()> {
-        if self
-            .is_running
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_err()
-        {
-            return Err(anyhow::anyhow!("Stream is already active on another client"));
-        }
-
-        *self.owner_id.lock() = Some(socket.id.to_string());
-
-        let mut startup_guard = StreamGuard {
-            is_running: self.is_running.clone(),
-            success: false,
-        };
+        let startup_guard = self
+            .ownership
+            .try_start(socket.id.to_string())
+            .map_err(|_| anyhow::anyhow!("Stream is already active on another client"))?;
 
         gst::init().map_err(|e| anyhow::anyhow!("GStreamer init failed: {e}"))?;
 
@@ -480,7 +453,7 @@ impl ScreenManager {
         let input_handle =
             Self::setup_input_data_channels(&webrtcbin, state.input.clone(), tokio::runtime::Handle::current());
 
-        let is_running = self.is_running.clone();
+        let is_running = self.ownership.running_flag();
         let settings = self.settings.clone();
 
         let pipeline_clone = pipeline.clone();
@@ -679,7 +652,7 @@ impl ScreenManager {
         });
 
         let mut inner_guard = self.inner.lock();
-        if !self.is_running.load(Ordering::SeqCst) {
+        if !self.ownership.is_running() {
             let _ = inner.pipeline.set_state(gst::State::Null);
             return Err(anyhow::anyhow!("Client disconnected during stream startup"));
         }
@@ -687,7 +660,7 @@ impl ScreenManager {
         inner.emit_handle = Some(emit_handle);
         *inner_guard = Some(inner);
 
-        startup_guard.success = true;
+        startup_guard.mark_started();
 
         Ok(())
     }
@@ -806,8 +779,7 @@ impl ScreenManager {
     }
 
     pub fn stop_stream(&self) {
-        self.is_running.store(false, Ordering::SeqCst);
-        *self.owner_id.lock() = None;
+        self.ownership.clear();
 
         if let Some(state) = self.inner.lock().take() {
             let _ = state.cmd_tx.send(GstCommand::Stop);
@@ -829,7 +801,7 @@ impl ScreenManager {
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.owner_id.lock().as_deref() == Some(owner_id);
+        let is_owner = self.ownership.owns(owner_id);
         if is_owner {
             self.stop_stream();
         }

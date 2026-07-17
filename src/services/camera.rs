@@ -1,12 +1,10 @@
+use crate::services::owned_worker::StreamOwnership;
 use crate::services::screen::{GstCommand, WebRtcSignalConfig, detect_encoder, wire_webrtc_signaling};
 use crate::state::SharedState;
 use parking_lot::Mutex;
 use serde::Serialize;
 use socketioxide::extract::SocketRef;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::atomic::Ordering;
 use std::thread;
 
 use gst::prelude::*;
@@ -25,29 +23,14 @@ struct CameraInner {
 
 pub struct CameraManager {
     inner: Mutex<Option<CameraInner>>,
-    is_running: Arc<AtomicBool>,
-    owner_id: Mutex<Option<String>>,
-}
-
-struct StartGuard {
-    is_running: Arc<AtomicBool>,
-    success: bool,
-}
-
-impl Drop for StartGuard {
-    fn drop(&mut self) {
-        if !self.success {
-            self.is_running.store(false, Ordering::SeqCst);
-        }
-    }
+    ownership: StreamOwnership,
 }
 
 impl CameraManager {
     pub fn new() -> Self {
         Self {
             inner: Mutex::new(None),
-            is_running: Arc::new(AtomicBool::new(false)),
-            owner_id: Mutex::new(None),
+            ownership: StreamOwnership::new(),
         }
     }
 
@@ -68,20 +51,10 @@ impl CameraManager {
         state: SharedState,
         device_id: Option<String>,
     ) -> anyhow::Result<()> {
-        if self
-            .is_running
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_err()
-        {
-            return Err(anyhow::anyhow!("Already active"));
-        }
-
-        *self.owner_id.lock() = Some(socket.id.to_string());
-
-        let mut guard = StartGuard {
-            is_running: self.is_running.clone(),
-            success: false,
-        };
+        let guard = self
+            .ownership
+            .try_start(socket.id.to_string())
+            .map_err(|_| anyhow::anyhow!("Already active"))?;
 
         gst::init()?;
 
@@ -137,7 +110,7 @@ impl CameraManager {
             },
         );
 
-        let is_running = self.is_running.clone();
+        let is_running = self.ownership.running_flag();
         let pipeline_clone = pipeline.clone();
         let pipeline_weak = pipeline_clone.downgrade();
 
@@ -168,20 +141,19 @@ impl CameraManager {
             is_running.store(false, Ordering::SeqCst);
         });
 
-        if !self.is_running.load(Ordering::SeqCst) {
+        if !self.ownership.is_running() {
             let _ = pipeline.set_state(gst::State::Null);
             return Err(anyhow::anyhow!("Client disconnected during webcam startup"));
         }
 
         *self.inner.lock() = Some(CameraInner { pipeline, cmd_tx });
-        guard.success = true;
+        guard.mark_started();
 
         Ok(())
     }
 
     pub fn stop_stream(&self) {
-        self.is_running.store(false, Ordering::SeqCst);
-        *self.owner_id.lock() = None;
+        self.ownership.clear();
 
         if let Some(state) = self.inner.lock().take() {
             let _ = state.cmd_tx.send(GstCommand::Stop);
@@ -190,7 +162,7 @@ impl CameraManager {
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.owner_id.lock().as_deref() == Some(owner_id);
+        let is_owner = self.ownership.owns(owner_id);
         if is_owner {
             self.stop_stream();
         }
