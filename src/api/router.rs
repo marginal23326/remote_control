@@ -14,7 +14,7 @@ use crate::utils::auth::is_authenticated;
 use axum::{
     Router,
     extract::{DefaultBodyLimit, Request, State},
-    http::header,
+    http::{HeaderValue, header},
     middleware,
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -29,7 +29,7 @@ async fn serve_no_cache(file: &str, req: Request) -> Response {
             let mut res = res.into_response();
             res.headers_mut().insert(
                 header::CACHE_CONTROL,
-                "no-cache, no-store, must-revalidate".parse().unwrap(),
+                HeaderValue::from_static("no-cache, no-store, must-revalidate"),
             );
             res
         }
@@ -96,7 +96,7 @@ pub fn create_router(state: SharedState) -> Router {
             if res.status().is_success() {
                 res.headers_mut().insert(
                     header::CACHE_CONTROL,
-                    "public, max-age=2592000, immutable".parse().unwrap(),
+                    HeaderValue::from_static("public, max-age=2592000, immutable"),
                 );
             }
             res
