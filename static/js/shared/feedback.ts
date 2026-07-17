@@ -9,33 +9,27 @@ function getInteractiveElements(): NodeListOf<HTMLElement> {
     return document.querySelectorAll<HTMLElement>("button, input, select, textarea, a[href], [onclick], [tabindex]");
 }
 
-function disableInteractiveElements(): void {
+function setInteractiveElementsEnabled(enabled: boolean): void {
     getInteractiveElements().forEach((element) => {
-        (element as DisableableElement).disabled = true;
+        (element as DisableableElement).disabled = !enabled;
 
         if (element.tagName === "A" || !("disabled" in element)) {
-            if (!Object.hasOwn(element.dataset, "origTabindex")) {
-                element.dataset.origTabindex = element.getAttribute("tabindex") ?? "";
-            }
-            element.setAttribute("tabindex", "-1");
-            element.classList.add("pointer-events-none", "opacity-50");
-        }
-    });
-}
-
-function enableInteractiveElements(): void {
-    getInteractiveElements().forEach((element) => {
-        (element as DisableableElement).disabled = false;
-
-        if (element.tagName === "A" || !("disabled" in element)) {
-            element.classList.remove("pointer-events-none", "opacity-50");
-            const { origTabindex } = element.dataset;
-            if (origTabindex) {
-                element.setAttribute("tabindex", origTabindex);
+            if (enabled) {
+                element.classList.remove("pointer-events-none", "opacity-50");
+                const { origTabindex } = element.dataset;
+                if (origTabindex) {
+                    element.setAttribute("tabindex", origTabindex);
+                } else {
+                    element.removeAttribute("tabindex");
+                }
+                delete element.dataset.origTabindex;
             } else {
-                element.removeAttribute("tabindex");
+                if (!Object.hasOwn(element.dataset, "origTabindex")) {
+                    element.dataset.origTabindex = element.getAttribute("tabindex") ?? "";
+                }
+                element.setAttribute("tabindex", "-1");
+                element.classList.add("pointer-events-none", "opacity-50");
             }
-            delete element.dataset.origTabindex;
         }
     });
 }
@@ -45,7 +39,7 @@ export function showConnectionOverlay(message: string): void {
     connectionOverlay.classList.remove("hidden");
     void connectionOverlay.offsetWidth;
     connectionOverlay.classList.remove("opacity-0");
-    disableInteractiveElements();
+    setInteractiveElementsEnabled(false);
 }
 
 export function hideConnectionOverlay(): void {
@@ -53,7 +47,7 @@ export function hideConnectionOverlay(): void {
     setTimeout(() => {
         connectionOverlay.classList.add("hidden");
     }, 300);
-    enableInteractiveElements();
+    setInteractiveElementsEnabled(true);
 }
 
 export class LoadingButton {
