@@ -46,3 +46,13 @@ impl IntoResponse for AppError {
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+
+pub async fn run_blocking<T, E>(f: impl FnOnce() -> Result<T, E> + Send + 'static) -> AppResult<Result<T, E>>
+where
+    T: Send + 'static,
+    E: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| AppError::InternalError(anyhow::anyhow!("Task join error: {e}")))
+}

@@ -1,5 +1,5 @@
 use crate::state::SharedState;
-use crate::utils::error::{AppError, AppResult};
+use crate::utils::error::{AppError, AppResult, run_blocking};
 use axum::{
     Json,
     extract::{Path, State},
@@ -28,9 +28,8 @@ pub async fn get_process_details_handler(
     State(state): State<SharedState>,
     Path(pid): Path<u32>,
 ) -> AppResult<Json<Value>> {
-    let details = tokio::task::spawn_blocking(move || state.tasks.get_process_details(pid))
-        .await
-        .unwrap()
+    let details = run_blocking(move || state.tasks.get_process_details(pid))
+        .await?
         .map_err(|_| AppError::NotFound(format!("Process with PID {} not found", pid)))?;
 
     Ok(Json(json!({ "status": "success", "data": details })))
