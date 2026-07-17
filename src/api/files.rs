@@ -6,7 +6,7 @@ use axum::{
     Json,
     body::Body,
     extract::{Multipart, Query},
-    http::{HeaderMap, header},
+    http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::Form;
@@ -392,10 +392,10 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
     let body = Body::from_stream(stream);
 
     let mut headers = HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, "application/zip".parse().unwrap());
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/zip"));
     headers.insert(
         header::CONTENT_DISPOSITION,
-        "attachment; filename=\"files.zip\"".parse().unwrap(),
+        HeaderValue::from_static("attachment; filename=\"files.zip\""),
     );
 
     Ok((headers, body).into_response())
