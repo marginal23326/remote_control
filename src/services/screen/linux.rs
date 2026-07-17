@@ -481,73 +481,78 @@ impl PortalSessionManager {
         Ok((info.node_id, info.size, fd))
     }
 
-    pub(crate) async fn notify_pointer_motion_absolute(&self, x: f64, y: f64) -> Result<()> {
+    async fn with_session<T>(&self, f: impl AsyncFnOnce(&PortalSession) -> Result<T>) -> Result<T> {
         self.ensure_started(true).await?;
-        let state = self.state.lock().await;
-        let session = state.as_ref().unwrap();
-        session
-            .remote_desktop
-            .notify_pointer_motion_absolute(
-                &session.session,
-                session.stream.node_id,
-                x,
-                y,
-                NotifyPointerMotionAbsoluteOptions::default(),
-            )
-            .await?;
-        Ok(())
+        let guard = self.state.lock().await;
+        f(guard.as_ref().unwrap()).await
+    }
+
+    pub(crate) async fn notify_pointer_motion_absolute(&self, x: f64, y: f64) -> Result<()> {
+        self.with_session(async move |session| {
+            session
+                .remote_desktop
+                .notify_pointer_motion_absolute(
+                    &session.session,
+                    session.stream.node_id,
+                    x,
+                    y,
+                    NotifyPointerMotionAbsoluteOptions::default(),
+                )
+                .await?;
+            Ok(())
+        })
+        .await
     }
 
     pub(crate) async fn notify_pointer_button(&self, button: i32, state: KeyState) -> Result<()> {
-        self.ensure_started(true).await?;
-        let guard = self.state.lock().await;
-        let session = guard.as_ref().unwrap();
-        session
-            .remote_desktop
-            .notify_pointer_button(&session.session, button, state, NotifyPointerButtonOptions::default())
-            .await?;
-        Ok(())
+        self.with_session(async move |session| {
+            session
+                .remote_desktop
+                .notify_pointer_button(&session.session, button, state, NotifyPointerButtonOptions::default())
+                .await?;
+            Ok(())
+        })
+        .await
     }
 
     pub(crate) async fn notify_pointer_axis(&self, dx: i32, dy: i32) -> Result<()> {
-        self.ensure_started(true).await?;
-        let guard = self.state.lock().await;
-        let session = guard.as_ref().unwrap();
-
-        if dx != 0 {
-            session
-                .remote_desktop
-                .notify_pointer_axis_discrete(
-                    &session.session,
-                    Axis::Horizontal,
-                    dx,
-                    NotifyPointerAxisDiscreteOptions::default(),
-                )
-                .await?;
-        }
-        if dy != 0 {
-            session
-                .remote_desktop
-                .notify_pointer_axis_discrete(
-                    &session.session,
-                    Axis::Vertical,
-                    dy,
-                    NotifyPointerAxisDiscreteOptions::default(),
-                )
-                .await?;
-        }
-        Ok(())
+        self.with_session(async move |session| {
+            if dx != 0 {
+                session
+                    .remote_desktop
+                    .notify_pointer_axis_discrete(
+                        &session.session,
+                        Axis::Horizontal,
+                        dx,
+                        NotifyPointerAxisDiscreteOptions::default(),
+                    )
+                    .await?;
+            }
+            if dy != 0 {
+                session
+                    .remote_desktop
+                    .notify_pointer_axis_discrete(
+                        &session.session,
+                        Axis::Vertical,
+                        dy,
+                        NotifyPointerAxisDiscreteOptions::default(),
+                    )
+                    .await?;
+            }
+            Ok(())
+        })
+        .await
     }
 
     pub(crate) async fn notify_keyboard_keysym(&self, keysym: i32, state: KeyState) -> Result<()> {
-        self.ensure_started(true).await?;
-        let guard = self.state.lock().await;
-        let session = guard.as_ref().unwrap();
-        session
-            .remote_desktop
-            .notify_keyboard_keysym(&session.session, keysym, state, NotifyKeyboardKeysymOptions::default())
-            .await?;
-        Ok(())
+        self.with_session(async move |session| {
+            session
+                .remote_desktop
+                .notify_keyboard_keysym(&session.session, keysym, state, NotifyKeyboardKeysymOptions::default())
+                .await?;
+            Ok(())
+        })
+        .await
     }
 }
 
