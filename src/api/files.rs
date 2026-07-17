@@ -1,4 +1,4 @@
-use crate::services::files::FileManager;
+use crate::services::files;
 use crate::utils::error::{AppError, AppResult, run_blocking};
 use async_zip::tokio::write::ZipFileWriter;
 use async_zip::{Compression, ZipEntryBuilder};
@@ -109,9 +109,9 @@ pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
     let result = tokio::task::spawn_blocking(move || {
         if let Some(path) = q.path {
             if path.is_empty() {
-                Ok(json!(FileManager::get_drives()))
+                Ok(json!(files::get_drives()))
             } else {
-                match FileManager::list_directory(&path) {
+                match files::list_directory(&path) {
                     Ok(entries) => Ok(json!(entries)),
                     Err(e) => {
                         let is_access_error = e.to_string().to_lowercase().contains("access");
@@ -124,7 +124,7 @@ pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
                 }
             }
         } else {
-            Ok(json!(FileManager::get_drives()))
+            Ok(json!(files::get_drives()))
         }
     })
     .await
@@ -137,7 +137,7 @@ pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
 }
 
 pub async fn get_home_handler() -> Response {
-    let path = FileManager::get_home_dir();
+    let path = files::get_home_dir();
     Json(json!({ "path": path })).into_response()
 }
 
@@ -146,7 +146,7 @@ pub async fn create_folder_handler(Json(payload): Json<ActionPayload>) -> AppRes
         return Err(AppError::BadRequest("Missing parentPath or folderName".to_string()));
     };
 
-    run_blocking(move || FileManager::create_folder(&parent, &name)).await??;
+    run_blocking(move || files::create_folder(&parent, &name)).await??;
 
     Ok(Json(json!({"status": "success"})))
 }
@@ -156,7 +156,7 @@ pub async fn delete_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
         return Err(AppError::BadRequest("Missing paths".to_string()));
     };
 
-    run_blocking(move || FileManager::delete_items(paths)).await??;
+    run_blocking(move || files::delete_items(paths)).await??;
 
     Ok(Json(json!({"status": "success"})))
 }
@@ -166,7 +166,7 @@ pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
         return Err(AppError::BadRequest("Missing oldPath or newName".to_string()));
     };
 
-    run_blocking(move || FileManager::rename_item(&old, &new)).await??;
+    run_blocking(move || files::rename_item(&old, &new)).await??;
 
     Ok(Json(json!({"status": "success"})))
 }
