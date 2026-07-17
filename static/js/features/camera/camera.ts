@@ -1,5 +1,6 @@
 import { apiCall } from "@/shared/api.ts";
 import { LoadingButton, showNotification } from "@/shared/feedback.ts";
+import { createPeerSignaling } from "@/shared/peer-signaling.ts";
 import type { AppSocket } from "@/core/socket.ts";
 import type { CameraDeviceInfo, StreamSettings } from "@/shared/types.ts";
 
@@ -18,8 +19,7 @@ const pip = {
 
 let cameraActive = false;
 let wasCameraActive = false;
-let peerConnection: RTCPeerConnection | null = null;
-let pendingIceCandidates: RTCIceCandidateInit[] = [];
+let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
 let activeStunServer: string | null = null;
 let toggleBtnLoader: LoadingButton | null = null;
 
@@ -35,17 +35,13 @@ function setToggleUI(active: boolean): void {
 }
 
 function cleanupPeerConnection(): void {
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
+    peerSignaling?.cleanup();
     if (pip.video?.srcObject) {
         (pip.video.srcObject as MediaStream).getTracks().forEach((track) => {
             track.stop();
         });
         pip.video.srcObject = null;
     }
-    pendingIceCandidates = [];
 }
 
 function populateDeviceList(cameras: CameraDeviceInfo[] | undefined): void {
@@ -173,62 +169,35 @@ export function initializeCamera(socket: AppSocket): void {
         }
     });
 
+    const signaling = createPeerSignaling({
+        getStunServer: () => activeStunServer,
+        onAnswer: (sdp) => {
+            socket.emit("camera_webrtc_answer", sdp);
+        },
+        onIceCandidate: (candidate) => {
+            socket.emit("camera_webrtc_ice_candidate", candidate);
+        },
+        onNegotiationError: (error) => {
+            console.error("Camera WebRTC offer handling failed:", error);
+            handleCameraError("Failed to establish camera connection");
+        },
+        onTrack: (stream) => {
+            if (pip.video.srcObject !== stream) {
+                pip.video.srcObject = stream;
+            }
+        },
+    });
+    peerSignaling = signaling;
+
     socket.on("camera_webrtc_offer", async (sdpText) => {
         if (!cameraActive) return;
         toggleBtnLoader?.stopLoading();
-
-        if (!peerConnection) {
-            const rtcConfig: RTCConfiguration = {};
-            if (activeStunServer) {
-                rtcConfig.iceServers = [{ urls: activeStunServer }];
-            }
-            peerConnection = new RTCPeerConnection(rtcConfig);
-
-            peerConnection.ontrack = (event) => {
-                if (pip.video.srcObject !== event.streams[0]) {
-                    pip.video.srcObject = event.streams[0]!;
-                }
-            };
-
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit("camera_webrtc_ice_candidate", {
-                        candidate: event.candidate.candidate,
-                        sdp_mline_index: event.candidate.sdpMLineIndex,
-                    });
-                }
-            };
-        }
-
-        try {
-            await peerConnection.setRemoteDescription({ sdp: sdpText, type: "offer" });
-
-            const pc = peerConnection;
-            await Promise.all(pendingIceCandidates.map((candidate) => pc.addIceCandidate(candidate)));
-            pendingIceCandidates = [];
-
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit("camera_webrtc_answer", answer.sdp!);
-        } catch (error) {
-            console.error("Camera WebRTC offer handling failed:", error);
-            handleCameraError("Failed to establish camera connection");
-        }
+        await signaling.handleOffer(sdpText);
     });
 
     socket.on("camera_webrtc_remote_ice", async (data) => {
-        if (!cameraActive || !peerConnection) return;
-
-        const candidate: RTCIceCandidateInit = {
-            candidate: data.candidate,
-            sdpMLineIndex: data.sdp_mline_index,
-        };
-
-        if (peerConnection.remoteDescription) {
-            await peerConnection.addIceCandidate(candidate);
-        } else {
-            pendingIceCandidates.push(candidate);
-        }
+        if (!cameraActive) return;
+        await signaling.handleRemoteIce(data);
     });
 
     socket.on("camera_stream_error", (data) => {

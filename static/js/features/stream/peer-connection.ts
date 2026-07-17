@@ -3,12 +3,12 @@ import { getStartButtonLoader, setStreamToggleUI, streamUI } from "./view.ts";
 import { activeStunServer, setStreamActive, streamActive } from "./stream-state.ts";
 import { apiCall } from "@/shared/api.ts";
 import { updateSettingsDisplay } from "./settings-panel.ts";
+import { createPeerSignaling } from "@/shared/peer-signaling.ts";
 import type { AppSocket } from "@/core/socket.ts";
 import type { MouseEventPayload } from "@/core/socket-events.ts";
 import type { StreamSettings } from "@/shared/types.ts";
 
-let peerConnection: RTCPeerConnection | null = null;
-let pendingIceCandidates: RTCIceCandidateInit[] = [];
+let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
 
 let mouseMoveChannel: RTCDataChannel | null = null;
 let mouseControlChannel: RTCDataChannel | null = null;
@@ -16,6 +16,40 @@ let pendingMouseMove: (MouseEventPayload & { seq: number }) | null = null;
 let mouseInputSeq = 0;
 
 export function initializePeerConnectionSignaling(socket: AppSocket): void {
+    const signaling = createPeerSignaling({
+        getStunServer: () => activeStunServer,
+        onAnswer: (sdp) => {
+            socket.emit("webrtc_answer", sdp);
+        },
+        onConnectionCreated: (pc) => {
+            pc.ondatachannel = (event) => {
+                registerInputDataChannel(event.channel);
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === "connected") {
+                    streamUI.startFpsCounter();
+                    void apiCall<StreamSettings>("/api/stream/settings", "GET").then((s) => {
+                        if (s) updateSettingsDisplay(s);
+                    });
+                }
+            };
+        },
+        onIceCandidate: (candidate) => {
+            socket.emit("webrtc_ice_candidate", candidate);
+        },
+        onNegotiationError: (error) => {
+            console.error("WebRTC offer handling failed:", error);
+            handleStreamError("Failed to establish stream connection");
+        },
+        onTrack: (stream) => {
+            if (streamUI.view.srcObject !== stream) {
+                streamUI.view.srcObject = stream;
+            }
+        },
+    });
+    peerSignaling = signaling;
+
     socket.on("webrtc_offer", async (sdpText) => {
         if (!streamActive) return;
 
@@ -23,71 +57,12 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
         streamUI.show();
         setStreamToggleUI(true);
 
-        if (!peerConnection) {
-            const rtcConfig: RTCConfiguration = {};
-            if (activeStunServer) {
-                rtcConfig.iceServers = [{ urls: activeStunServer }];
-            }
-            peerConnection = new RTCPeerConnection(rtcConfig);
-
-            peerConnection.ontrack = (event) => {
-                if (streamUI.view.srcObject !== event.streams[0]) {
-                    streamUI.view.srcObject = event.streams[0]!;
-                }
-            };
-
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit("webrtc_ice_candidate", {
-                        candidate: event.candidate.candidate,
-                        sdp_mline_index: event.candidate.sdpMLineIndex,
-                    });
-                }
-            };
-
-            peerConnection.ondatachannel = (event) => {
-                registerInputDataChannel(event.channel);
-            };
-
-            peerConnection.onconnectionstatechange = () => {
-                if (peerConnection!.connectionState === "connected") {
-                    streamUI.startFpsCounter();
-                    void apiCall<StreamSettings>("/api/stream/settings", "GET").then((s) => {
-                        if (s) updateSettingsDisplay(s);
-                    });
-                }
-            };
-        }
-
-        try {
-            await peerConnection.setRemoteDescription({ sdp: sdpText, type: "offer" });
-
-            const pc = peerConnection;
-            await Promise.all(pendingIceCandidates.map((c) => pc.addIceCandidate(c)));
-            pendingIceCandidates = [];
-
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit("webrtc_answer", answer.sdp!);
-        } catch (error) {
-            console.error("WebRTC offer handling failed:", error);
-            handleStreamError("Failed to establish stream connection");
-        }
+        await signaling.handleOffer(sdpText);
     });
 
     socket.on("webrtc_remote_ice", async (data) => {
         if (!streamActive) return;
-        if (peerConnection) {
-            const candidate: RTCIceCandidateInit = {
-                candidate: data.candidate,
-                sdpMLineIndex: data.sdp_mline_index,
-            };
-            if (peerConnection.remoteDescription) {
-                await peerConnection.addIceCandidate(candidate);
-            } else {
-                pendingIceCandidates.push(candidate);
-            }
-        }
+        await signaling.handleRemoteIce(data);
     });
 
     socket.on("stream_error", (data) => {
@@ -111,10 +86,7 @@ export function cleanupPeerConnection(): void {
     mouseMoveChannel = null;
     mouseControlChannel = null;
     pendingMouseMove = null;
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
+    peerSignaling?.cleanup();
 }
 
 function registerInputDataChannel(channel: RTCDataChannel): void {
