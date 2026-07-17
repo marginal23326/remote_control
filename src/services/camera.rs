@@ -1,11 +1,10 @@
 use crate::services::owned_worker::StreamOwnership;
-use crate::services::screen::{GstCommand, WebRtcSignalConfig, detect_encoder, wire_webrtc_signaling};
+use crate::services::screen::{GstCommand, WebRtcSignalConfig, detect_encoder, spawn_bus_watch, wire_webrtc_signaling};
 use crate::state::SharedState;
 use parking_lot::Mutex;
 use serde::Serialize;
 use socketioxide::extract::SocketRef;
 use std::sync::atomic::Ordering;
-use std::thread;
 
 use gst::prelude::*;
 use gstreamer as gst;
@@ -111,33 +110,7 @@ impl CameraManager {
         );
 
         let is_running = self.ownership.running_flag();
-        let pipeline_clone = pipeline.clone();
-        let pipeline_weak = pipeline_clone.downgrade();
-
-        thread::spawn(move || {
-            let res = pipeline_clone.set_state(gst::State::Playing);
-            tracing::debug!("Camera pipeline state set to Playing: {res:?}");
-            for msg in pipeline_clone.bus().unwrap().iter_timed(None::<gst::ClockTime>) {
-                use gst::MessageView;
-                match msg.view() {
-                    MessageView::Eos(..) => {
-                        tracing::info!("Camera pipeline bus: EOS");
-                        break;
-                    }
-                    MessageView::Error(err) => {
-                        tracing::error!("Camera pipeline bus error: {}", err.error());
-                        if let Some(dbg) = err.debug() {
-                            tracing::error!("  Debug: {dbg}");
-                        }
-                        break;
-                    }
-                    MessageView::Warning(warn) => {
-                        tracing::warn!("Camera pipeline bus warning: {}", warn.error());
-                    }
-                    _ => {}
-                }
-            }
-            let _ = pipeline_weak.upgrade().map(|p| p.set_state(gst::State::Null));
+        spawn_bus_watch(pipeline.clone(), "camera", move || {
             is_running.store(false, Ordering::SeqCst);
         });
 

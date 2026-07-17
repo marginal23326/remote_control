@@ -197,6 +197,43 @@ pub(crate) fn wire_webrtc_signaling(
     });
 }
 
+pub(crate) fn spawn_bus_watch(
+    pipeline: gst::Pipeline,
+    label: &'static str,
+    on_exit: impl FnOnce() + Send + 'static,
+) -> thread::JoinHandle<()> {
+    let pipeline_weak = pipeline.downgrade();
+
+    thread::spawn(move || {
+        let _ = pipeline.set_state(gst::State::Playing);
+        for msg in pipeline.bus().unwrap().iter_timed(None::<gst::ClockTime>) {
+            use gst::MessageView;
+            match msg.view() {
+                MessageView::Eos(..) => {
+                    tracing::info!("[{label}] Pipeline bus: EOS");
+                    break;
+                }
+                MessageView::Error(err) => {
+                    tracing::error!("[{label}] Pipeline bus error: {}", err.error());
+                    if let Some(dbg) = err.debug() {
+                        tracing::error!("  Debug: {dbg}");
+                    }
+                    break;
+                }
+                MessageView::Warning(warn) => {
+                    tracing::warn!("[{label}] Pipeline bus warning: {}", warn.error());
+                    if let Some(dbg) = warn.debug() {
+                        tracing::warn!("  Warn debug: {dbg}");
+                    }
+                }
+                _ => {}
+            }
+        }
+        let _ = pipeline_weak.upgrade().map(|p| p.set_state(gst::State::Null));
+        on_exit();
+    })
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct EncoderPropertyConstraint {
     pub value_type: &'static str,
@@ -456,37 +493,7 @@ impl ScreenManager {
         let is_running = self.ownership.running_flag();
         let settings = self.settings.clone();
 
-        let pipeline_clone = pipeline.clone();
-        let pipeline_weak = pipeline_clone.downgrade();
-
-        thread::spawn(move || {
-            let res = pipeline_clone.set_state(gst::State::Playing);
-            tracing::debug!("Pipeline state set to Playing: {res:?}");
-            for msg in pipeline_clone.bus().unwrap().iter_timed(None::<gst::ClockTime>) {
-                use gst::MessageView;
-                match msg.view() {
-                    MessageView::Eos(..) => {
-                        tracing::info!("Pipeline bus: EOS");
-                        break;
-                    }
-                    MessageView::Error(err) => {
-                        tracing::error!("Pipeline bus error: {}", err.error());
-                        if let Some(dbg) = err.debug() {
-                            tracing::error!("  Debug: {dbg}");
-                        }
-                        break;
-                    }
-                    MessageView::Warning(warn) => {
-                        tracing::warn!("Pipeline bus warning: {}", warn.error());
-                        if let Some(dbg) = warn.debug() {
-                            tracing::warn!("  Warn debug: {dbg}");
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            let _ = pipeline_weak.upgrade().map(|p| p.set_state(gst::State::Null));
-        });
+        spawn_bus_watch(pipeline.clone(), "screen", || {});
 
         #[cfg(target_os = "linux")]
         let mut inner = {
