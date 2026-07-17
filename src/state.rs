@@ -10,7 +10,26 @@ use std::sync::Arc;
 use sysinfo::{Networks, System};
 use tokio::sync::OnceCell;
 
-type WanInfo = (String, String, String, String, String);
+#[derive(Clone)]
+pub struct WanInfo {
+    pub ip: String,
+    pub asn: String,
+    pub isp: String,
+    pub country: String,
+    pub timezone: String,
+}
+
+impl WanInfo {
+    pub fn na() -> Self {
+        Self {
+            ip: "N/A".to_string(),
+            asn: "N/A".to_string(),
+            isp: "N/A".to_string(),
+            country: "N/A".to_string(),
+            timezone: "N/A".to_string(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct AppState {

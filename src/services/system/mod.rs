@@ -1,3 +1,4 @@
+use crate::state::WanInfo;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -74,7 +75,7 @@ fn get_cpu_base_speed(brand: &str) -> String {
     "N/A".to_string()
 }
 
-async fn fetch_wan_info() -> Result<(String, String, String, String, String), ()> {
+async fn fetch_wan_info() -> Result<WanInfo, ()> {
     let result = tokio::task::spawn_blocking(|| {
         minreq::get("https://api.ipapi.is/")
             .with_timeout(3)
@@ -107,20 +108,16 @@ async fn fetch_wan_info() -> Result<(String, String, String, String, String), ()
                 .and_then(|l| l.timezone.clone())
                 .unwrap_or("N/A".to_string());
 
-            Ok((ip, asn, isp, country, timezone))
+            Ok(WanInfo {
+                ip,
+                asn,
+                isp,
+                country,
+                timezone,
+            })
         }
         _ => Err(()),
     }
-}
-
-fn na_wan_info() -> (String, String, String, String, String) {
-    (
-        "N/A".to_string(),
-        "N/A".to_string(),
-        "N/A".to_string(),
-        "N/A".to_string(),
-        "N/A".to_string(),
-    )
 }
 
 fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> String {
@@ -234,7 +231,7 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
 
     let wan_info = match state.wan_info.get_or_try_init(fetch_wan_info).await {
         Ok(info) => info.clone(),
-        Err(_) => na_wan_info(),
+        Err(_) => WanInfo::na(),
     };
 
     let os_info = get_os_specific_info(base.cpu_frequency).await;
@@ -251,11 +248,11 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         uptime: format_uptime(System::uptime()),
         mac_address: mac,
         lan_ip,
-        wan_ip: wan_info.0.clone(),
-        asn: wan_info.1.clone(),
-        isp: wan_info.2.clone(),
-        country: wan_info.3.clone(),
-        timezone: wan_info.4.clone(),
+        wan_ip: wan_info.ip.clone(),
+        asn: wan_info.asn.clone(),
+        isp: wan_info.isp.clone(),
+        country: wan_info.country.clone(),
+        timezone: wan_info.timezone.clone(),
         active_processes: base.active_processes,
         os: os_info.os,
         architecture: std::env::consts::ARCH.to_string(),
