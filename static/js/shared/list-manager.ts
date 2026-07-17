@@ -23,17 +23,13 @@ export interface ListManagerConfig {
     onSelectionChange?: (items: string[]) => void;
 }
 
-interface ResolvedListManagerConfig {
-    containerSelector: string;
-    itemSelector?: string;
-    itemDataAttribute?: string;
-    isContextMenuEnabled: boolean;
-    isSelectionEnabled: boolean;
-    getItemId?: (element: HTMLElement) => string | undefined;
-    isItemSelectable?: (element: HTMLElement) => boolean;
-    getContextMenuItems: (context?: ContextMenuContext) => ContextMenuItem[];
-    onSelectionChange: (items: string[]) => void;
-}
+type ResolvedListManagerConfig = ListManagerConfig &
+    Required<
+        Pick<
+            ListManagerConfig,
+            "getContextMenuItems" | "isContextMenuEnabled" | "isSelectionEnabled" | "onSelectionChange"
+        >
+    >;
 
 export class ListManager {
     config: ResolvedListManagerConfig;
