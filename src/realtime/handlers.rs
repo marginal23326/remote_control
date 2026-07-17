@@ -311,14 +311,21 @@ pub async fn handle_stop_camera_stream(State(state): State<SharedState>) {
     state.camera.stop_stream();
 }
 
+fn extract_sdp(data: &serde_json::Value) -> Option<String> {
+    data.as_str()
+        .or_else(|| data.as_array()?.first()?.as_str())
+        .map(str::to_string)
+}
+
+fn extract_ice(data: &serde_json::Value) -> Option<(u32, String)> {
+    Some((
+        data.get("sdp_mline_index")?.as_u64()? as u32,
+        data.get("candidate")?.as_str()?.to_string(),
+    ))
+}
+
 pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    let sdp_str = if let Some(s) = data.as_str() {
-        s.to_string()
-    } else if let Some(s) = data.as_array().and_then(|a| a.first()).and_then(|v| v.as_str()) {
-        s.to_string()
-    } else {
-        return;
-    };
+    let Some(sdp_str) = extract_sdp(&data) else { return };
 
     if let Some(inner) = state.screen.inner.lock().as_ref() {
         let _ = inner
@@ -328,35 +335,26 @@ pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(sta
 }
 
 pub async fn handle_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    if let (Some(idx), Some(candidate)) = (
-        data.get("sdp_mline_index").and_then(|v| v.as_u64()),
-        data.get("candidate").and_then(|v| v.as_str()),
-    ) && let Some(inner) = state.screen.inner.lock().as_ref()
-    {
+    let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
+        return;
+    };
+
+    if let Some(inner) = state.screen.inner.lock().as_ref() {
         let _ = inner.cmd_tx.send(crate::services::screen::GstCommand::AddIceCandidate {
-            sdp_mline_index: idx as u32,
-            candidate: candidate.to_string(),
+            sdp_mline_index,
+            candidate,
         });
     }
 }
 
 pub async fn handle_camera_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    let sdp_str = if let Some(s) = data.as_str() {
-        s.to_string()
-    } else if let Some(s) = data.as_array().and_then(|a| a.first()).and_then(|v| v.as_str()) {
-        s.to_string()
-    } else {
-        return;
-    };
-
+    let Some(sdp_str) = extract_sdp(&data) else { return };
     state.camera.set_remote_description(sdp_str);
 }
 
 pub async fn handle_camera_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    if let (Some(idx), Some(candidate)) = (
-        data.get("sdp_mline_index").and_then(|v| v.as_u64()),
-        data.get("candidate").and_then(|v| v.as_str()),
-    ) {
-        state.camera.add_ice_candidate(idx as u32, candidate.to_string());
-    }
+    let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
+        return;
+    };
+    state.camera.add_ice_candidate(sdp_mline_index, candidate);
 }
