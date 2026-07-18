@@ -1,5 +1,6 @@
 import { apiCall } from "@/shared/api.ts";
 import { LoadingButton, showNotification } from "@/shared/feedback.ts";
+import { bindMediaSessionReconnect } from "@/shared/media-session.ts";
 import { registerShortcuts } from "@/core/shortcuts.ts";
 import { getStartButtonLoader, isCursorCaptureEnabled, setStreamToggleUI, streamUI } from "./view.ts";
 import { invalidateDimensionsCache } from "./geometry.ts";
@@ -121,28 +122,19 @@ export function initializeStream(socket: AppSocket): void {
         streamUI.updateMeta({ win: data.title });
     });
 
-    let wasStreamActive = false;
-
-    socket.on("disconnect", () => {
-        if (streamActive) {
-            wasStreamActive = true;
+    bindMediaSessionReconnect(socket, {
+        isActive: () => streamActive,
+        onDisconnect: () => {
             setStreamActive(false);
-
             getStartButtonLoader()?.stopLoading();
             setStreamToggleUI(false);
-
             cleanupPeerConnection();
-        }
-    });
-
-    socket.on("connect", () => {
-        if (wasStreamActive) {
-            wasStreamActive = false;
+        },
+        onReconnect: () => {
             setStreamActive(true);
             setStreamToggleUI(true);
-
             socket.emit("start_stream", { capture_cursor: isCursorCaptureEnabled() });
-        }
+        },
     });
 
     (["pull", "push"] as const).forEach((action) => {

@@ -1,7 +1,8 @@
-use crate::services::owned_worker::StreamOwnership;
-use crate::services::screen::{GstCommand, WebRtcSignalConfig, detect_encoder, spawn_bus_watch, wire_webrtc_signaling};
+use crate::services::screen::detect_encoder;
+use crate::services::webrtc_session::{
+    GstCommand, GstSession, WebRtcSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
+};
 use crate::state::SharedState;
-use parking_lot::Mutex;
 use serde::Serialize;
 use socketioxide::extract::SocketRef;
 use std::sync::atomic::Ordering;
@@ -20,16 +21,24 @@ struct CameraInner {
     cmd_tx: crossbeam_channel::Sender<GstCommand>,
 }
 
+impl GstSession for CameraInner {
+    fn pipeline(&self) -> &gst::Pipeline {
+        &self.pipeline
+    }
+
+    fn cmd_tx(&self) -> &crossbeam_channel::Sender<GstCommand> {
+        &self.cmd_tx
+    }
+}
+
 pub struct CameraManager {
-    inner: Mutex<Option<CameraInner>>,
-    ownership: StreamOwnership,
+    session: WebRtcSession<CameraInner>,
 }
 
 impl CameraManager {
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(None),
-            ownership: StreamOwnership::new(),
+            session: WebRtcSession::new(),
         }
     }
 
@@ -51,7 +60,8 @@ impl CameraManager {
         device_id: Option<String>,
     ) -> anyhow::Result<()> {
         let guard = self
-            .ownership
+            .session
+            .ownership()
             .try_start(socket.id.to_string())
             .map_err(|_| anyhow::anyhow!("Already active"))?;
 
@@ -109,52 +119,34 @@ impl CameraManager {
             },
         );
 
-        let is_running = self.ownership.running_flag();
+        let is_running = self.session.ownership().running_flag();
         spawn_bus_watch(pipeline.clone(), "camera", move || {
             is_running.store(false, Ordering::SeqCst);
         });
 
-        if !self.ownership.is_running() {
-            let _ = pipeline.set_state(gst::State::Null);
+        if let Err(camera_inner) = self.session.finish_start(CameraInner { pipeline, cmd_tx }) {
+            let _ = camera_inner.pipeline.set_state(gst::State::Null);
             return Err(anyhow::anyhow!("Client disconnected during webcam startup"));
         }
-
-        *self.inner.lock() = Some(CameraInner { pipeline, cmd_tx });
         guard.mark_started();
 
         Ok(())
     }
 
     pub fn stop_stream(&self) {
-        self.ownership.clear();
-
-        if let Some(state) = self.inner.lock().take() {
-            let _ = state.cmd_tx.send(GstCommand::Stop);
-            let _ = state.pipeline.set_state(gst::State::Null);
-        }
+        self.session.stop();
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.ownership.owns(owner_id);
-        if is_owner {
-            self.stop_stream();
-        }
-        is_owner
+        self.session.disconnect_if_owner(owner_id)
     }
 
     pub fn set_remote_description(&self, sdp: String) {
-        if let Some(inner) = self.inner.lock().as_ref() {
-            let _ = inner.cmd_tx.send(GstCommand::SetRemoteDescription(sdp));
-        }
+        self.session.set_remote_description(sdp);
     }
 
     pub fn add_ice_candidate(&self, sdp_mline_index: u32, candidate: String) {
-        if let Some(inner) = self.inner.lock().as_ref() {
-            let _ = inner.cmd_tx.send(GstCommand::AddIceCandidate {
-                sdp_mline_index,
-                candidate,
-            });
-        }
+        self.session.add_ice_candidate(sdp_mline_index, candidate);
     }
 }
 
