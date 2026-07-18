@@ -5,18 +5,27 @@ import { createPeerSignaling } from "@/shared/peer-signaling.ts";
 import type { AppSocket } from "@/core/socket.ts";
 import type { CameraDeviceInfo, StreamSettings } from "@/shared/types.ts";
 
-const pip = {
+interface CameraPipElements {
+    container: HTMLElement | null;
+    deviceSelect: HTMLSelectElement;
+    toggleBtn: HTMLButtonElement | null;
+    video: HTMLVideoElement;
+}
+
+const pip: CameraPipElements = {
     container: document.getElementById("cameraPip"),
     deviceSelect: document.getElementById("cameraDeviceSelect") as HTMLSelectElement,
-    hide(): void {
-        this.container?.classList.add("hidden");
-    },
-    show(): void {
-        this.container?.classList.remove("hidden");
-    },
     toggleBtn: document.getElementById("toggleCamera") as HTMLButtonElement | null,
     video: document.getElementById("cameraPipView") as HTMLVideoElement,
 };
+
+function showPip(): void {
+    pip.container?.classList.remove("hidden");
+}
+
+function hidePip(): void {
+    pip.container?.classList.add("hidden");
+}
 
 let cameraActive = false;
 let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
@@ -211,7 +220,7 @@ export function initializeCamera(socket: AppSocket): void {
             cameraActive = false;
             toggleBtnLoader?.stopLoading();
             setToggleUI(false);
-            pip.hide();
+            hidePip();
             cleanupPeerConnection();
         },
         onReconnect: () => startCamera(socket),
@@ -223,7 +232,7 @@ function handleCameraError(message: string): void {
     cameraActive = false;
     toggleBtnLoader?.stopLoading();
     setToggleUI(false);
-    pip.hide();
+    hidePip();
     cleanupPeerConnection();
 }
 
@@ -231,7 +240,7 @@ function startCamera(socket: AppSocket): void {
     if (cameraActive) return;
     cameraActive = true;
     setToggleUI(true);
-    pip.show();
+    showPip();
     toggleBtnLoader?.startLoading();
     socket.emit("start_camera_stream", { device_id: selectedDeviceId() });
 }
@@ -241,7 +250,7 @@ function stopCamera(socket: AppSocket): void {
     cameraActive = false;
     toggleBtnLoader?.stopLoading();
     setToggleUI(false);
-    pip.hide();
+    hidePip();
     socket.emit("stop_camera_stream");
     cleanupPeerConnection();
 }
