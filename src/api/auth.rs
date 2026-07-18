@@ -13,6 +13,7 @@ use cookie::{Cookie, SameSite};
 use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 use time::Duration;
 
 fn verify_password(password: &str, stored: &str) -> bool {
@@ -29,7 +30,7 @@ fn verify_password(password: &str, stored: &str) -> bool {
         .chain_update(&salt)
         .chain_update(password.as_bytes())
         .finalize();
-    actual.as_slice() == expected.as_slice()
+    actual.ct_eq(&expected).into()
 }
 
 #[derive(Deserialize)]
