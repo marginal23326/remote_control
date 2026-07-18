@@ -2,7 +2,7 @@ import { apiCall } from "@/shared/api.ts";
 import { CLASSES, type ContextMenuContext, ListManager } from "@/shared/list-manager.ts";
 import type { ContextMenuItem } from "@/shared/context-menu.ts";
 import { formatDate, formatFileSize } from "@/shared/format.ts";
-import { escapeHtml } from "@/shared/dom-helpers.ts";
+import { bindDebouncedInput, escapeHtml } from "@/shared/dom-helpers.ts";
 import { showConfirmModal, showPromptModal } from "@/shared/modal.ts";
 import { LoadingButton, showNotification } from "@/shared/feedback.ts";
 import { registerShortcuts } from "@/core/shortcuts.ts";
@@ -674,12 +674,8 @@ class FileManager extends ListManager {
 
         const searchInput = document.getElementById("searchInput") as HTMLInputElement | null;
         if (searchInput) {
-            let searchTimeout: ReturnType<typeof setTimeout>;
-            searchInput.addEventListener("input", () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    this.applySortAndFilter(true);
-                }, 50);
+            bindDebouncedInput(searchInput, () => {
+                this.applySortAndFilter(true);
             });
             searchInput.addEventListener("click", (e) => {
                 e.stopPropagation();
