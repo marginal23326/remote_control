@@ -52,6 +52,7 @@ class FileManager extends ListManager {
     accessChecker!: AccessChecker;
     lastContainerHeight = 0;
     private navToken = 0;
+    private hasError = false;
 
     constructor() {
         super({
@@ -398,6 +399,7 @@ class FileManager extends ListManager {
         scrollToPath: string | null = null,
         { skipHistory = false }: { skipHistory?: boolean } = {},
     ): Promise<void> {
+        this.hasError = false;
         this.clearSelection();
         this.accessChecker.reset();
         this.scrollToPath = null;
@@ -444,13 +446,22 @@ class FileManager extends ListManager {
         } catch (error) {
             if (token !== this.navToken) return;
             this.isLoading = false;
+            this.hasError = true;
             console.error("Error listing files:", error);
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
             fileList.querySelector("td")!.textContent = (error as Error).message;
         }
     }
 
+    private async recoverFromError(): Promise<boolean> {
+        if (!this.hasError) return false;
+        this.hasError = false;
+        await this.listFiles(this.currentPath, null, { skipHistory: true });
+        return true;
+    }
+
     async goBack(): Promise<void> {
+        if (await this.recoverFromError()) return;
         if (this.navigationHistory.length === 0) return;
         const previous = this.navigationHistory.pop()!;
         await this.listFiles(previous, null, { skipHistory: true });
@@ -458,6 +469,7 @@ class FileManager extends ListManager {
 
     async goUp(): Promise<void> {
         if (this.currentPath === "") return;
+        if (await this.recoverFromError()) return;
         await this.listFiles(getParentPath(this.currentPath));
     }
 
