@@ -22,6 +22,9 @@ pub enum AppError {
 
     #[error("Not Found: {0}")]
     NotFound(String),
+
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
 }
 
 impl IntoResponse for AppError {
@@ -32,6 +35,7 @@ impl IntoResponse for AppError {
             AppError::IoError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
         };
 
         tracing::error!(?status, "{}", error_message);
