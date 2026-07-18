@@ -16,12 +16,6 @@ export interface RenderableFileItem extends FileListItem {
     _formattedDate: string;
 }
 
-export interface FileListErrorResponse {
-    status: "error";
-    message: string;
-    no_access?: boolean;
-}
-
 export interface UploadResponse {
     status: string;
     message?: string;

@@ -12,7 +12,7 @@ import { AccessChecker } from "./access-checker.ts";
 import { uploadFiles } from "./upload-service.ts";
 import { DropZone } from "./drop-zone.ts";
 import { computeVisibleRange, renderEmptyRow, renderFileRow, renderSpacerRow } from "./file-list-renderer.ts";
-import type { ApiMessageResponse, FileListErrorResponse, FileListItem, RenderableFileItem } from "@/shared/types.ts";
+import type { ApiMessageResponse, FileListItem, RenderableFileItem } from "@/shared/types.ts";
 
 type SortColumn = "name" | "size" | "modified";
 type SortDirection = "asc" | "desc";
@@ -419,21 +419,9 @@ class FileManager extends ListManager {
         }
 
         try {
-            const response = await apiCall<FileListItem[] | FileListErrorResponse>(
-                `/api/files?path=${encodeURIComponent(path)}`,
-            );
+            const response = await apiCall<FileListItem[]>(`/api/files?path=${encodeURIComponent(path)}`);
             if (token !== this.navToken) return;
             this.isLoading = false;
-
-            if ("status" in response) {
-                const errorMsg = response.no_access
-                    ? `Access Denied: You do not have permission to view ${path}`
-                    : response.message;
-
-                fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
-                fileList.querySelector("td")!.textContent = errorMsg;
-                return;
-            }
 
             if (!isSamePath && !skipHistory) {
                 this.navigationHistory.push(previousPath);
@@ -458,7 +446,7 @@ class FileManager extends ListManager {
             this.isLoading = false;
             console.error("Error listing files:", error);
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
-            fileList.querySelector("td")!.textContent = `Error: ${(error as Error).message}`;
+            fileList.querySelector("td")!.textContent = (error as Error).message;
         }
     }
 

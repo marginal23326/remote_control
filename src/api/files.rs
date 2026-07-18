@@ -91,49 +91,36 @@ fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf
 
 // --- HANDLERS ---
 
-pub async fn check_access_handler(Json(mut paths): Json<Vec<String>>) -> Response {
-    let result = tokio::task::spawn_blocking(move || {
+pub async fn check_access_handler(Json(mut paths): Json<Vec<String>>) -> AppResult<Json<Vec<String>>> {
+    let inaccessible = run_blocking(move || -> anyhow::Result<Vec<String>> {
         paths.truncate(200);
-        paths
+        Ok(paths
             .into_iter()
             .filter(|p| std::fs::read_dir(std::path::Path::new(p)).is_err())
-            .collect::<Vec<String>>()
+            .collect())
     })
-    .await
-    .unwrap_or_default();
+    .await??;
 
-    Json(result).into_response()
+    Ok(Json(inaccessible))
 }
 
-pub async fn list_files_handler(Query(q): Query<ListQuery>) -> Response {
-    let result = tokio::task::spawn_blocking(move || {
-        if let Some(path) = q.path {
-            if path.is_empty() {
-                Ok(json!(files::get_drives()))
-            } else {
-                match files::list_directory(&path) {
-                    Ok(entries) => Ok(json!(entries)),
-                    Err(e) => {
-                        let is_access_error = e.to_string().to_lowercase().contains("access");
-                        Err(json!({
-                            "status": "error",
-                            "message": e.to_string(),
-                            "no_access": is_access_error
-                        }))
-                    }
-                }
-            }
-        } else {
-            Ok(json!(files::get_drives()))
-        }
-    })
-    .await
-    .unwrap_or_else(|_| Err(json!({"status": "error", "message": "Thread pool failed"})));
+pub async fn list_files_handler(Query(q): Query<ListQuery>) -> AppResult<Json<Value>> {
+    let Some(path) = q.path.filter(|p| !p.is_empty()) else {
+        return Ok(Json(json!(files::get_drives())));
+    };
 
-    match result {
-        Ok(val) => Json(val).into_response(),
-        Err(err_val) => Json(err_val).into_response(),
-    }
+    let entries = run_blocking(move || files::list_directory(&path)).await?.map_err(|e| {
+        let message = e.to_string();
+        if message.to_lowercase().contains("access") {
+            AppError::Forbidden(message)
+        } else if message.contains("does not exist") {
+            AppError::NotFound(message)
+        } else {
+            AppError::InternalError(e)
+        }
+    })?;
+
+    Ok(Json(json!(entries)))
 }
 
 pub async fn get_home_handler() -> Response {
