@@ -88,7 +88,7 @@ pub fn create_folder(parent: &str, name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_items(paths: Vec<String>) -> Result<Vec<String>> {
+pub fn delete_items(paths: Vec<String>) -> Result<()> {
     let mut failed = Vec::new();
     for p in paths {
         let path = Path::new(&p);
@@ -106,7 +106,7 @@ pub fn delete_items(paths: Vec<String>) -> Result<Vec<String>> {
     if !failed.is_empty() {
         return Err(anyhow!("Failed to delete: {}", failed.join(", ")));
     }
-    Ok(vec![])
+    Ok(())
 }
 
 pub fn rename_item(old: &str, new_name: &str) -> Result<()> {
