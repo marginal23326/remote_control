@@ -1,6 +1,7 @@
 #[cfg(not(any(windows, target_os = "linux")))]
 compile_error!("The Remote Control system is only supported on Windows and Linux.");
 
+use anyhow::Result;
 use socketioxide::SocketIo;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -17,7 +18,7 @@ use crate::config::ConfigManager;
 use crate::state::AppState;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     #[cfg(windows)]
     {
         use windows::Win32::UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext};
