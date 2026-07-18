@@ -2,6 +2,7 @@ import { apiCall } from "@/shared/api.ts";
 import { type ContextMenuContext, ListManager } from "@/shared/list-manager.ts";
 import { showConfirmModal } from "@/shared/modal.ts";
 import { showNotification } from "@/shared/feedback.ts";
+import { bindDebouncedInput } from "@/shared/dom-helpers.ts";
 import { registerShortcuts } from "@/core/shortcuts.ts";
 import type { AppSocket } from "@/core/socket.ts";
 import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types.ts";
@@ -171,13 +172,9 @@ export function initializeTaskManager(socket: AppSocket): void {
 
     // Handle searching
     if (searchInput) {
-        let searchTimeout: ReturnType<typeof setTimeout>;
-        searchInput.addEventListener("input", () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                searchTerm = searchInput.value;
-                renderTaskList();
-            }, 50);
+        bindDebouncedInput(searchInput, () => {
+            searchTerm = searchInput.value;
+            renderTaskList();
         });
         searchInput.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
