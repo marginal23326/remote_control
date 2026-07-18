@@ -33,7 +33,7 @@ impl Default for StreamSettings {
             bitrate: 5000,
             resolution_percentage: 100,
             target_fps: 60,
-            max_fps: detect_max_fps(),
+            max_fps: backend::get_max_fps(),
             encoder_properties: HashMap::new(),
         }
     }
@@ -366,7 +366,7 @@ pub(crate) struct InnerState {
 
 impl ScreenManager {
     pub fn new() -> Self {
-        let max_fps = detect_max_fps();
+        let max_fps = backend::get_max_fps();
         let native_size = detect_native_size();
         Self {
             settings: Arc::new(Mutex::new(StreamSettings {
@@ -568,7 +568,7 @@ impl ScreenManager {
             thread::spawn(move || {
                 let mut last = String::new();
                 while is_running_emit.load(Ordering::SeqCst) {
-                    let title = get_active_window_title();
+                    let title = backend::get_active_window_title();
                     if title != last {
                         last = title;
                         let _ = socket_emit.emit("active_window", &serde_json::json!({"title": &last}));
@@ -854,26 +854,16 @@ impl ScreenManager {
 
 #[cfg(target_os = "linux")]
 pub(crate) mod linux;
-
 #[cfg(target_os = "linux")]
-#[allow(unused_imports)]
-pub(crate) use linux::get_active_window_title;
+use linux as backend;
 
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-#[allow(unused_imports)]
-use windows::{get_active_window_title, get_display_native_size, get_max_fps, start_os_capture};
+use windows as backend;
 
 pub async fn take_screenshot() -> anyhow::Result<(Bytes, &'static str)> {
-    #[cfg(windows)]
-    {
-        windows::take_screenshot().await
-    }
-    #[cfg(target_os = "linux")]
-    {
-        linux::take_screenshot().await
-    }
+    backend::take_screenshot().await
 }
 
 fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String, String>) -> Vec<String> {
@@ -899,21 +889,6 @@ fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String,
         }
     }
     rejected
-}
-
-fn detect_max_fps() -> u64 {
-    #[cfg(windows)]
-    {
-        windows::get_max_fps()
-    }
-    #[cfg(target_os = "linux")]
-    {
-        linux::get_max_fps()
-    }
-    #[cfg(not(any(windows, target_os = "linux")))]
-    {
-        60
-    }
 }
 
 fn detect_native_size() -> (i32, i32) {
