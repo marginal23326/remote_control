@@ -130,7 +130,7 @@ export function initializeTaskManager(socket: AppSocket): void {
 
         // Update sort indicators
         document.querySelectorAll<HTMLElement>("#processSection thead th").forEach((header) => {
-            const { column } = header.dataset;
+            const { sort: column } = header.dataset;
             const icon = header.querySelector(".sort-icon");
             if (icon) {
                 if (column === currentSort.column) {
@@ -161,7 +161,7 @@ export function initializeTaskManager(socket: AppSocket): void {
     // Handle sorting
     document.querySelectorAll<HTMLElement>("#processSection thead th").forEach((header) => {
         header.addEventListener("click", () => {
-            const column = header.dataset.column as SortColumn | undefined;
+            const column = header.dataset.sort as SortColumn | undefined;
             if (column) {
                 currentSort.order = currentSort.column === column && currentSort.order === "asc" ? "desc" : "asc";
                 currentSort.column = column;
@@ -188,8 +188,8 @@ export function initializeTaskManager(socket: AppSocket): void {
 
     // Socket events
     socket.on("task_list", (data) => {
-        const totalCpuUsage = document.querySelector('#processSection th[data-column="cpu_percent"] .total-usage');
-        const totalMemoryUsage = document.querySelector('#processSection th[data-column="memory_usage"] .total-usage');
+        const totalCpuUsage = document.querySelector('#processSection th[data-sort="cpu_percent"] .total-usage');
+        const totalMemoryUsage = document.querySelector('#processSection th[data-sort="memory_usage"] .total-usage');
 
         if (totalCpuUsage) {
             totalCpuUsage.textContent = `(${data.total_cpu_usage.toFixed(1)}%)`;
