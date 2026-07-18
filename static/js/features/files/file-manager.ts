@@ -25,26 +25,31 @@ interface FileManagerElements {
 }
 
 class FileManager extends ListManager {
-    currentPath: string;
-    navigationHistory: string[];
-    currentFileList: RenderableFileItem[];
-    filteredList: RenderableFileItem[];
-    collator: Intl.Collator;
-    sortColumn: SortColumn;
-    sortDirection: SortDirection;
-    buttons: Record<string, LoadingButton>;
-    dropZone: DropZone | null;
-    elements: FileManagerElements;
-    rowHeight: number;
-    rowHeightNeedsUpdate: boolean;
-    buffer: number;
-    resizeObserver: ResizeObserver | null;
-    lastRenderedRange: { start: number; end: number };
-    ticking: boolean;
-    isLoading: boolean;
-    scrollToPath: string | null;
-    currentUploadXhr: XMLHttpRequest | null;
-    accessChecker: AccessChecker;
+    currentPath = "";
+    navigationHistory: string[] = [];
+    currentFileList: RenderableFileItem[] = [];
+    filteredList: RenderableFileItem[] = [];
+    collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    sortColumn: SortColumn = "name";
+    sortDirection: SortDirection = "asc";
+    buttons: Record<string, LoadingButton> = {};
+    dropZone: DropZone | null = null;
+    elements: FileManagerElements = {
+        currentPath: null,
+        fileList: null,
+        scrollContainer: null,
+        searchInput: null,
+    };
+    rowHeight = 21;
+    rowHeightNeedsUpdate = true;
+    buffer = 15;
+    resizeObserver: ResizeObserver | null = null;
+    lastRenderedRange = { start: -1, end: -1 };
+    ticking = false;
+    isLoading = false;
+    scrollToPath: string | null = null;
+    currentUploadXhr: XMLHttpRequest | null = null;
+    accessChecker!: AccessChecker;
     lastContainerHeight = 0;
     private navToken = 0;
 
@@ -82,31 +87,6 @@ class FileManager extends ListManager {
                 this.updateFileOperationsUI();
             },
         });
-
-        this.currentPath = "";
-        this.navigationHistory = [];
-        this.currentFileList = [];
-        this.filteredList = [];
-        this.collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-        this.sortColumn = "name";
-        this.sortDirection = "asc";
-        this.buttons = {};
-        this.dropZone = null;
-        this.elements = {
-            currentPath: null,
-            fileList: null,
-            scrollContainer: null,
-            searchInput: null,
-        };
-        this.rowHeight = 21;
-        this.rowHeightNeedsUpdate = true;
-        this.buffer = 15;
-        this.resizeObserver = null;
-        this.lastRenderedRange = { end: -1, start: -1 };
-        this.ticking = false;
-        this.isLoading = false;
-        this.scrollToPath = null;
-        this.currentUploadXhr = null;
 
         this.accessChecker = new AccessChecker({
             checkAccess: (batch) => apiCall<string[]>(`/api/files/check-access`, "POST", batch),
