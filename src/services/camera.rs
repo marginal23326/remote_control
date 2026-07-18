@@ -63,7 +63,7 @@ impl CameraManager {
             .session
             .ownership()
             .try_start(socket.id.to_string())
-            .map_err(|_| anyhow::anyhow!("Already active"))?;
+            .map_err(|_| anyhow::anyhow!("Webcam is already active on another client"))?;
 
         gst::init()?;
 

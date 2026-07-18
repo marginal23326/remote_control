@@ -283,7 +283,7 @@ pub async fn handle_start_stream(
 ) {
     let screen = state.screen.clone();
     if let Err(e) = screen.start_stream(socket.clone(), state, data.capture_cursor).await {
-        tracing::error!("Failed to start stream: {e:#}");
+        tracing::error!("Failed to start: {e:#}");
         let _ = socket.emit("stream_error", &json!({ "message": e.to_string() }));
     }
 }
@@ -302,7 +302,7 @@ pub async fn handle_start_camera_stream(
 ) {
     let camera = state.camera.clone();
     if let Err(e) = camera.start_stream(socket.clone(), state, data.device_id).await {
-        tracing::error!("Failed to start webcam stream: {e:#}");
+        tracing::error!("Failed to start: {e:#}");
         let _ = socket.emit("camera_stream_error", &json!({ "message": e.to_string() }));
     }
 }
