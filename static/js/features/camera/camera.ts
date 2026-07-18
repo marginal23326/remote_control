@@ -1,5 +1,6 @@
 import { apiCall } from "@/shared/api.ts";
 import { LoadingButton, showNotification } from "@/shared/feedback.ts";
+import { bindMediaSessionReconnect } from "@/shared/media-session.ts";
 import { createPeerSignaling } from "@/shared/peer-signaling.ts";
 import type { AppSocket } from "@/core/socket.ts";
 import type { CameraDeviceInfo, StreamSettings } from "@/shared/types.ts";
@@ -18,7 +19,6 @@ const pip = {
 };
 
 let cameraActive = false;
-let wasCameraActive = false;
 let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
 let activeStunServer: string | null = null;
 let toggleBtnLoader: LoadingButton | null = null;
@@ -205,22 +205,16 @@ export function initializeCamera(socket: AppSocket): void {
         handleCameraError(data.message);
     });
 
-    socket.on("disconnect", () => {
-        if (cameraActive) {
-            wasCameraActive = true;
+    bindMediaSessionReconnect(socket, {
+        isActive: () => cameraActive,
+        onDisconnect: () => {
             cameraActive = false;
             toggleBtnLoader?.stopLoading();
             setToggleUI(false);
             pip.hide();
             cleanupPeerConnection();
-        }
-    });
-
-    socket.on("connect", () => {
-        if (wasCameraActive) {
-            wasCameraActive = false;
-            startCamera(socket);
-        }
+        },
+        onReconnect: () => startCamera(socket),
     });
 }
 

@@ -326,25 +326,14 @@ fn extract_ice(data: &serde_json::Value) -> Option<(u32, String)> {
 
 pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
     let Some(sdp_str) = extract_sdp(&data) else { return };
-
-    if let Some(inner) = state.screen.inner.lock().as_ref() {
-        let _ = inner
-            .cmd_tx
-            .send(crate::services::screen::GstCommand::SetRemoteDescription(sdp_str));
-    }
+    state.screen.set_remote_description(sdp_str);
 }
 
 pub async fn handle_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
     let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
         return;
     };
-
-    if let Some(inner) = state.screen.inner.lock().as_ref() {
-        let _ = inner.cmd_tx.send(crate::services::screen::GstCommand::AddIceCandidate {
-            sdp_mline_index,
-            candidate,
-        });
-    }
+    state.screen.add_ice_candidate(sdp_mline_index, candidate);
 }
 
 pub async fn handle_camera_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
