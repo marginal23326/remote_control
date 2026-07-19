@@ -27,8 +27,7 @@ export function updateSettingsDisplay(settings: StreamSettings | null | undefine
     (document.getElementById("streamFPS") as HTMLInputElement).value = String(settings.target_fps);
 
     const bitrateVal = settings.bitrate;
-    document.getElementById("bitrateValue")!.textContent =
-        bitrateVal >= 1000 ? `${(bitrateVal / 1000).toFixed(1)} Mbps` : `${bitrateVal} kbps`;
+    document.getElementById("bitrateValue")!.textContent = formatBitrateLabel(bitrateVal);
 
     const resText = formatResolutionLabel(settings.resolution_percentage);
     document.getElementById("resolutionValue")!.textContent = resText;
@@ -46,6 +45,10 @@ export function updateSettingsDisplay(settings: StreamSettings | null | undefine
     }
 }
 
+function formatBitrateLabel(bitrate: number): string {
+    return bitrate >= 1000 ? `${(bitrate / 1000).toFixed(1)} Mbps` : `${bitrate} kbps`;
+}
+
 function formatResolutionLabel(pct: number): string {
     const { width, height } = getNativeDimensions();
     const w = width || 1920;
@@ -57,8 +60,7 @@ function updateSliderLabels(): void {
     const bitrate = parseInt((document.getElementById("streamBitrate") as HTMLInputElement).value, 10);
     const resolution = parseInt((document.getElementById("streamResolution") as HTMLInputElement).value, 10);
     const fps = parseInt((document.getElementById("streamFPS") as HTMLInputElement).value, 10);
-    document.getElementById("bitrateValue")!.textContent =
-        bitrate >= 1000 ? `${(bitrate / 1000).toFixed(1)} Mbps` : `${bitrate} kbps`;
+    document.getElementById("bitrateValue")!.textContent = formatBitrateLabel(bitrate);
     document.getElementById("resolutionValue")!.textContent = formatResolutionLabel(resolution);
     document.getElementById("fpsValue")!.textContent = `(Target: ${fps} FPS)`;
 }
