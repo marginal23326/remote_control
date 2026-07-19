@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::services::screen::EncoderPropertyConstraint;
 use crate::state::SharedState;
+use crate::utils::error::success;
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use ts_rs::TS;
 
 #[derive(Deserialize, Serialize, TS)]
@@ -90,7 +90,7 @@ pub async fn update_settings_handler(
 
 pub async fn stop_stream_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
     state.screen.stop_stream();
-    Json(json!({"status": "success"}))
+    success()
 }
 
 pub async fn get_screenshot_handler() -> crate::utils::error::AppResult<impl axum::response::IntoResponse> {

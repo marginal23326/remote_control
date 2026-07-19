@@ -1,6 +1,6 @@
 use crate::services::system::{SystemInfoDTO, get_system_info};
 use crate::state::SharedState;
-use crate::utils::error::run_blocking;
+use crate::utils::error::{run_blocking, success};
 use axum::{Json, extract::State};
 
 pub async fn get_system_info_handler(State(state): State<SharedState>) -> Json<SystemInfoDTO> {
@@ -42,5 +42,5 @@ pub async fn set_clipboard_handler(
     })
     .await??;
 
-    Ok(axum::Json(serde_json::json!({"status": "success"})))
+    Ok(success())
 }
