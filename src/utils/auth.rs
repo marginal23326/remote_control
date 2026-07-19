@@ -24,6 +24,7 @@ pub fn extract_token_from_cookie(cookie_str: &str) -> Option<&str> {
     cookie_str.split(';').find_map(|s| s.trim().strip_prefix("auth_token="))
 }
 
+// Hand-rolled to avoid pulling in `jsonwebtoken`.
 pub fn create_jwt(claims: &Claims, secret: &str) -> anyhow::Result<String> {
     let header = r#"{"alg":"HS256","typ":"JWT"}"#;
     let header_b64 = URL_SAFE_NO_PAD.encode(header);
