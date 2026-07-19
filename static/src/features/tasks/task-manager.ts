@@ -2,7 +2,7 @@ import { apiCall } from "@/shared/api";
 import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import { showConfirmModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
-import { bindDebouncedInput } from "@/shared/dom-helpers";
+import { bindDebouncedInput, escapeHtml } from "@/shared/dom-helpers";
 import { registerShortcuts } from "@/core/shortcuts";
 import type { AppSocket } from "@/core/socket";
 import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
@@ -115,7 +115,7 @@ export function initializeTaskManager(socket: AppSocket): void {
 
             row.innerHTML = `
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-100">
-                    ${process.name}
+                    ${escapeHtml(process.name)}
                 </td>
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.cpu_percent.toFixed(1)}%</td>
                 <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.memory_usage.toFixed(2)} MB</td>
