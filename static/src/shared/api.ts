@@ -20,6 +20,7 @@ export async function apiCall<T = unknown>(endpoint: string, method: string = "G
 
     if (response.status === 401) {
         window.location.href = "/login";
+        // no caller, or its catch, should run after this
         await new Promise<never>(() => {});
     }
 
