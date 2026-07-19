@@ -7,8 +7,10 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+use ts_rs::TS;
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct ProcessDTO {
     pub pid: u32,
     pub name: String,
@@ -17,7 +19,8 @@ pub struct ProcessDTO {
     pub ppid: Option<u32>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct ProcessDetailsDTO {
     pub pid: u32,
     pub name: String,

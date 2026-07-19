@@ -318,8 +318,8 @@ pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
             let Some(props) = global.props else { return };
 
             let kind = match props.get("media.class") {
-                Some("Audio/Source") | Some("Audio/Source/Virtual") => "mic",
-                Some("Audio/Sink") => "system",
+                Some("Audio/Source") | Some("Audio/Source/Virtual") => super::AudioSourceKind::Mic,
+                Some("Audio/Sink") => super::AudioSourceKind::System,
                 _ => return,
             };
 
@@ -334,7 +334,7 @@ pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
             sources_for_global.borrow_mut().push(super::AudioSourceInfo {
                 id: node_name.to_string(),
                 name: display_name.to_string(),
-                kind: kind.to_string(),
+                kind,
             });
         })
         .register();

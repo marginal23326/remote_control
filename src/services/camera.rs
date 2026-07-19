@@ -6,11 +6,13 @@ use crate::state::SharedState;
 use serde::Serialize;
 use socketioxide::extract::SocketRef;
 use std::sync::atomic::Ordering;
+use ts_rs::TS;
 
 use gst::prelude::*;
 use gstreamer as gst;
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct CameraDeviceInfo {
     pub id: String,
     pub name: String,

@@ -5,6 +5,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use ts_rs::TS;
 
 use bytes::Bytes;
 use crossbeam_channel::{Sender, bounded};
@@ -110,9 +111,20 @@ impl FrameRateLimiter {
     }
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Copy, Debug, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "bindings.ts")]
+pub enum EncoderValueType {
+    Bool,
+    Int,
+    Enum,
+    String,
+}
+
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields)]
 pub struct EncoderPropertyConstraint {
-    pub value_type: &'static str,
+    pub value_type: EncoderValueType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,30 +142,42 @@ fn constraint_from_pspec(pspec: &glib::ParamSpec) -> EncoderPropertyConstraint {
     };
 
     if pspec.downcast_ref::<glib::ParamSpecBoolean>().is_some() {
-        return plain("bool", None, None);
+        return plain(EncoderValueType::Bool, None, None);
     }
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt>() {
-        return plain("int", Some(p.minimum().into()), Some(p.maximum().into()));
+        return plain(
+            EncoderValueType::Int,
+            Some(p.minimum().into()),
+            Some(p.maximum().into()),
+        );
     }
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt>() {
-        return plain("int", Some(p.minimum().into()), Some(p.maximum().into()));
+        return plain(
+            EncoderValueType::Int,
+            Some(p.minimum().into()),
+            Some(p.maximum().into()),
+        );
     }
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt64>() {
-        return plain("int", Some(p.minimum()), Some(p.maximum()));
+        return plain(EncoderValueType::Int, Some(p.minimum()), Some(p.maximum()));
     }
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt64>() {
-        return plain("int", Some(p.minimum() as i64), Some(p.maximum() as i64));
+        return plain(
+            EncoderValueType::Int,
+            Some(p.minimum() as i64),
+            Some(p.maximum() as i64),
+        );
     }
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecEnum>() {
         let values = p.enum_class().values().iter().map(|v| v.nick().to_string()).collect();
         return EncoderPropertyConstraint {
-            value_type: "enum",
+            value_type: EncoderValueType::Enum,
             min: None,
             max: None,
             enum_values: Some(values),
         };
     }
-    plain("string", None, None)
+    plain(EncoderValueType::String, None, None)
 }
 
 fn encoder_constraints(encoder: &gst::Element, names: &[&str]) -> HashMap<String, EncoderPropertyConstraint> {
