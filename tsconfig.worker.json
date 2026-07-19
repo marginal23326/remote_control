@@ -4,5 +4,5 @@
         "lib": ["ES2025", "WebWorker"],
         "types": []
     },
-    "include": ["static/js/features/audio/audio-converter.worker.ts"]
+    "include": ["static/src/features/audio/audio-converter.worker.ts"]
 }

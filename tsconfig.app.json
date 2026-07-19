@@ -4,6 +4,6 @@
         "lib": ["ES2025", "DOM", "DOM.Iterable"],
         "types": ["vite/client"]
     },
-    "include": ["static/js/**/*.ts", "static/js/**/*.d.ts"],
-    "exclude": ["static/js/features/audio/audio-converter.worker.ts"]
+    "include": ["static/src/**/*.ts", "static/src/**/*.d.ts"],
+    "exclude": ["static/src/features/audio/audio-converter.worker.ts"]
 }
