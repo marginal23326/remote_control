@@ -9,7 +9,7 @@ import type {
     ProcessDetailsDTO as ProcessDetails,
     StreamSettingsDTO,
     SystemInfoDTO as SystemInfo,
-} from "@/generated/bindings.ts";
+} from "@/generated/bindings";
 
 export type FileListItem = Pick<FileEntry, "name" | "path" | "is_dir"> &
     Partial<Pick<FileEntry, "size" | "last_modified">> &

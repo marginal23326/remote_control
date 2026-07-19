@@ -1,5 +1,5 @@
-import { escapeHtml } from "./dom-helpers.ts";
-import { showNotification } from "./feedback.ts";
+import { escapeHtml } from "./dom-helpers";
+import { showNotification } from "./feedback";
 
 interface CreateModalOptions {
     confirmLabel: string;

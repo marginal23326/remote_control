@@ -1,9 +1,9 @@
-import { apiCall } from "@/shared/api.ts";
-import { showNotification } from "@/shared/feedback.ts";
-import { setStunServer } from "./stream-state.ts";
-import { getNativeDimensions, setNativeDimensions } from "./geometry.ts";
-import { readEncoderPropsFromDOM, setEncoderProperties, setEncoderPropertyConstraints } from "./encoder-properties.ts";
-import type { StreamSettings, UpdateStreamSettingsPayload } from "@/shared/types.ts";
+import { apiCall } from "@/shared/api";
+import { showNotification } from "@/shared/feedback";
+import { setStunServer } from "./stream-state";
+import { getNativeDimensions, setNativeDimensions } from "./geometry";
+import { readEncoderPropsFromDOM, setEncoderProperties, setEncoderPropertyConstraints } from "./encoder-properties";
+import type { StreamSettings, UpdateStreamSettingsPayload } from "@/shared/types";
 
 let maxFps = 60;
 

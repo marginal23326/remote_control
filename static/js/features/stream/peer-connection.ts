@@ -1,12 +1,12 @@
-import { showNotification } from "@/shared/feedback.ts";
-import { getStartButtonLoader, setStreamToggleUI, streamUI } from "./view.ts";
-import { activeStunServer, setStreamActive, streamActive } from "./stream-state.ts";
-import { apiCall } from "@/shared/api.ts";
-import { updateSettingsDisplay } from "./settings-panel.ts";
-import { createPeerSignaling } from "@/shared/peer-signaling.ts";
-import type { AppSocket } from "@/core/socket.ts";
-import type { MouseEventPayload } from "@/core/socket-events.ts";
-import type { StreamSettings } from "@/shared/types.ts";
+import { showNotification } from "@/shared/feedback";
+import { getStartButtonLoader, setStreamToggleUI, streamUI } from "./view";
+import { activeStunServer, setStreamActive, streamActive } from "./stream-state";
+import { apiCall } from "@/shared/api";
+import { updateSettingsDisplay } from "./settings-panel";
+import { createPeerSignaling } from "@/shared/peer-signaling";
+import type { AppSocket } from "@/core/socket";
+import type { MouseEventPayload } from "@/core/socket-events";
+import type { StreamSettings } from "@/shared/types";
 
 let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
 

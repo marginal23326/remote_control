@@ -1,4 +1,4 @@
-import { isTypingField } from "./dom-helpers.ts";
+import { isTypingField } from "./dom-helpers";
 
 export interface SelectionManagerConfig {
     containerSelector: string;

@@ -1,17 +1,17 @@
 import "../input.css";
 import "../css/styles.css";
-import { initializeSocketIO } from "@/core/socket.ts";
-import { initializeNavigation } from "@/core/navigation.ts";
-import { initializeShortcuts } from "@/core/shortcuts.ts";
-import { AudioManager } from "@/features/audio/audio-manager.ts";
-import { initializeStream } from "@/features/stream/stream.ts";
-import { initializeCamera } from "@/features/camera/camera.ts";
-import { InteractiveShell } from "@/features/shell/shell.ts";
-import { initializeFileManagement } from "@/features/files/file-manager.ts";
-import { renderInputGrids } from "@/features/input/input-grid.ts";
-import { initializeInputHandlers } from "@/features/input/input-controller.ts";
-import { updateSystemInfo } from "@/features/system/system-panel.ts";
-import { initializeTaskManager } from "@/features/tasks/task-manager.ts";
+import { initializeSocketIO } from "@/core/socket";
+import { initializeNavigation } from "@/core/navigation";
+import { initializeShortcuts } from "@/core/shortcuts";
+import { AudioManager } from "@/features/audio/audio-manager";
+import { initializeStream } from "@/features/stream/stream";
+import { initializeCamera } from "@/features/camera/camera";
+import { InteractiveShell } from "@/features/shell/shell";
+import { initializeFileManagement } from "@/features/files/file-manager";
+import { renderInputGrids } from "@/features/input/input-grid";
+import { initializeInputHandlers } from "@/features/input/input-controller";
+import { updateSystemInfo } from "@/features/system/system-panel";
+import { initializeTaskManager } from "@/features/tasks/task-manager";
 
 function updateUIBasedOnAuthentication(isAuthenticated: boolean): void {
     const sections = [

@@ -1,5 +1,5 @@
-import { apiCall } from "@/shared/api.ts";
-import type { SystemInfo } from "@/shared/types.ts";
+import { apiCall } from "@/shared/api";
+import type { SystemInfo } from "@/shared/types";
 
 const svg = (inner: string) =>
     `<svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">${inner}</svg>`;

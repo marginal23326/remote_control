@@ -1,6 +1,6 @@
-import { captureState } from "./capture-state.ts";
-import type { AppSocket } from "@/core/socket.ts";
-import type { KeyboardEventPayload } from "@/core/socket-events.ts";
+import { captureState } from "./capture-state";
+import type { AppSocket } from "@/core/socket";
+import type { KeyboardEventPayload } from "@/core/socket-events";
 
 // Mapping for abstract action names to actual keys
 const SHORTCUT_MAP: Record<string, { key: string; modifiers: string[] }> = {

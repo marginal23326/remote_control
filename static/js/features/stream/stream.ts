@@ -1,14 +1,14 @@
-import { apiCall } from "@/shared/api.ts";
-import { LoadingButton, showNotification } from "@/shared/feedback.ts";
-import { bindMediaSessionReconnect } from "@/shared/media-session.ts";
-import { registerShortcuts } from "@/core/shortcuts.ts";
-import { getStartButtonLoader, isCursorCaptureEnabled, setStreamToggleUI, streamUI } from "./view.ts";
-import { invalidateDimensionsCache } from "./geometry.ts";
-import { setStreamActive, streamActive } from "./stream-state.ts";
-import { cleanupPeerConnection, initializePeerConnectionSignaling } from "./peer-connection.ts";
-import { initSettingsPanel, updateSettingsDisplay } from "./settings-panel.ts";
-import type { AppSocket } from "@/core/socket.ts";
-import type { StreamSettings } from "@/shared/types.ts";
+import { apiCall } from "@/shared/api";
+import { LoadingButton, showNotification } from "@/shared/feedback";
+import { bindMediaSessionReconnect } from "@/shared/media-session";
+import { registerShortcuts } from "@/core/shortcuts";
+import { getStartButtonLoader, isCursorCaptureEnabled, setStreamToggleUI, streamUI } from "./view";
+import { invalidateDimensionsCache } from "./geometry";
+import { setStreamActive, streamActive } from "./stream-state";
+import { cleanupPeerConnection, initializePeerConnectionSignaling } from "./peer-connection";
+import { initSettingsPanel, updateSettingsDisplay } from "./settings-panel";
+import type { AppSocket } from "@/core/socket";
+import type { StreamSettings } from "@/shared/types";
 
 async function executeStopStream(): Promise<void> {
     if (!streamActive) return;

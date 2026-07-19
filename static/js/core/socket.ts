@@ -1,6 +1,6 @@
 import { type Socket, io } from "socket.io-client";
-import { hideConnectionOverlay, showConnectionOverlay } from "@/shared/feedback.ts";
-import type { ClientToServerEvents, ServerToClientEvents } from "./socket-events.ts";
+import { hideConnectionOverlay, showConnectionOverlay } from "@/shared/feedback";
+import type { ClientToServerEvents, ServerToClientEvents } from "./socket-events";
 
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 

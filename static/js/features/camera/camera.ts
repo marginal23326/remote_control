@@ -1,9 +1,9 @@
-import { apiCall } from "@/shared/api.ts";
-import { LoadingButton, showNotification } from "@/shared/feedback.ts";
-import { bindMediaSessionReconnect } from "@/shared/media-session.ts";
-import { createPeerSignaling } from "@/shared/peer-signaling.ts";
-import type { AppSocket } from "@/core/socket.ts";
-import type { CameraDeviceInfo, StreamSettings } from "@/shared/types.ts";
+import { apiCall } from "@/shared/api";
+import { LoadingButton, showNotification } from "@/shared/feedback";
+import { bindMediaSessionReconnect } from "@/shared/media-session";
+import { createPeerSignaling } from "@/shared/peer-signaling";
+import type { AppSocket } from "@/core/socket";
+import type { CameraDeviceInfo, StreamSettings } from "@/shared/types";
 
 interface CameraPipElements {
     container: HTMLElement | null;

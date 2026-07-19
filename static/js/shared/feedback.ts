@@ -1,4 +1,4 @@
-import { SVG_TEMPLATES } from "./icons.ts";
+import { SVG_TEMPLATES } from "./icons";
 
 const connectionOverlay = document.getElementById("connectionOverlay")!;
 const connectionMessage = document.getElementById("connectionMessage")!;

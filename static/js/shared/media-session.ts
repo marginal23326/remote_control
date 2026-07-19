@@ -1,4 +1,4 @@
-import type { AppSocket } from "@/core/socket.ts";
+import type { AppSocket } from "@/core/socket";
 
 export function bindMediaSessionReconnect(
     socket: AppSocket,

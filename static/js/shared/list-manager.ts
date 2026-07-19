@@ -1,5 +1,5 @@
-import { SelectionManager } from "./selection-manager.ts";
-import { type ContextMenuItem, ContextMenuManager } from "./context-menu.ts";
+import { SelectionManager } from "./selection-manager";
+import { type ContextMenuItem, ContextMenuManager } from "./context-menu";
 
 export const CLASSES = {
     defaultHover: "hover:bg-zinc-800",
