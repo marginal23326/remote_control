@@ -6,6 +6,10 @@ import { captureState } from "./capture-state";
 import type { AppSocket } from "@/core/socket";
 import type { MouseEventPayload } from "@/core/socket-events";
 
+function mouseButtonName(button: number): "left" | "right" | "middle" {
+    return button === 0 ? "left" : button === 2 ? "right" : "middle";
+}
+
 export function initializePointerInput(socket: AppSocket): void {
     let touchStarted = false;
     let initialTouchY: number | null = null;
@@ -113,7 +117,7 @@ export function initializePointerInput(socket: AppSocket): void {
 
     streamUI.view.addEventListener("mousedown", (event) => {
         event.preventDefault();
-        const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
+        const button = mouseButtonName(event.button);
         sendMouseEvent("click", event, { button, pressed: true });
         if (button === "left") isDragging = true;
     });
@@ -123,7 +127,7 @@ export function initializePointerInput(socket: AppSocket): void {
             if (event.target === streamUI.view) {
                 event.preventDefault();
             }
-            const button = event.button === 0 ? "left" : event.button === 2 ? "right" : "middle";
+            const button = mouseButtonName(event.button);
             sendMouseEvent("click", event, { button, pressed: false });
             if (button === "left") isDragging = false;
         }
