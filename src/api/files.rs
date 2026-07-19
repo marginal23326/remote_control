@@ -1,5 +1,5 @@
 use crate::services::files;
-use crate::utils::error::{AppError, AppResult, run_blocking};
+use crate::utils::error::{AppError, AppResult, run_blocking, success};
 use async_zip::tokio::write::ZipFileWriter;
 use async_zip::{Compression, ZipEntryBuilder};
 use axum::{
@@ -135,7 +135,7 @@ pub async fn create_folder_handler(Json(payload): Json<ActionPayload>) -> AppRes
 
     run_blocking(move || files::create_folder(&parent, &name)).await??;
 
-    Ok(Json(json!({"status": "success"})))
+    Ok(success())
 }
 
 pub async fn delete_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
@@ -145,7 +145,7 @@ pub async fn delete_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
 
     run_blocking(move || files::delete_items(paths)).await??;
 
-    Ok(Json(json!({"status": "success"})))
+    Ok(success())
 }
 
 pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
@@ -155,7 +155,7 @@ pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Jso
 
     run_blocking(move || files::rename_item(&old, &new)).await??;
 
-    Ok(Json(json!({"status": "success"})))
+    Ok(success())
 }
 
 pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Multipart) -> AppResult<Json<Value>> {
