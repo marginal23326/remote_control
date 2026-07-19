@@ -44,6 +44,25 @@ function parseShortcutInput(input: string): { key: string; modifiers: string[] }
     return { key: input, modifiers: [] };
 }
 
+function flashActive(el: HTMLElement, activeClasses: string[], restClasses: string[], ms = 100): void {
+    el.classList.remove(...restClasses);
+    el.classList.add(...activeClasses);
+    el.blur();
+    setTimeout(() => {
+        el.classList.remove(...activeClasses);
+        el.classList.add(...restClasses);
+    }, ms);
+}
+
+const KEY_BUTTON_REST_CLASSES = [
+    "bg-zinc-950",
+    "text-zinc-300",
+    "border-zinc-800",
+    "hover:bg-zinc-800",
+    "hover:text-white",
+];
+const KEY_BUTTON_ACTIVE_CLASSES = ["bg-zinc-100", "text-zinc-900", "border-zinc-100"];
+
 // Helper to collect currently active modifiers if sticky mode is enabled
 function getActiveModifiers(): string[] {
     const stickyToggle = document.getElementById("stickyToggle") as HTMLInputElement | null;
@@ -63,25 +82,7 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
     // 1. Handle Standard Shortcut Buttons
     document.querySelectorAll<HTMLElement>("[data-key]").forEach((button) => {
         button.addEventListener("click", (_e) => {
-            button.classList.remove(
-                "bg-zinc-950",
-                "text-zinc-300",
-                "border-zinc-800",
-                "hover:bg-zinc-800",
-                "hover:text-white",
-            );
-            button.classList.add("bg-zinc-100", "text-zinc-900", "border-zinc-100");
-            button.blur();
-            setTimeout(() => {
-                button.classList.remove("bg-zinc-100", "text-zinc-900", "border-zinc-100");
-                button.classList.add(
-                    "bg-zinc-950",
-                    "text-zinc-300",
-                    "border-zinc-800",
-                    "hover:bg-zinc-800",
-                    "hover:text-white",
-                );
-            }, 100);
+            flashActive(button, KEY_BUTTON_ACTIVE_CLASSES, KEY_BUTTON_REST_CLASSES);
 
             const rawKey = button.dataset.key!;
             let key = rawKey;
@@ -178,25 +179,7 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                 });
 
                 // Normal click animation
-                button.classList.remove(
-                    "bg-zinc-950",
-                    "text-zinc-300",
-                    "border-zinc-800",
-                    "hover:bg-zinc-800",
-                    "hover:text-white",
-                );
-                button.classList.add("bg-zinc-100", "text-zinc-900", "border-zinc-100");
-                button.blur();
-                setTimeout(() => {
-                    button.classList.remove("bg-zinc-100", "text-zinc-900", "border-zinc-100");
-                    button.classList.add(
-                        "bg-zinc-950",
-                        "text-zinc-300",
-                        "border-zinc-800",
-                        "hover:bg-zinc-800",
-                        "hover:text-white",
-                    );
-                }, 100);
+                flashActive(button, KEY_BUTTON_ACTIVE_CLASSES, KEY_BUTTON_REST_CLASSES);
             }
         });
     });
@@ -243,13 +226,11 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                 customKeyInput.value = "";
 
                 // Visual feedback
-                sendCustomButton.classList.remove("bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700");
-                sendCustomButton.classList.add("bg-zinc-100", "text-zinc-900");
-                sendCustomButton.blur();
-                setTimeout(() => {
-                    sendCustomButton.classList.remove("bg-zinc-100", "text-zinc-900");
-                    sendCustomButton.classList.add("bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700");
-                }, 100);
+                flashActive(
+                    sendCustomButton,
+                    ["bg-zinc-100", "text-zinc-900"],
+                    ["bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700"],
+                );
             }
         });
     }
