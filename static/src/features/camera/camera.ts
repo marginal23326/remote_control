@@ -1,5 +1,6 @@
 import { apiCall } from "@/shared/api";
 import { LoadingButton, showNotification } from "@/shared/feedback";
+import { escapeHtml } from "@/shared/dom-helpers";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { createPeerSignaling } from "@/shared/peer-signaling";
 import type { AppSocket } from "@/core/socket";
@@ -63,7 +64,9 @@ function populateDeviceList(cameras: CameraDeviceInfo[] | undefined): void {
         return;
     }
 
-    select.innerHTML = cameras.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+    select.innerHTML = cameras
+        .map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`)
+        .join("");
     select.classList.remove("hidden");
 }
 
