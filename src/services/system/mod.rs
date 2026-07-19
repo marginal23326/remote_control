@@ -5,6 +5,8 @@ use std::sync::Arc;
 use sysinfo::{Networks, System};
 use ts_rs::TS;
 
+const NA: &str = "N/A";
+
 fn get_local_ip() -> String {
     if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0")
         && socket.connect("8.8.8.8:80").is_ok()
@@ -74,7 +76,7 @@ fn get_cpu_base_speed(brand: &str) -> String {
     if let Some(idx) = brand.find('@') {
         return brand[idx + 1..].trim().to_string();
     }
-    "N/A".to_string()
+    NA.to_string()
 }
 
 async fn fetch_wan_info() -> Result<WanInfo, ()> {
@@ -88,27 +90,27 @@ async fn fetch_wan_info() -> Result<WanInfo, ()> {
 
     match result {
         Ok(Ok(data)) => {
-            let ip = data.ip.unwrap_or("N/A".to_string());
+            let ip = data.ip.unwrap_or_else(|| NA.to_string());
             let asn = data
                 .asn
                 .as_ref()
                 .map(|a| a.asn.unwrap_or(0).to_string())
-                .unwrap_or("N/A".to_string());
+                .unwrap_or_else(|| NA.to_string());
             let isp = data
                 .asn
                 .as_ref()
                 .and_then(|a| a.org.clone())
-                .unwrap_or("N/A".to_string());
+                .unwrap_or_else(|| NA.to_string());
             let country = data
                 .location
                 .as_ref()
                 .and_then(|l| l.country.clone())
-                .unwrap_or("N/A".to_string());
+                .unwrap_or_else(|| NA.to_string());
             let timezone = data
                 .location
                 .as_ref()
                 .and_then(|l| l.timezone.clone())
-                .unwrap_or("N/A".to_string());
+                .unwrap_or_else(|| NA.to_string());
 
             Ok(WanInfo {
                 ip,
@@ -130,7 +132,7 @@ fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> String {
             return mac.to_uppercase().replace(":", "-");
         }
     }
-    "N/A".to_string()
+    NA.to_string()
 }
 
 fn format_uptime(seconds: u64) -> String {
