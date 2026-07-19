@@ -2,8 +2,8 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { SVG_TEMPLATES } from "@/shared/icons.ts";
-import type { AppSocket } from "@/core/socket.ts";
+import { SVG_TEMPLATES } from "@/shared/icons";
+import type { AppSocket } from "@/core/socket";
 
 const SHELL_LABELS: Record<string, string> = {
     bash: "Bash",

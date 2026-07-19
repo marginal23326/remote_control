@@ -1,4 +1,4 @@
-import { isTypingField } from "@/shared/dom-helpers.ts";
+import { isTypingField } from "@/shared/dom-helpers";
 
 export type ShortcutHandler = (event: KeyboardEvent) => void;
 export type SectionShortcuts = Record<string, ShortcutHandler>;

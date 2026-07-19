@@ -1,7 +1,7 @@
-import { initializeCaptureToggles } from "./capture-state.ts";
-import { initializeKeyboardShortcuts } from "./keyboard-shortcuts.ts";
-import { initializePointerInput } from "./pointer-input.ts";
-import type { AppSocket } from "@/core/socket.ts";
+import { initializeCaptureToggles } from "./capture-state";
+import { initializeKeyboardShortcuts } from "./keyboard-shortcuts";
+import { initializePointerInput } from "./pointer-input";
+import type { AppSocket } from "@/core/socket";
 
 export function initializeInputHandlers(socket: AppSocket): void {
     initializeCaptureToggles();

@@ -1,4 +1,4 @@
-import type { AudioFormat, AudioSourceInfo, CameraDeviceInfo, ProcessInfo } from "@/shared/types.ts";
+import type { AudioFormat, AudioSourceInfo, CameraDeviceInfo, ProcessInfo } from "@/shared/types";
 
 export interface MouseEventPayload {
     type: "move" | "click" | "scroll";

@@ -6,7 +6,6 @@
         "moduleDetection": "force",
 
         "noEmit": true,
-        "allowImportingTsExtensions": true,
 
         "verbatimModuleSyntax": true,
 

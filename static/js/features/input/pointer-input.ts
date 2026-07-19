@@ -1,10 +1,10 @@
-import { streamUI } from "@/features/stream/view.ts";
-import { streamActive } from "@/features/stream/stream-state.ts";
-import { calculateStreamDimensions } from "@/features/stream/geometry.ts";
-import { sendMouseEventOverDataChannel } from "@/features/stream/peer-connection.ts";
-import { captureState } from "./capture-state.ts";
-import type { AppSocket } from "@/core/socket.ts";
-import type { MouseEventPayload } from "@/core/socket-events.ts";
+import { streamUI } from "@/features/stream/view";
+import { streamActive } from "@/features/stream/stream-state";
+import { calculateStreamDimensions } from "@/features/stream/geometry";
+import { sendMouseEventOverDataChannel } from "@/features/stream/peer-connection";
+import { captureState } from "./capture-state";
+import type { AppSocket } from "@/core/socket";
+import type { MouseEventPayload } from "@/core/socket-events";
 
 export function initializePointerInput(socket: AppSocket): void {
     let touchStarted = false;

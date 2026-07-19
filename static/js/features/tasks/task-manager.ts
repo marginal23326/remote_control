@@ -1,11 +1,11 @@
-import { apiCall } from "@/shared/api.ts";
-import { type ContextMenuContext, ListManager } from "@/shared/list-manager.ts";
-import { showConfirmModal } from "@/shared/modal.ts";
-import { showNotification } from "@/shared/feedback.ts";
-import { bindDebouncedInput } from "@/shared/dom-helpers.ts";
-import { registerShortcuts } from "@/core/shortcuts.ts";
-import type { AppSocket } from "@/core/socket.ts";
-import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types.ts";
+import { apiCall } from "@/shared/api";
+import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
+import { showConfirmModal } from "@/shared/modal";
+import { showNotification } from "@/shared/feedback";
+import { bindDebouncedInput } from "@/shared/dom-helpers";
+import { registerShortcuts } from "@/core/shortcuts";
+import type { AppSocket } from "@/core/socket";
+import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
 
 type SortColumn = "name" | "cpu_percent" | "memory_usage" | "pid";
 type SortOrder = "asc" | "desc";

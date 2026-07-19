@@ -1,6 +1,6 @@
-import { SVG_TEMPLATES } from "@/shared/icons.ts";
-import { CLASSES } from "@/shared/list-manager.ts";
-import type { RenderableFileItem } from "@/shared/types.ts";
+import { SVG_TEMPLATES } from "@/shared/icons";
+import { CLASSES } from "@/shared/list-manager";
+import type { RenderableFileItem } from "@/shared/types";
 
 export interface VisibleRangeParams {
     scrollTop: number;

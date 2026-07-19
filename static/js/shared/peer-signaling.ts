@@ -1,4 +1,4 @@
-import type { IceCandidatePayload } from "@/core/socket-events.ts";
+import type { IceCandidatePayload } from "@/core/socket-events";
 
 export interface PeerSignalingHandlers {
     onAnswer: (sdp: string) => void;

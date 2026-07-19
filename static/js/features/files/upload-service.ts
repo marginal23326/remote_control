@@ -1,4 +1,4 @@
-import type { UploadResponse } from "@/shared/types.ts";
+import type { UploadResponse } from "@/shared/types";
 
 export interface UploadFilesOptions {
     onProgress?: (percent: number) => void;

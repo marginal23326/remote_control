@@ -1,7 +1,7 @@
-import { escapeHtml } from "@/shared/dom-helpers.ts";
-import { showNotification } from "@/shared/feedback.ts";
-import { showPromptModal } from "@/shared/modal.ts";
-import type { EncoderPropertyConstraint } from "@/shared/types.ts";
+import { escapeHtml } from "@/shared/dom-helpers";
+import { showNotification } from "@/shared/feedback";
+import { showPromptModal } from "@/shared/modal";
+import type { EncoderPropertyConstraint } from "@/shared/types";
 
 let encoderProperties: Record<string, string> = {};
 let encoderPropertyConstraints: Record<string, EncoderPropertyConstraint> = {};

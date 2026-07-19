@@ -1,9 +1,9 @@
-import { showNotification } from "@/shared/feedback.ts";
+import { showNotification } from "@/shared/feedback";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
 import audioWorkletProcessorUrl from "./audio-worklet-processor.ts?worker&url";
-import type { AppSocket } from "@/core/socket.ts";
-import type { AudioFormat } from "@/shared/types.ts";
-import type { AudioStartPayload } from "@/core/socket-events.ts";
+import type { AppSocket } from "@/core/socket";
+import type { AudioFormat } from "@/shared/types";
+import type { AudioStartPayload } from "@/core/socket-events";
 
 const MIN_RATE = 3000;
 const MAX_RATE = 768_000;

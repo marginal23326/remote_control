@@ -1,4 +1,4 @@
-import { streamUI } from "./view.ts";
+import { streamUI } from "./view";
 
 export interface StreamDimensions {
     container: DOMRect;
