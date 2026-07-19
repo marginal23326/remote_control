@@ -3,8 +3,10 @@ use serde::Serialize;
 use std::fs;
 use std::path::Path;
 use sysinfo::Disks;
+use ts_rs::TS;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct FileEntry {
     pub name: String,
     pub path: String,
@@ -13,7 +15,8 @@ pub struct FileEntry {
     pub last_modified: Option<i64>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct DriveEntry {
     pub name: String,
     pub path: String,

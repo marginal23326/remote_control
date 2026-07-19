@@ -5,8 +5,10 @@ use crate::state::SharedState;
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use ts_rs::TS;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields)]
 pub struct StreamSettingsDTO {
     pub bitrate: Option<u32>,
     pub resolution_percentage: Option<u8>,
@@ -14,7 +16,8 @@ pub struct StreamSettingsDTO {
     pub encoder_properties: Option<HashMap<String, String>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct CurrentSettingsResponse {
     pub bitrate: u32,
     pub resolution_percentage: u8,

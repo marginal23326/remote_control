@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::sync::Arc;
 use std::thread;
+use ts_rs::TS;
 
 use crate::services::owned_worker::OwnedWorker;
 use crossbeam_queue::ArrayQueue;
@@ -16,11 +17,20 @@ use linux as backend;
 #[cfg(windows)]
 use windows as backend;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "bindings.ts")]
+pub enum AudioSourceKind {
+    Mic,
+    System,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct AudioSourceInfo {
     pub id: String,
     pub name: String,
-    pub kind: String,
+    pub kind: AudioSourceKind,
 }
 
 pub struct AudioManager {

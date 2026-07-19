@@ -3,6 +3,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use sysinfo::{Networks, System};
+use ts_rs::TS;
 
 fn get_local_ip() -> String {
     if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0")
@@ -14,7 +15,8 @@ fn get_local_ip() -> String {
     "127.0.0.1".to_string()
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct SystemInfoDTO {
     pub os: String,
     pub architecture: String,
