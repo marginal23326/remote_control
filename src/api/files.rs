@@ -40,12 +40,21 @@ pub struct DownloadForm {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ActionPayload {
-    paths: Option<Vec<String>>,
-    parent_path: Option<String>,
-    folder_name: Option<String>,
-    old_path: Option<String>,
-    new_name: Option<String>,
+pub struct CreateFolderPayload {
+    parent_path: String,
+    folder_name: String,
+}
+
+#[derive(Deserialize)]
+pub struct DeletePayload {
+    paths: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenamePayload {
+    old_path: String,
+    new_name: String,
 }
 
 fn systime_to_zip_datetime(systime: std::time::SystemTime) -> Option<async_zip::ZipDateTime> {
@@ -128,32 +137,20 @@ pub async fn get_home_handler() -> Response {
     Json(json!({ "path": path })).into_response()
 }
 
-pub async fn create_folder_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
-    let (Some(parent), Some(name)) = (payload.parent_path, payload.folder_name) else {
-        return Err(AppError::BadRequest("Missing parentPath or folderName".to_string()));
-    };
-
-    run_blocking(move || files::create_folder(&parent, &name)).await??;
+pub async fn create_folder_handler(Json(payload): Json<CreateFolderPayload>) -> AppResult<Json<Value>> {
+    run_blocking(move || files::create_folder(&payload.parent_path, &payload.folder_name)).await??;
 
     Ok(success())
 }
 
-pub async fn delete_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
-    let Some(paths) = payload.paths else {
-        return Err(AppError::BadRequest("Missing paths".to_string()));
-    };
-
-    run_blocking(move || files::delete_items(paths)).await??;
+pub async fn delete_handler(Json(payload): Json<DeletePayload>) -> AppResult<Json<Value>> {
+    run_blocking(move || files::delete_items(payload.paths)).await??;
 
     Ok(success())
 }
 
-pub async fn rename_handler(Json(payload): Json<ActionPayload>) -> AppResult<Json<Value>> {
-    let (Some(old), Some(new)) = (payload.old_path, payload.new_name) else {
-        return Err(AppError::BadRequest("Missing oldPath or newName".to_string()));
-    };
-
-    run_blocking(move || files::rename_item(&old, &new)).await??;
+pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Json<Value>> {
+    run_blocking(move || files::rename_item(&payload.old_path, &payload.new_name)).await??;
 
     Ok(success())
 }
