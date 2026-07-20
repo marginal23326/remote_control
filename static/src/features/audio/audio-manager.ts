@@ -22,6 +22,10 @@ interface AudioKindSettings {
     device_id?: string | null;
 }
 
+function settingsEqual(a: AudioKindSettings, b: AudioKindSettings): boolean {
+    return a.rate === b.rate && a.chunk === b.chunk && a.source === b.source && a.device_id === b.device_id;
+}
+
 interface WorkletPortMessage {
     type: string;
     pcmData?: ArrayBuffer;
@@ -107,7 +111,7 @@ class AudioManager {
     async startAudioStream(type: AudioKind, settings: Partial<AudioKindSettings> = {}): Promise<void> {
         try {
             const targetSettings: AudioKindSettings = { ...this.currentSettings[type], ...settings };
-            const settingsChanged = JSON.stringify(this.currentSettings[type]) !== JSON.stringify(targetSettings);
+            const settingsChanged = !settingsEqual(this.currentSettings[type], targetSettings);
 
             if (this.streamActive[type]) {
                 if (!settingsChanged) {
@@ -386,8 +390,7 @@ class AudioManager {
         document.getElementById("audioSourceSelect")!.addEventListener("change", () => {
             const targetSettings = { ...this.currentSettings.server, ...this.getServerAudioSettingsFromForm() };
             const matchesRunning =
-                this.streamActive.server &&
-                JSON.stringify(this.currentSettings.server) === JSON.stringify(targetSettings);
+                this.streamActive.server && settingsEqual(this.currentSettings.server, targetSettings);
             this.updateAudioToggleButton("server", matchesRunning);
         });
 
