@@ -324,26 +324,21 @@ fn extract_ice(data: &serde_json::Value) -> Option<(u32, String)> {
     ))
 }
 
-pub async fn handle_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    let Some(sdp_str) = extract_sdp(&data) else { return };
-    state.screen.set_remote_description(sdp_str);
-}
+macro_rules! webrtc_signal_handlers {
+    ($answer_fn:ident, $ice_fn:ident, $manager:ident) => {
+        pub async fn $answer_fn(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
+            let Some(sdp_str) = extract_sdp(&data) else { return };
+            state.$manager.set_remote_description(sdp_str);
+        }
 
-pub async fn handle_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
-        return;
+        pub async fn $ice_fn(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
+            let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
+                return;
+            };
+            state.$manager.add_ice_candidate(sdp_mline_index, candidate);
+        }
     };
-    state.screen.add_ice_candidate(sdp_mline_index, candidate);
 }
 
-pub async fn handle_camera_webrtc_answer(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    let Some(sdp_str) = extract_sdp(&data) else { return };
-    state.camera.set_remote_description(sdp_str);
-}
-
-pub async fn handle_camera_webrtc_ice(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
-    let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
-        return;
-    };
-    state.camera.add_ice_candidate(sdp_mline_index, candidate);
-}
+webrtc_signal_handlers!(handle_webrtc_answer, handle_webrtc_ice, screen);
+webrtc_signal_handlers!(handle_camera_webrtc_answer, handle_camera_webrtc_ice, camera);
