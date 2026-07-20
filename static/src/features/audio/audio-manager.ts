@@ -10,6 +10,11 @@ const MAX_RATE = 768_000;
 
 type AudioKind = "server" | "client";
 
+const AUDIO_KIND_CONFIG = {
+    client: { toggleButtonId: "toggleClientAudio", startEvent: "start_client_audio", stopEvent: "stop_client_audio" },
+    server: { toggleButtonId: "toggleServerAudio", startEvent: "start_server_audio", stopEvent: "stop_server_audio" },
+} as const;
+
 interface AudioKindSettings {
     rate: number;
     chunk?: number;
@@ -180,11 +185,7 @@ class AudioManager {
             }
 
             const payload: AudioStartPayload = targetSettings;
-            if (type === "server") {
-                this.socket.emit("start_server_audio", payload);
-            } else {
-                this.socket.emit("start_client_audio", payload);
-            }
+            this.socket.emit(AUDIO_KIND_CONFIG[type].startEvent, payload);
             this.streamActive[type] = true;
             this.updateAudioToggleButton(type);
         } catch (error) {
@@ -245,7 +246,7 @@ class AudioManager {
     }
 
     updateAudioToggleButton(type: AudioKind, active: boolean = this.streamActive[type]): void {
-        const button = document.getElementById(type === "server" ? "toggleServerAudio" : "toggleClientAudio");
+        const button = document.getElementById(AUDIO_KIND_CONFIG[type].toggleButtonId);
         if (!button) return;
 
         button.textContent = active ? "Stop" : "Start";
@@ -313,11 +314,7 @@ class AudioManager {
             return;
         }
 
-        if (type === "server") {
-            this.socket.emit("stop_server_audio");
-        } else {
-            this.socket.emit("stop_client_audio");
-        }
+        this.socket.emit(AUDIO_KIND_CONFIG[type].stopEvent);
 
         if (type === "client") {
             this.cleanupWorklet();
