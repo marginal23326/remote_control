@@ -5,9 +5,26 @@ use std::sync::{
 };
 use std::thread;
 
+#[derive(Default)]
+struct Owner(Mutex<Option<String>>);
+
+impl Owner {
+    fn set(&self, owner_id: String) {
+        *self.0.lock() = Some(owner_id);
+    }
+
+    fn clear(&self) {
+        *self.0.lock() = None;
+    }
+
+    fn owns(&self, owner_id: &str) -> bool {
+        self.0.lock().as_deref() == Some(owner_id)
+    }
+}
+
 pub struct OwnedWorker {
     handle: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
-    owner: Mutex<Option<String>>,
+    owner: Owner,
 }
 
 impl Default for OwnedWorker {
@@ -20,19 +37,19 @@ impl OwnedWorker {
     pub fn new() -> Self {
         Self {
             handle: Mutex::new(None),
-            owner: Mutex::new(None),
+            owner: Owner::default(),
         }
     }
 
     pub fn start(&self, owner_id: String, spawn: impl FnOnce(Arc<AtomicBool>) -> thread::JoinHandle<()>) {
         self.stop();
-        *self.owner.lock() = Some(owner_id);
+        self.owner.set(owner_id);
         let is_running = Arc::new(AtomicBool::new(true));
         *self.handle.lock() = Some((spawn(is_running.clone()), is_running));
     }
 
     pub fn stop(&self) {
-        *self.owner.lock() = None;
+        self.owner.clear();
         if let Some((handle, running)) = self.handle.lock().take() {
             running.store(false, Ordering::SeqCst);
             tokio::task::spawn_blocking(move || {
@@ -42,7 +59,7 @@ impl OwnedWorker {
     }
 
     pub fn stop_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.owner.lock().as_deref() == Some(owner_id);
+        let is_owner = self.owner.owns(owner_id);
         if is_owner {
             self.stop();
         }
@@ -52,7 +69,7 @@ impl OwnedWorker {
 
 pub struct StreamOwnership {
     is_running: Arc<AtomicBool>,
-    owner_id: Mutex<Option<String>>,
+    owner_id: Owner,
 }
 
 impl Default for StreamOwnership {
@@ -65,7 +82,7 @@ impl StreamOwnership {
     pub fn new() -> Self {
         Self {
             is_running: Arc::new(AtomicBool::new(false)),
-            owner_id: Mutex::new(None),
+            owner_id: Owner::default(),
         }
     }
 
@@ -73,7 +90,7 @@ impl StreamOwnership {
         self.is_running
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .map_err(|_| ())?;
-        *self.owner_id.lock() = Some(owner_id);
+        self.owner_id.set(owner_id);
         Ok(StartGuard {
             ownership: self,
             started: false,
@@ -89,12 +106,12 @@ impl StreamOwnership {
     }
 
     pub fn owns(&self, owner_id: &str) -> bool {
-        self.owner_id.lock().as_deref() == Some(owner_id)
+        self.owner_id.owns(owner_id)
     }
 
     pub fn clear(&self) {
         self.is_running.store(false, Ordering::SeqCst);
-        *self.owner_id.lock() = None;
+        self.owner_id.clear();
     }
 }
 
