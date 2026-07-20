@@ -129,8 +129,18 @@ pub fn rename_item(old: &str, new_name: &str) -> Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
+fn fallback_root() -> &'static str {
+    "C:\\"
+}
+
+#[cfg(not(windows))]
+fn fallback_root() -> &'static str {
+    "/"
+}
+
 pub fn get_home_dir() -> String {
     std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
-        .unwrap_or_else(|_| String::from(if cfg!(windows) { "C:\\" } else { "/" }))
+        .unwrap_or_else(|_| fallback_root().to_string())
 }
