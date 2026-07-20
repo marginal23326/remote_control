@@ -7,6 +7,10 @@ use ts_rs::TS;
 
 const NA: &str = "N/A";
 
+fn or_na(value: Option<String>) -> String {
+    value.unwrap_or_else(|| NA.to_string())
+}
+
 fn get_local_ip() -> String {
     if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0")
         && socket.connect("8.8.8.8:80").is_ok()
@@ -90,27 +94,11 @@ async fn fetch_wan_info() -> Result<WanInfo, ()> {
 
     match result {
         Ok(Ok(data)) => {
-            let ip = data.ip.unwrap_or_else(|| NA.to_string());
-            let asn = data
-                .asn
-                .as_ref()
-                .map(|a| a.asn.unwrap_or(0).to_string())
-                .unwrap_or_else(|| NA.to_string());
-            let isp = data
-                .asn
-                .as_ref()
-                .and_then(|a| a.org.clone())
-                .unwrap_or_else(|| NA.to_string());
-            let country = data
-                .location
-                .as_ref()
-                .and_then(|l| l.country.clone())
-                .unwrap_or_else(|| NA.to_string());
-            let timezone = data
-                .location
-                .as_ref()
-                .and_then(|l| l.timezone.clone())
-                .unwrap_or_else(|| NA.to_string());
+            let ip = or_na(data.ip);
+            let asn = or_na(data.asn.as_ref().map(|a| a.asn.unwrap_or(0).to_string()));
+            let isp = or_na(data.asn.as_ref().and_then(|a| a.org.clone()));
+            let country = or_na(data.location.as_ref().and_then(|l| l.country.clone()));
+            let timezone = or_na(data.location.as_ref().and_then(|l| l.timezone.clone()));
 
             Ok(WanInfo {
                 ip,
