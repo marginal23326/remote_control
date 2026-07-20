@@ -14,6 +14,15 @@ mod windows;
 #[cfg(windows)]
 use windows as backend;
 
+pub(crate) trait OsInput {
+    async fn move_mouse(&self, x: i32, y: i32) -> anyhow::Result<()>;
+    async fn click_mouse(&self, button: &str, pressed: bool) -> anyhow::Result<()>;
+    async fn scroll_mouse(&self, dx: i32, dy: i32) -> anyhow::Result<()>;
+    async fn type_text(&self, text: &str) -> anyhow::Result<()>;
+    async fn send_shortcut(&self, key: &str, modifiers: Vec<String>) -> anyhow::Result<()>;
+    async fn set_key_state(&self, key: &str, pressed: bool) -> anyhow::Result<()>;
+}
+
 #[derive(Clone, Deserialize, Debug)]
 pub struct MouseEvent {
     pub r#type: String,

@@ -19,7 +19,7 @@ impl OsInputManager {
         Self
     }
 
-    // --- MOUSE FUNCTIONS ---
+    // --- MOUSE HELPERS ---
 
     fn send_mouse_input(&self, flags: MOUSE_EVENT_FLAGS, dx: i32, dy: i32, data: u32) {
         let input = INPUT {
@@ -38,120 +38,7 @@ impl OsInputManager {
         unsafe { SendInput(&[input], std::mem::size_of::<INPUT>() as i32) };
     }
 
-    pub async fn move_mouse(&self, x: i32, y: i32) -> anyhow::Result<()> {
-        let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
-        let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
-        let width = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
-        let height = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
-
-        let width = if width > 0 { width } else { 1920 };
-        let height = if height > 0 { height } else { 1080 };
-
-        let relative_x = (x - left) as i64;
-        let relative_y = (y - top) as i64;
-
-        let abs_x = ((relative_x * 65536 + width as i64 - 1) / width as i64) as i32;
-        let abs_y = ((relative_y * 65536 + height as i64 - 1) / height as i64) as i32;
-        self.send_mouse_input(
-            MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
-            abs_x,
-            abs_y,
-            0,
-        );
-        Ok(())
-    }
-
-    pub async fn click_mouse(&self, button: &str, pressed: bool) -> anyhow::Result<()> {
-        let flags = match (button, pressed) {
-            ("left", true) => MOUSEEVENTF_LEFTDOWN,
-            ("left", false) => MOUSEEVENTF_LEFTUP,
-            ("right", true) => MOUSEEVENTF_RIGHTDOWN,
-            ("right", false) => MOUSEEVENTF_RIGHTUP,
-            ("middle", true) => MOUSEEVENTF_MIDDLEDOWN,
-            ("middle", false) => MOUSEEVENTF_MIDDLEUP,
-            _ => return Ok(()),
-        };
-        // Mouse data is 0 for clicks
-        self.send_mouse_input(flags, 0, 0, 0);
-        Ok(())
-    }
-
-    pub async fn scroll_mouse(&self, dx: i32, dy: i32) -> anyhow::Result<()> {
-        // Vertical Scroll
-        if dy != 0 {
-            self.send_mouse_input(MOUSEEVENTF_WHEEL, 0, 0, (dy * -120) as u32);
-        }
-        // Horizontal Scroll
-        if dx != 0 {
-            self.send_mouse_input(MOUSEEVENTF_HWHEEL, 0, 0, (dx * 120) as u32);
-        }
-        Ok(())
-    }
-
-    // --- KEYBOARD FUNCTIONS ---
-
-    pub async fn type_text(&self, text: &str) -> anyhow::Result<()> {
-        let make_input = |code_unit, flags| INPUT {
-            r#type: INPUT_KEYBOARD,
-            Anonymous: INPUT_0 {
-                ki: KEYBDINPUT {
-                    wVk: VIRTUAL_KEY(0),
-                    wScan: code_unit,
-                    dwFlags: flags,
-                    time: 0,
-                    dwExtraInfo: 0,
-                },
-            },
-        };
-
-        for ch in text.chars() {
-            let mut buf = [0; 2];
-            let encoded = ch.encode_utf16(&mut buf);
-            let len = encoded.len();
-
-            let mut inputs = [unsafe { std::mem::zeroed::<INPUT>() }; 4];
-
-            for (i, &code_unit) in encoded.iter().enumerate() {
-                inputs[i] = make_input(code_unit, KEYEVENTF_UNICODE);
-                inputs[i + len] = make_input(code_unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP);
-            }
-
-            unsafe { SendInput(&inputs[..len * 2], std::mem::size_of::<INPUT>() as i32) };
-        }
-        Ok(())
-    }
-
-    pub async fn send_shortcut(&self, key: &str, modifiers: Vec<String>) -> anyhow::Result<()> {
-        let mut mod_vks = Vec::new();
-        for modifier in modifiers {
-            let vk = self.map_key_to_vk(&modifier);
-            if vk.0 != 0 {
-                self.send_key_event(vk, false);
-                mod_vks.push(vk);
-            }
-        }
-
-        if !key.is_empty() {
-            let vk = self.map_key_to_vk(key);
-            if vk.0 != 0 {
-                self.send_key_event(vk, false);
-                self.send_key_event(vk, true);
-            }
-        }
-
-        for vk in mod_vks.into_iter().rev() {
-            self.send_key_event(vk, true);
-        }
-        Ok(())
-    }
-
-    pub async fn set_key_state(&self, key: &str, pressed: bool) -> anyhow::Result<()> {
-        let vk = self.map_key_to_vk(key);
-        if vk.0 != 0 {
-            self.send_key_event(vk, !pressed);
-        }
-        Ok(())
-    }
+    // --- KEYBOARD HELPERS ---
 
     fn is_extended_key(vk: u16) -> bool {
         matches!(
@@ -243,5 +130,124 @@ impl OsInputManager {
             }
             _ => VIRTUAL_KEY(0),
         }
+    }
+}
+
+impl super::OsInput for OsInputManager {
+    // --- MOUSE FUNCTIONS ---
+
+    async fn move_mouse(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
+        let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
+        let width = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
+        let height = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
+
+        let width = if width > 0 { width } else { 1920 };
+        let height = if height > 0 { height } else { 1080 };
+
+        let relative_x = (x - left) as i64;
+        let relative_y = (y - top) as i64;
+
+        let abs_x = ((relative_x * 65536 + width as i64 - 1) / width as i64) as i32;
+        let abs_y = ((relative_y * 65536 + height as i64 - 1) / height as i64) as i32;
+        self.send_mouse_input(
+            MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+            abs_x,
+            abs_y,
+            0,
+        );
+        Ok(())
+    }
+
+    async fn click_mouse(&self, button: &str, pressed: bool) -> anyhow::Result<()> {
+        let flags = match (button, pressed) {
+            ("left", true) => MOUSEEVENTF_LEFTDOWN,
+            ("left", false) => MOUSEEVENTF_LEFTUP,
+            ("right", true) => MOUSEEVENTF_RIGHTDOWN,
+            ("right", false) => MOUSEEVENTF_RIGHTUP,
+            ("middle", true) => MOUSEEVENTF_MIDDLEDOWN,
+            ("middle", false) => MOUSEEVENTF_MIDDLEUP,
+            _ => return Ok(()),
+        };
+        // Mouse data is 0 for clicks
+        self.send_mouse_input(flags, 0, 0, 0);
+        Ok(())
+    }
+
+    async fn scroll_mouse(&self, dx: i32, dy: i32) -> anyhow::Result<()> {
+        // Vertical Scroll
+        if dy != 0 {
+            self.send_mouse_input(MOUSEEVENTF_WHEEL, 0, 0, (dy * -120) as u32);
+        }
+        // Horizontal Scroll
+        if dx != 0 {
+            self.send_mouse_input(MOUSEEVENTF_HWHEEL, 0, 0, (dx * 120) as u32);
+        }
+        Ok(())
+    }
+
+    // --- KEYBOARD FUNCTIONS ---
+
+    async fn type_text(&self, text: &str) -> anyhow::Result<()> {
+        let make_input = |code_unit, flags| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: code_unit,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        };
+
+        for ch in text.chars() {
+            let mut buf = [0; 2];
+            let encoded = ch.encode_utf16(&mut buf);
+            let len = encoded.len();
+
+            let mut inputs = [unsafe { std::mem::zeroed::<INPUT>() }; 4];
+
+            for (i, &code_unit) in encoded.iter().enumerate() {
+                inputs[i] = make_input(code_unit, KEYEVENTF_UNICODE);
+                inputs[i + len] = make_input(code_unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP);
+            }
+
+            unsafe { SendInput(&inputs[..len * 2], std::mem::size_of::<INPUT>() as i32) };
+        }
+        Ok(())
+    }
+
+    async fn send_shortcut(&self, key: &str, modifiers: Vec<String>) -> anyhow::Result<()> {
+        let mut mod_vks = Vec::new();
+        for modifier in modifiers {
+            let vk = self.map_key_to_vk(&modifier);
+            if vk.0 != 0 {
+                self.send_key_event(vk, false);
+                mod_vks.push(vk);
+            }
+        }
+
+        if !key.is_empty() {
+            let vk = self.map_key_to_vk(key);
+            if vk.0 != 0 {
+                self.send_key_event(vk, false);
+                self.send_key_event(vk, true);
+            }
+        }
+
+        for vk in mod_vks.into_iter().rev() {
+            self.send_key_event(vk, true);
+        }
+        Ok(())
+    }
+
+    async fn set_key_state(&self, key: &str, pressed: bool) -> anyhow::Result<()> {
+        let vk = self.map_key_to_vk(key);
+        if vk.0 != 0 {
+            self.send_key_event(vk, !pressed);
+        }
+        Ok(())
     }
 }
