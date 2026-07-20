@@ -11,6 +11,7 @@ use axum::{
 };
 use axum_extra::extract::Form;
 use mime_guess::from_path;
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -19,6 +20,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::duplex;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use tokio_util::io::ReaderStream;
+
+const FILENAME_SAFE: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'_').remove(b'.').remove(b'~');
 
 // --- DATA STRUCTURES ---
 
@@ -264,16 +267,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
                 let mut headers = HeaderMap::new();
                 headers.insert(header::CONTENT_TYPE, mime.as_ref().parse().unwrap());
 
-                let encoded: String = filename
-                    .bytes()
-                    .map(|b| {
-                        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
-                            (b as char).to_string()
-                        } else {
-                            format!("%{:02X}", b)
-                        }
-                    })
-                    .collect();
+                let encoded = utf8_percent_encode(&filename, FILENAME_SAFE).to_string();
                 headers.insert(
                     header::CONTENT_DISPOSITION,
                     format!("attachment; filename*=UTF-8''{}", encoded)
