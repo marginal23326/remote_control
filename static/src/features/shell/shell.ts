@@ -3,6 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { SVG_TEMPLATES } from "@/shared/icons";
+import { bindMediaSessionReconnect } from "@/shared/media-session";
 import type { AppSocket } from "@/core/socket";
 
 const SHELL_LABELS: Record<string, string> = {
@@ -247,27 +248,23 @@ export class InteractiveShell {
         });
 
         // --- Handle Network Drops ---
-        let wasStarted = false;
+        this.socket.on("connect", () => {
+            this.requestAvailableShells();
+        });
 
-        this.socket.on("disconnect", () => {
-            if (this.isStarted) {
-                wasStarted = true;
+        bindMediaSessionReconnect(this.socket, {
+            isActive: () => this.isStarted,
+            onDisconnect: () => {
                 this.isStarted = false;
                 this.sessionId = null;
 
                 this.terminal.writeln("\r\n\u001B[33m[Connection lost]\u001B[0m\r\n");
                 if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
-            }
-        });
-
-        this.socket.on("connect", () => {
-            this.requestAvailableShells();
-
-            if (wasStarted) {
-                wasStarted = false;
+            },
+            onReconnect: () => {
                 this.terminal.writeln("\r\n\u001B[32m[Reconnected]\u001B[0m\r\n");
                 this.createShellSession();
-            }
+            },
         });
 
         // 3. Data: Output from Server (Pushed instantly)
