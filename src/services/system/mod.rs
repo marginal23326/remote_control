@@ -238,7 +238,7 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         Err(_) => WanInfo::na(),
     };
 
-    let os_info = get_os_specific_info(base.cpu_frequency).await;
+    let os_info = backend::get_os_specific_info(base.cpu_frequency).await;
 
     SystemInfoDTO {
         processor: base.cpu_brand.clone(),
@@ -275,12 +275,12 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
     }
 }
 
-#[cfg(windows)]
-mod windows;
-#[cfg(windows)]
-use windows::get_os_specific_info;
-
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-use linux::get_os_specific_info;
+use linux as backend;
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+use windows as backend;

@@ -4,11 +4,15 @@ use tokio::sync::mpsc;
 #[cfg(target_os = "linux")]
 pub(crate) mod keymap;
 
-#[cfg(windows)]
-mod windows;
-
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "linux")]
+use linux as backend;
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+use windows as backend;
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct MouseEvent {
@@ -40,10 +44,7 @@ impl InputManager {
     pub fn new() -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel();
         tokio::spawn(async move {
-            #[cfg(windows)]
-            let os_input = windows::OsInputManager::new();
-            #[cfg(target_os = "linux")]
-            let os_input = linux::OsInputManager::new();
+            let os_input = backend::OsInputManager::new();
 
             while let Some(cmd) = rx.recv().await {
                 let result = match cmd {
