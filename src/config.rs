@@ -22,8 +22,8 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            password_hash: "".to_string(),
-            jwt_secret: "".to_string(),
+            password_hash: String::new(),
+            jwt_secret: String::new(),
             port: 5000,
             stun_server: None,
         }
