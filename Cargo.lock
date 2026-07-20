@@ -2213,6 +2213,7 @@ dependencies = [
  "mime_guess",
  "minreq",
  "parking_lot",
+ "percent-encoding",
  "pipewire",
  "portable-pty",
  "rpassword",
