@@ -1,6 +1,6 @@
 import { apiCall } from "@/shared/api";
 import { LoadingButton, showNotification } from "@/shared/feedback";
-import { escapeHtml } from "@/shared/dom-helpers";
+import { escapeHtml, setToggleStyle } from "@/shared/dom-helpers";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { createPeerSignaling } from "@/shared/peer-signaling";
 import type { AppSocket } from "@/core/socket";
@@ -36,11 +36,7 @@ let toggleBtnLoader: LoadingButton | null = null;
 function setToggleUI(active: boolean): void {
     const btn = pip.toggleBtn;
     if (!btn) return;
-    btn.classList.toggle("bg-zinc-200", active);
-    btn.classList.toggle("text-zinc-900", active);
-    btn.classList.toggle("hover:bg-zinc-800", !active);
-    btn.classList.toggle("hover:text-zinc-100", !active);
-    btn.classList.toggle("text-zinc-400", !active);
+    setToggleStyle(btn, active);
     btn.title = active ? "Stop Webcam" : "View Webcam";
 }
 

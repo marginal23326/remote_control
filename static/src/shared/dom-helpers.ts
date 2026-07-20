@@ -20,3 +20,11 @@ export function bindDebouncedInput(input: HTMLInputElement, callback: () => void
         timeout = setTimeout(callback, delay);
     });
 }
+
+export function setToggleStyle(el: HTMLElement, active: boolean): void {
+    el.classList.toggle("bg-zinc-200", active);
+    el.classList.toggle("text-zinc-900", active);
+    el.classList.toggle("hover:bg-zinc-800", !active);
+    el.classList.toggle("hover:text-zinc-100", !active);
+    el.classList.toggle("text-zinc-400", !active);
+}

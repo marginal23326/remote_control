@@ -1,3 +1,5 @@
+import { setToggleStyle } from "@/shared/dom-helpers";
+
 export const captureState = {
     keyboard: false,
     mouse: false,
@@ -6,11 +8,7 @@ export const captureState = {
 function toggleBtn(id: string, active: boolean): void {
     const btn = document.getElementById(id);
     if (!btn) return;
-    btn.classList.toggle("bg-zinc-200", active);
-    btn.classList.toggle("text-zinc-900", active);
-    btn.classList.toggle("hover:bg-zinc-800", !active);
-    btn.classList.toggle("hover:text-zinc-100", !active);
-    btn.classList.toggle("text-zinc-400", !active);
+    setToggleStyle(btn, active);
 }
 
 function updateCaptureUI(): void {
