@@ -148,8 +148,7 @@ export class SelectionManager {
 
         // Global keyboard shortcuts
         document.addEventListener("keydown", (e) => {
-            const target = e.target as HTMLElement;
-            if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+            if (isTypingField(e.target)) return;
 
             if ((e.ctrlKey || e.metaKey) && e.code === "KeyA") {
                 const found = document.querySelector<HTMLElement>(this.config.containerSelector);
