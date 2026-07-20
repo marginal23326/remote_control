@@ -1,4 +1,5 @@
 import { showNotification } from "@/shared/feedback";
+import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
 import audioWorkletProcessorUrl from "./audio-worklet-processor.ts?worker&url";
 import type { AppSocket } from "@/core/socket";
@@ -42,7 +43,6 @@ class AudioManager {
     playbackNode: AudioWorkletNode | null;
     currentSettings: Record<AudioKind, AudioKindSettings>;
     streamActive: Record<AudioKind, boolean>;
-    wasActive: Record<AudioKind, boolean>;
 
     constructor(socket: AppSocket) {
         this.socket = socket;
@@ -60,10 +60,6 @@ class AudioManager {
             server: { rate: 48000 },
         };
         this.streamActive = {
-            client: false,
-            server: false,
-        };
-        this.wasActive = {
             client: false,
             server: false,
         };
@@ -407,28 +403,20 @@ class AudioManager {
             await this.startAudioStream("client", settings);
         });
 
-        this.socket.on("disconnect", () => {
-            if (this.streamActive.server) {
-                this.wasActive.server = true;
-                void this.stopAudioStream("server", true);
-            }
-            if (this.streamActive.client) {
-                this.wasActive.client = true;
-                void this.stopAudioStream("client", true);
-            }
-        });
-
         this.socket.on("connect", () => {
             void this.refreshAudioSources();
+        });
 
-            if (this.wasActive.server) {
-                this.wasActive.server = false;
-                void this.startAudioStream("server", this.currentSettings.server);
-            }
-            if (this.wasActive.client) {
-                this.wasActive.client = false;
-                void this.startAudioStream("client", this.currentSettings.client);
-            }
+        (["server", "client"] as const).forEach((kind) => {
+            bindMediaSessionReconnect(this.socket, {
+                isActive: () => this.streamActive[kind],
+                onDisconnect: () => {
+                    void this.stopAudioStream(kind, true);
+                },
+                onReconnect: () => {
+                    void this.startAudioStream(kind, this.currentSettings[kind]);
+                },
+            });
         });
 
         if (this.socket.connected) {
