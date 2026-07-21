@@ -125,8 +125,7 @@ export function initializeTaskManager(socket: AppSocket): void {
             fragment.append(row);
         });
 
-        taskList.innerHTML = "";
-        taskList.append(fragment);
+        taskList.replaceChildren(fragment);
 
         updateSortIndicators("#processSection thead th", currentSort.column, currentSort.order === "asc");
 
