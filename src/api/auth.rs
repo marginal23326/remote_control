@@ -1,5 +1,6 @@
 use crate::state::SharedState;
 use crate::utils::auth::{Claims, create_jwt, verify_password};
+use crate::utils::error::success;
 use crate::utils::error::{AppError, AppResult};
 use axum::{
     Json,
@@ -39,7 +40,7 @@ pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json
             .max_age(Duration::hours(24));
         headers.insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
 
-        Ok((headers, Json(json!({"status": "success"}))).into_response())
+        Ok((headers, success!()).into_response())
     } else {
         Err(AppError::AuthError("Invalid credentials".to_string()))
     }

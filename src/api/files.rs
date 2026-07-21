@@ -143,19 +143,19 @@ pub async fn get_home_handler() -> Response {
 pub async fn create_folder_handler(Json(payload): Json<CreateFolderPayload>) -> AppResult<Json<Value>> {
     run_blocking(move || files::create_folder(&payload.parent_path, &payload.folder_name)).await??;
 
-    Ok(success())
+    Ok(success!())
 }
 
 pub async fn delete_handler(Json(payload): Json<DeletePayload>) -> AppResult<Json<Value>> {
     run_blocking(move || files::delete_items(payload.paths)).await??;
 
-    Ok(success())
+    Ok(success!())
 }
 
 pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Json<Value>> {
     run_blocking(move || files::rename_item(&payload.old_path, &payload.new_name)).await??;
 
-    Ok(success())
+    Ok(success!())
 }
 
 pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Multipart) -> AppResult<Json<Value>> {
@@ -243,7 +243,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
         }
     }
 
-    Ok(Json(json!({"status": "success", "count": uploaded_count})))
+    Ok(success!("count": uploaded_count))
 }
 
 pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Response> {

@@ -1,11 +1,11 @@
 use crate::state::SharedState;
-use crate::utils::error::{AppError, AppResult, run_blocking};
+use crate::utils::error::{AppError, AppResult, run_blocking, success};
 use axum::{
     Json,
     extract::{Path, State},
 };
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 #[derive(Deserialize)]
 pub struct KillPayload {
@@ -21,7 +21,7 @@ pub async fn kill_process_handler(
     let tasks = &state.tasks;
     tasks.kill_process(pid)?;
 
-    Ok(Json(json!({"status": "success", "message": "Process killed"})))
+    Ok(success!("message": "Process killed"))
 }
 
 pub async fn get_process_details_handler(
@@ -32,5 +32,5 @@ pub async fn get_process_details_handler(
         .await?
         .map_err(|_| AppError::NotFound(format!("Process with PID {} not found", pid)))?;
 
-    Ok(Json(json!({ "status": "success", "data": details })))
+    Ok(success!("data": details))
 }

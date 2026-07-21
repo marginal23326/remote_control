@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -51,9 +51,18 @@ impl IntoResponse for AppError {
 
 pub type AppResult<T> = Result<T, AppError>;
 
-pub fn success() -> Json<Value> {
-    Json(json!({"status": "success"}))
+macro_rules! success {
+    () => {
+        axum::Json(serde_json::json!({"status": "success"}))
+    };
+    ($($key:literal : $value:expr),* $(,)?) => {
+        axum::Json(serde_json::json!({
+            "status": "success",
+            $($key : $value),*
+        }))
+    };
 }
+pub(crate) use success;
 
 pub async fn run_blocking<T, E>(f: impl FnOnce() -> Result<T, E> + Send + 'static) -> AppResult<Result<T, E>>
 where
