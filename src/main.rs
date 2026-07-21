@@ -3,7 +3,6 @@ compile_error!("The Remote Control system is only supported on Windows and Linux
 
 use anyhow::Result;
 use socketioxide::SocketIo;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -48,7 +47,7 @@ async fn main() -> Result<()> {
     let port = config.port;
 
     // 2. Initialize State with Config
-    let state = Arc::new(AppState::new(config));
+    let state = AppState::new(config);
 
     // 3. Initialize Socket.IO
     let (socket_layer, io) = SocketIo::builder().with_state(state.clone()).build_layer();
