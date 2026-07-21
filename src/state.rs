@@ -74,4 +74,4 @@ impl AppState {
         }
     }
 }
-pub type SharedState = Arc<AppState>;
+pub type SharedState = AppState;
