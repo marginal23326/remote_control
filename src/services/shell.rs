@@ -147,8 +147,7 @@ impl ShellManager {
     pub fn add_session(&self, session_id: String, session: ShellSession) {
         let replaced = self.sessions.lock().insert(session_id, session);
         if let Some(old_session) = replaced {
-            old_session.active.store(false, Ordering::Release);
-            std::thread::spawn(move || drop(old_session));
+            retire(old_session);
         }
     }
 
@@ -174,10 +173,7 @@ impl ShellManager {
     pub fn close_session(&self, session_id: &str) {
         let removed = self.sessions.lock().remove(session_id);
         if let Some(session) = removed {
-            session.active.store(false, Ordering::Release);
-            std::thread::spawn(move || {
-                drop(session);
-            });
+            retire(session);
         }
     }
 
@@ -193,6 +189,11 @@ impl ShellManager {
 
         (shells, default)
     }
+}
+
+fn retire(session: ShellSession) {
+    session.active.store(false, Ordering::Release);
+    std::thread::spawn(move || drop(session));
 }
 
 fn default_shell() -> String {
