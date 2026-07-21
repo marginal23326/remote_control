@@ -1,5 +1,5 @@
 use crate::state::SharedState;
-use crate::utils::auth::{Claims, create_jwt};
+use crate::utils::auth::{Claims, create_jwt, verify_password};
 use crate::utils::error::{AppError, AppResult};
 use axum::{
     Json,
@@ -7,31 +7,10 @@ use axum::{
     http::{HeaderMap, header},
     response::{IntoResponse, Response},
 };
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as BASE64;
 use cookie::{Cookie, SameSite};
 use serde::Deserialize;
 use serde_json::json;
-use sha2::{Digest, Sha256};
-use subtle::ConstantTimeEq;
 use time::Duration;
-
-fn verify_password(password: &str, stored: &str) -> bool {
-    let Some((salt_b64, hash_b64)) = stored.split_once(':') else {
-        return false;
-    };
-    let Ok(salt) = BASE64.decode(salt_b64) else {
-        return false;
-    };
-    let Ok(expected) = BASE64.decode(hash_b64) else {
-        return false;
-    };
-    let actual = Sha256::new()
-        .chain_update(&salt)
-        .chain_update(password.as_bytes())
-        .finalize();
-    actual.ct_eq(&expected).into()
-}
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
