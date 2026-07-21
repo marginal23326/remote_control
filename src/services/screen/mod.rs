@@ -647,7 +647,13 @@ impl ScreenManager {
                 &[&"mouse-move", &move_options],
             )
             .expect("Failed to create mouse-move data channel");
-        Self::attach_move_data_channel(&move_channel, move_tx.clone());
+        Self::attach_mouse_data_channel(
+            &move_channel,
+            |t| t == "move",
+            move |e| {
+                let _ = move_tx.send(Some(e));
+            },
+        );
 
         let control_channel = webrtcbin
             .emit_by_name::<Option<gst_webrtc::WebRTCDataChannel>>(
@@ -655,14 +661,21 @@ impl ScreenManager {
                 &[&"mouse-control", &None::<gst::Structure>],
             )
             .expect("Failed to create mouse-control data channel");
-        Self::attach_control_data_channel(&control_channel, control_tx.clone());
+        Self::attach_mouse_data_channel(
+            &control_channel,
+            |t| t != "move",
+            move |e| {
+                let _ = control_tx.send(e);
+            },
+        );
 
         input_handle
     }
 
-    fn attach_move_data_channel(
+    fn attach_mouse_data_channel(
         channel: &gst_webrtc::WebRTCDataChannel,
-        move_tx: tokio::sync::watch::Sender<Option<crate::services::input::MouseEvent>>,
+        accept: impl Fn(&str) -> bool + Send + Sync + 'static,
+        forward: impl Fn(crate::services::input::MouseEvent) + Send + Sync + 'static,
     ) {
         channel.connect_on_message_string(move |_, message| {
             let Some(message) = message else {
@@ -674,28 +687,8 @@ impl ScreenManager {
                 return;
             };
 
-            if event.r#type == "move" {
-                let _ = move_tx.send(Some(event));
-            }
-        });
-    }
-
-    fn attach_control_data_channel(
-        channel: &gst_webrtc::WebRTCDataChannel,
-        control_tx: tokio::sync::mpsc::UnboundedSender<crate::services::input::MouseEvent>,
-    ) {
-        channel.connect_on_message_string(move |_, message| {
-            let Some(message) = message else {
-                return;
-            };
-
-            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message) else {
-                tracing::debug!("Ignoring malformed mouse data-channel message");
-                return;
-            };
-
-            if event.r#type != "move" {
-                let _ = control_tx.send(event);
+            if accept(&event.r#type) {
+                forward(event);
             }
         });
     }
