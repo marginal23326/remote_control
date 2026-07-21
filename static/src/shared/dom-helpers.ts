@@ -28,3 +28,11 @@ export function setToggleStyle(el: HTMLElement, active: boolean): void {
     el.classList.toggle("hover:text-zinc-100", !active);
     el.classList.toggle("text-zinc-400", !active);
 }
+
+export function updateSortIndicators(headerSelector: string, activeColumn: string, ascending: boolean): void {
+    document.querySelectorAll<HTMLElement>(headerSelector).forEach((th) => {
+        const indicator = th.querySelector(".sort-indicator");
+        if (!indicator) return;
+        indicator.textContent = th.dataset.sort === activeColumn ? (ascending ? " ▲" : " ▼") : "";
+    });
+}

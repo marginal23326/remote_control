@@ -2,7 +2,7 @@ import { apiCall } from "@/shared/api";
 import { CLASSES, type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import type { ContextMenuItem } from "@/shared/context-menu";
 import { formatDate, formatFileSize } from "@/shared/format";
-import { bindDebouncedInput, escapeHtml } from "@/shared/dom-helpers";
+import { bindDebouncedInput, escapeHtml, updateSortIndicators as renderSortIndicators } from "@/shared/dom-helpers";
 import { showConfirmModal, showPromptModal } from "@/shared/modal";
 import { LoadingButton, showNotification } from "@/shared/feedback";
 import { registerShortcuts } from "@/core/shortcuts";
@@ -753,15 +753,7 @@ class FileManager extends ListManager {
     }
 
     updateSortIndicators(): void {
-        document.querySelectorAll<HTMLElement>("#fileTable th[data-sort]").forEach((th) => {
-            const indicator = th.querySelector(".sort-indicator");
-            if (!indicator) return;
-            if (th.dataset.sort === this.sortColumn) {
-                indicator.textContent = this.sortDirection === "asc" ? " ▲" : " ▼";
-            } else {
-                indicator.textContent = "";
-            }
-        });
+        renderSortIndicators("#fileTable th[data-sort]", this.sortColumn, this.sortDirection === "asc");
     }
 
     override initialize(): void {

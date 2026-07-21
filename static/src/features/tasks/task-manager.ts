@@ -2,7 +2,7 @@ import { apiCall } from "@/shared/api";
 import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import { showConfirmModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
-import { bindDebouncedInput, escapeHtml } from "@/shared/dom-helpers";
+import { bindDebouncedInput, escapeHtml, updateSortIndicators } from "@/shared/dom-helpers";
 import { registerShortcuts } from "@/core/shortcuts";
 import type { AppSocket } from "@/core/socket";
 import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
@@ -128,21 +128,7 @@ export function initializeTaskManager(socket: AppSocket): void {
         taskList.innerHTML = "";
         taskList.append(fragment);
 
-        // Update sort indicators
-        document.querySelectorAll<HTMLElement>("#processSection thead th").forEach((header) => {
-            const { sort: column } = header.dataset;
-            const icon = header.querySelector(".sort-icon");
-            if (icon) {
-                if (column === currentSort.column) {
-                    icon.textContent = currentSort.order === "asc" ? "▲" : "▼";
-                    icon.classList.remove("opacity-0");
-                    icon.classList.add("opacity-100", "text-zinc-100");
-                } else {
-                    icon.classList.remove("opacity-100", "text-zinc-100");
-                    icon.classList.add("opacity-0");
-                }
-            }
-        });
+        updateSortIndicators("#processSection thead th", currentSort.column, currentSort.order === "asc");
 
         taskManager.selectionManager!.notifyItemsUpdate();
         taskManager.config.onSelectionChange(taskManager.getSelectedItems());
