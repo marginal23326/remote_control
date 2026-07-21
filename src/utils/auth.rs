@@ -1,8 +1,12 @@
 use axum::http::{HeaderMap, header};
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use base64::{
+    Engine as _,
+    engine::general_purpose::{STANDARD as BASE64, URL_SAFE_NO_PAD},
+};
 use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -78,4 +82,30 @@ pub fn verify_jwt(token: &str, secret: &str) -> bool {
         .as_secs() as usize;
 
     now < claims.exp
+}
+
+fn raw_password_hash(password: &str, salt: &[u8]) -> impl AsRef<[u8]> {
+    Sha256::new()
+        .chain_update(salt)
+        .chain_update(password.as_bytes())
+        .finalize()
+}
+
+pub fn hash_password(password: &str, salt: &[u8]) -> String {
+    let hash = raw_password_hash(password, salt);
+    format!("{}:{}", BASE64.encode(salt), BASE64.encode(hash))
+}
+
+pub fn verify_password(password: &str, stored: &str) -> bool {
+    let Some((salt_b64, hash_b64)) = stored.split_once(':') else {
+        return false;
+    };
+    let Ok(salt) = BASE64.decode(salt_b64) else {
+        return false;
+    };
+    let Ok(expected) = BASE64.decode(hash_b64) else {
+        return false;
+    };
+    let actual = raw_password_hash(password, &salt);
+    actual.as_ref().ct_eq(&expected).into()
 }
