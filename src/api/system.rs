@@ -42,5 +42,5 @@ pub async fn set_clipboard_handler(
     })
     .await??;
 
-    Ok(success())
+    Ok(success!())
 }
