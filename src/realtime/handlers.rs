@@ -67,13 +67,13 @@ pub struct AudioConfig {
     pub device_id: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Default, TS)]
+#[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct CameraStartConfig {
     pub device_id: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Default, TS)]
+#[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields)]
 pub struct StartStreamConfig {
     pub capture_cursor: Option<bool>,
