@@ -1,9 +1,10 @@
 use serde::Serialize;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use ts_rs::TS;
 
-use crate::services::owned_worker::OwnedWorker;
+use crate::services::owned_worker::{OwnedSession, Stoppable};
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 
@@ -33,9 +34,34 @@ pub struct AudioSourceInfo {
     pub kind: AudioSourceKind,
 }
 
+struct ThreadWorker {
+    handle: thread::JoinHandle<()>,
+    running: Arc<AtomicBool>,
+}
+
+impl ThreadWorker {
+    fn spawn(f: impl FnOnce(Arc<AtomicBool>) + Send + 'static) -> Self {
+        let running = Arc::new(AtomicBool::new(true));
+        let handle = {
+            let running = running.clone();
+            thread::spawn(move || f(running))
+        };
+        Self { handle, running }
+    }
+}
+
+impl Stoppable for ThreadWorker {
+    fn stop(self) {
+        self.running.store(false, Ordering::SeqCst);
+        tokio::task::spawn_blocking(move || {
+            let _ = self.handle.join();
+        });
+    }
+}
+
 pub struct AudioManager {
-    server: OwnedWorker,
-    client: OwnedWorker,
+    server: OwnedSession<ThreadWorker>,
+    client: OwnedSession<ThreadWorker>,
     client_audio_buffer: Arc<ArrayQueue<f32>>,
 }
 
@@ -48,8 +74,8 @@ impl AudioManager {
         pipewire::init();
 
         Self {
-            server: OwnedWorker::new(),
-            client: OwnedWorker::new(),
+            server: OwnedSession::new(),
+            client: OwnedSession::new(),
             client_audio_buffer: Arc::new(ArrayQueue::new(48000 * 2)),
         }
     }
@@ -61,13 +87,23 @@ impl AudioManager {
         device_id: Option<String>,
         rate: u32,
     ) -> Result<(), String> {
-        self.server.start(socket.id.to_string(), |is_running| {
-            thread::spawn(move || {
-                if let Err(e) = backend::server_loop(socket, source, device_id, rate, is_running) {
-                    tracing::error!("Server audio capture error: {}", e);
-                }
-            })
+        let guard = self
+            .server
+            .ownership()
+            .try_start(socket.id.to_string())
+            .map_err(|_| "Server audio is already active on another client".to_string())?;
+
+        let worker = ThreadWorker::spawn(move |is_running| {
+            if let Err(e) = backend::server_loop(socket, source, device_id, rate, is_running) {
+                tracing::error!("Server audio capture error: {}", e);
+            }
         });
+
+        if let Err(worker) = self.server.finish_start(worker) {
+            worker.stop();
+            return Err("Client disconnected during audio startup".to_string());
+        }
+        guard.mark_started();
         Ok(())
     }
 
@@ -80,20 +116,34 @@ impl AudioManager {
     }
 
     pub fn start_client_playback(&self, owner_id: String, rate: u32) -> Result<(), String> {
-        self.stop_client_playback();
+        let guard = self
+            .client
+            .ownership()
+            .try_start(owner_id)
+            .map_err(|_| "Client audio is already active on another client".to_string())?;
+
+        while self.client_audio_buffer.pop().is_some() {}
 
         let queue = self.client_audio_buffer.clone();
-        self.client.start(owner_id, |is_running| {
-            thread::spawn(move || {
-                if let Err(e) = backend::client_loop(rate, is_running, queue) {
-                    tracing::error!("Client audio playback error: {}", e);
-                }
-            })
+        let worker = ThreadWorker::spawn(move |is_running| {
+            if let Err(e) = backend::client_loop(rate, is_running, queue) {
+                tracing::error!("Client audio playback error: {}", e);
+            }
         });
+
+        if let Err(worker) = self.client.finish_start(worker) {
+            worker.stop();
+            return Err("Client disconnected during audio startup".to_string());
+        }
+        guard.mark_started();
         Ok(())
     }
 
-    pub fn process_client_audio(&self, data: Vec<u8>) {
+    pub fn process_client_audio(&self, owner_id: &str, data: Vec<u8>) {
+        if !self.client.ownership().owns(owner_id) {
+            return;
+        }
+
         for chunk in data.chunks_exact(2) {
             let i16_sample = i16::from_le_bytes([chunk[0], chunk[1]]);
             let f32_sample = i16_sample as f32 / i16::MAX as f32;
@@ -102,11 +152,6 @@ impl AudioManager {
                 let _ = self.client_audio_buffer.push(f32_sample);
             }
         }
-    }
-
-    pub fn stop_client_playback(&self) {
-        self.client.stop();
-        while self.client_audio_buffer.pop().is_some() {}
     }
 
     pub fn stop_client_playback_if_owner(&self, owner_id: &str) {

@@ -232,6 +232,7 @@ pub async fn handle_start_server_audio(
 
     if let Err(e) = audio.start_server_stream(socket.clone(), source, device_id, rate) {
         tracing::error!("Failed to start server audio: {}", e);
+        let _ = socket.emit("server_audio_error", &json!({ "message": e }));
     }
 }
 
@@ -264,6 +265,7 @@ pub async fn handle_start_client_audio(
 
     if let Err(e) = audio.start_client_playback(socket.id.to_string(), rate) {
         tracing::error!("Failed to start client playback: {}", e);
+        let _ = socket.emit("client_audio_error", &json!({ "message": e }));
     }
 }
 
@@ -271,9 +273,12 @@ pub async fn handle_stop_client_audio(socket: SocketRef, State(state): State<Sha
     state.audio.stop_client_playback_if_owner(&socket.id.to_string());
 }
 
-pub async fn handle_client_audio_data(Data(data): Data<bytes::Bytes>, State(state): State<SharedState>) {
-    let audio = &state.audio;
-    audio.process_client_audio(data.to_vec());
+pub async fn handle_client_audio_data(
+    socket: SocketRef,
+    Data(data): Data<bytes::Bytes>,
+    State(state): State<SharedState>,
+) {
+    state.audio.process_client_audio(&socket.id.to_string(), data.to_vec());
 }
 
 pub async fn handle_start_stream(

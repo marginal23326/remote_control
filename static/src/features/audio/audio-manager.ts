@@ -373,6 +373,11 @@ class AudioManager {
         };
     }
 
+    handleAudioStartError(type: AudioKind, message: string): void {
+        showNotification(message, "error");
+        void this.stopAudioStream(type, true);
+    }
+
     initializeEventListeners(): void {
         document.getElementById("toggleServerAudio")!.addEventListener("click", async (e) => {
             if ((e.currentTarget as HTMLElement).textContent?.trim() === "Stop") {
@@ -401,6 +406,14 @@ class AudioManager {
                 rate: parseInt((document.getElementById("clientAudioRate") as HTMLInputElement).value, 10),
             };
             await this.startAudioStream("client", settings);
+        });
+
+        this.socket.on("server_audio_error", (data) => {
+            this.handleAudioStartError("server", data.message);
+        });
+
+        this.socket.on("client_audio_error", (data) => {
+            this.handleAudioStartError("client", data.message);
         });
 
         this.socket.on("connect", () => {
