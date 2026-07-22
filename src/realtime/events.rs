@@ -14,8 +14,10 @@ use socketioxide::{
     extract::{SocketRef, State},
 };
 use tracing::{info, warn};
+use ts_rs::TS;
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, TS)]
+#[ts(export, export_to = "bindings.ts")]
 struct TaskPayload {
     processes: Vec<crate::services::tasks::ProcessDTO>,
     total_cpu_usage: f32,

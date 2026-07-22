@@ -5,13 +5,15 @@ use serde::Deserialize;
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use ts_rs::TS;
 
 pub static ACTIVE_WATCHERS: AtomicUsize = AtomicUsize::new(0);
 
 // --- DATA STRUCTURES ---
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, TS)]
 #[serde(tag = "type", rename_all = "camelCase")]
+#[ts(export, export_to = "bindings.ts", optional_fields)]
 pub enum KeyboardEvent {
     Text {
         text: String,
@@ -28,7 +30,8 @@ pub enum KeyboardEvent {
     },
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields)]
 pub struct ShellCreateEvent {
     pub cols: u16,
     pub rows: u16,
@@ -37,12 +40,14 @@ pub struct ShellCreateEvent {
     pub shell: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct ShellInputEvent {
     pub command: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts")]
 pub struct ShellResizeEvent {
     pub cols: u16,
     pub rows: u16,
@@ -54,34 +59,24 @@ struct TaskPollMarker;
 #[derive(Debug, Clone)]
 struct ShellPendingMarker;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct AudioConfig {
     pub source: Option<String>,
     pub rate: Option<u32>,
     pub device_id: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct CameraStartConfig {
     pub device_id: Option<String>,
 }
 
-fn default_capture_cursor() -> bool {
-    true
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields)]
 pub struct StartStreamConfig {
-    #[serde(default = "default_capture_cursor")]
-    pub capture_cursor: bool,
-}
-
-impl Default for StartStreamConfig {
-    fn default() -> Self {
-        Self {
-            capture_cursor: default_capture_cursor(),
-        }
-    }
+    pub capture_cursor: Option<bool>,
 }
 
 // --- HANDLERS ---
@@ -287,7 +282,10 @@ pub async fn handle_start_stream(
     State(state): State<SharedState>,
 ) {
     let screen = state.screen.clone();
-    if let Err(e) = screen.start_stream(socket.clone(), state, data.capture_cursor).await {
+    if let Err(e) = screen
+        .start_stream(socket.clone(), state, data.capture_cursor.unwrap_or(true))
+        .await
+    {
         tracing::error!("Failed to start: {e:#}");
         let _ = socket.emit("stream_error", &json!({ "message": e.to_string() }));
     }

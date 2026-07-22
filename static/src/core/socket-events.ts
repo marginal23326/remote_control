@@ -1,67 +1,19 @@
-import type { AudioFormat, AudioSourceInfo, CameraDeviceInfo, ProcessInfo } from "@/shared/types";
+import type {
+    AudioFormat,
+    AudioSourceInfo,
+    AudioStartPayload,
+    CameraDeviceInfo,
+    KeyboardEventPayload,
+    MouseEventPayload,
+    ShellCreatePayload,
+    ShellInputPayload,
+    ShellResizePayload,
+    StartCameraStreamPayload,
+    StartStreamPayload,
+    TaskListPayload,
+} from "@/shared/types";
 
-export interface MouseEventPayload {
-    type: "move" | "click" | "scroll";
-    seq?: number;
-    x?: number;
-    y?: number;
-    button?: "left" | "right" | "middle";
-    pressed?: boolean;
-    dx?: number;
-    dy?: number;
-}
-
-export type KeyboardEventPayload =
-    | { type: "text"; text: string }
-    | { type: "shortcut"; shortcut: string; modifiers?: string[] }
-    | { type: "keyDown"; key: string }
-    | { type: "keyUp"; key: string };
-
-export interface ShellCreatePayload {
-    cols: number;
-    rows: number;
-    session_id: string;
-    shell?: string;
-}
-
-export interface ShellInputPayload {
-    command: string;
-}
-
-export interface ShellResizePayload {
-    cols: number;
-    rows: number;
-}
-
-export interface AudioStartPayload {
-    source?: string;
-    rate?: number;
-    device_id?: string | null;
-    chunk?: number;
-}
-
-export interface IceCandidatePayload {
-    sdp_mline_index?: number | null;
-    candidate: string;
-}
-
-export interface StartStreamPayload {
-    capture_cursor?: boolean;
-}
-
-export interface StartCameraStreamPayload {
-    device_id?: string | null;
-}
-
-export interface TaskListPayload {
-    processes: ProcessInfo[];
-    total_cpu_usage: number;
-    total_memory_percentage: number;
-}
-
-export interface MessagePayload {
-    message: string;
-}
+export type { AudioStartPayload, KeyboardEventPayload, MouseEventPayload };
 
 export interface ShellCreatedPayload {
     status: "success";
@@ -92,6 +44,15 @@ export interface ActiveWindowPayload {
 
 export interface CameraListPayload {
     cameras: CameraDeviceInfo[];
+}
+
+export interface IceCandidatePayload {
+    sdp_mline_index?: number | null;
+    candidate: string;
+}
+
+export interface MessagePayload {
+    message: string;
 }
 
 export type ServerAudioData = ArrayBuffer | ArrayBufferView | number[];

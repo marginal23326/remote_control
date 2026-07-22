@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use tokio::sync::mpsc;
+use ts_rs::TS;
 
 #[cfg(target_os = "linux")]
 pub(crate) mod keymap;
@@ -23,7 +24,8 @@ pub(crate) trait OsInput {
     async fn set_key_state(&self, key: &str, pressed: bool) -> anyhow::Result<()>;
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, TS)]
+#[ts(export, export_to = "bindings.ts", optional_fields)]
 pub struct MouseEvent {
     pub r#type: String,
     pub seq: Option<u64>,
