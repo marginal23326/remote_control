@@ -5,10 +5,9 @@ use gst::prelude::*;
 use gstreamer as gst;
 use gstreamer_sdp as gst_sdp;
 use gstreamer_webrtc as gst_webrtc;
-use parking_lot::Mutex;
 use socketioxide::extract::SocketRef;
 
-use super::owned_worker::StreamOwnership;
+use super::owned_worker::{OwnedSession, Stoppable};
 
 pub(crate) enum GstCommand {
     SetRemoteDescription(String),
@@ -141,54 +140,17 @@ pub(crate) trait GstSession: Sized {
     fn on_stop(self) {}
 }
 
-pub(crate) struct WebRtcSession<T: GstSession> {
-    inner: Mutex<Option<T>>,
-    ownership: StreamOwnership,
+impl<T: GstSession> Stoppable for T {
+    fn stop(self) {
+        let _ = self.cmd_tx().send(GstCommand::Stop);
+        let _ = self.pipeline().set_state(gst::State::Null);
+        self.on_stop();
+    }
 }
 
+pub(crate) type WebRtcSession<T> = OwnedSession<T>;
+
 impl<T: GstSession> WebRtcSession<T> {
-    pub(crate) fn new() -> Self {
-        Self {
-            inner: Mutex::new(None),
-            ownership: StreamOwnership::new(),
-        }
-    }
-
-    pub(crate) fn ownership(&self) -> &StreamOwnership {
-        &self.ownership
-    }
-
-    pub(crate) fn finish_start(&self, state: T) -> Result<(), T> {
-        let mut guard = self.inner.lock();
-        if !self.ownership.is_running() {
-            return Err(state);
-        }
-        *guard = Some(state);
-        Ok(())
-    }
-
-    pub(crate) fn with_inner<R>(&self, f: impl FnOnce(&T) -> R) -> Option<R> {
-        self.inner.lock().as_ref().map(f)
-    }
-
-    pub(crate) fn stop(&self) {
-        self.ownership.clear();
-
-        if let Some(state) = self.inner.lock().take() {
-            let _ = state.cmd_tx().send(GstCommand::Stop);
-            let _ = state.pipeline().set_state(gst::State::Null);
-            state.on_stop();
-        }
-    }
-
-    pub(crate) fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.ownership.owns(owner_id);
-        if is_owner {
-            self.stop();
-        }
-        is_owner
-    }
-
     pub(crate) fn set_remote_description(&self, sdp: String) {
         self.with_inner(|s| {
             let _ = s.cmd_tx().send(GstCommand::SetRemoteDescription(sdp));

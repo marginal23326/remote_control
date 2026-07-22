@@ -112,6 +112,8 @@ export interface ServerToClientEvents {
     audio_sources_error: (data: MessagePayload) => void;
     server_audio_format: (data: AudioFormat) => void;
     server_audio_data: (data: ServerAudioData) => void;
+    server_audio_error: (data: MessagePayload) => void;
+    client_audio_error: (data: MessagePayload) => void;
 
     stream_error: (data: MessagePayload) => void;
     webrtc_offer: (sdp: string) => void;

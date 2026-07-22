@@ -3,7 +3,6 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use std::thread;
 
 #[derive(Default)]
 struct Owner(Mutex<Option<String>>);
@@ -22,49 +21,8 @@ impl Owner {
     }
 }
 
-pub struct OwnedWorker {
-    handle: Mutex<Option<(thread::JoinHandle<()>, Arc<AtomicBool>)>>,
-    owner: Owner,
-}
-
-impl Default for OwnedWorker {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl OwnedWorker {
-    pub fn new() -> Self {
-        Self {
-            handle: Mutex::new(None),
-            owner: Owner::default(),
-        }
-    }
-
-    pub fn start(&self, owner_id: String, spawn: impl FnOnce(Arc<AtomicBool>) -> thread::JoinHandle<()>) {
-        self.stop();
-        self.owner.set(owner_id);
-        let is_running = Arc::new(AtomicBool::new(true));
-        *self.handle.lock() = Some((spawn(is_running.clone()), is_running));
-    }
-
-    pub fn stop(&self) {
-        self.owner.clear();
-        if let Some((handle, running)) = self.handle.lock().take() {
-            running.store(false, Ordering::SeqCst);
-            tokio::task::spawn_blocking(move || {
-                let _ = handle.join();
-            });
-        }
-    }
-
-    pub fn stop_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.owner.owns(owner_id);
-        if is_owner {
-            self.stop();
-        }
-        is_owner
-    }
+pub trait Stoppable: Sized {
+    fn stop(self);
 }
 
 pub struct StreamOwnership {
@@ -132,5 +90,61 @@ impl Drop for StartGuard<'_> {
             tracing::warn!("Stream startup failed or was interrupted. Resetting is_running flag.");
             self.ownership.is_running.store(false, Ordering::SeqCst);
         }
+    }
+}
+
+pub struct OwnedSession<T: Stoppable> {
+    inner: Mutex<Option<T>>,
+    ownership: StreamOwnership,
+}
+
+impl<T: Stoppable> Default for OwnedSession<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Stoppable> OwnedSession<T> {
+    pub fn new() -> Self {
+        Self {
+            inner: Mutex::new(None),
+            ownership: StreamOwnership::new(),
+        }
+    }
+
+    pub fn ownership(&self) -> &StreamOwnership {
+        &self.ownership
+    }
+
+    pub fn finish_start(&self, state: T) -> Result<(), T> {
+        let mut guard = self.inner.lock();
+        if !self.ownership.is_running() {
+            return Err(state);
+        }
+        *guard = Some(state);
+        Ok(())
+    }
+
+    pub fn with_inner<R>(&self, f: impl FnOnce(&T) -> R) -> Option<R> {
+        self.inner.lock().as_ref().map(f)
+    }
+
+    pub fn stop(&self) {
+        self.ownership.clear();
+        if let Some(state) = self.inner.lock().take() {
+            state.stop();
+        }
+    }
+
+    pub fn stop_if_owner(&self, owner_id: &str) -> bool {
+        let is_owner = self.ownership.owns(owner_id);
+        if is_owner {
+            self.stop();
+        }
+        is_owner
+    }
+
+    pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
+        self.stop_if_owner(owner_id)
     }
 }
