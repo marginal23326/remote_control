@@ -1,14 +1,23 @@
 import type {
+    AudioConfig,
     AudioSourceInfo,
     CameraDeviceInfo,
+    CameraStartConfig as StartCameraStreamPayload,
     CurrentSettingsResponse,
     DriveEntry,
     EncoderPropertyConstraint,
     FileEntry,
+    KeyboardEvent as KeyboardEventPayload,
+    MouseEvent as MouseEventDTO,
     ProcessDTO as ProcessInfo,
     ProcessDetailsDTO as ProcessDetails,
+    ShellCreateEvent as ShellCreatePayload,
+    ShellInputEvent as ShellInputPayload,
+    ShellResizeEvent as ShellResizePayload,
+    StartStreamConfig as StartStreamPayload,
     StreamSettingsDTO,
     SystemInfoDTO as SystemInfo,
+    TaskPayload as TaskListPayload,
 } from "@/generated/bindings";
 
 export type FileListItem = Pick<FileEntry, "name" | "path" | "is_dir"> &
@@ -28,6 +37,21 @@ export interface UploadResponse {
     message?: string;
     count: number;
 }
+
+export type MouseEventPayload = Omit<MouseEventDTO, "type" | "button"> & {
+    type: "move" | "click" | "scroll";
+    button?: "left" | "right" | "middle";
+};
+
+export type { KeyboardEventPayload };
+export type { ShellCreatePayload };
+export type { ShellInputPayload };
+export type { ShellResizePayload };
+export type { StartStreamPayload };
+export type { StartCameraStreamPayload };
+export type { TaskListPayload };
+
+export type AudioStartPayload = AudioConfig & { chunk?: number };
 
 export type { SystemInfo };
 
