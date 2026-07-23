@@ -1,7 +1,8 @@
+import { byId } from "./dom-helpers";
 import { SVG_TEMPLATES } from "./icons";
 
-const connectionOverlay = document.getElementById("connectionOverlay")!;
-const connectionMessage = document.getElementById("connectionMessage")!;
+const connectionOverlay = byId("connectionOverlay")!;
+const connectionMessage = byId("connectionMessage")!;
 
 type DisableableElement = HTMLElement & { disabled?: boolean };
 
@@ -92,7 +93,7 @@ interface NotificationWrapper extends HTMLDivElement {
 }
 
 export function showNotification(message: string, type: NotificationType = "error"): void {
-    let container = document.getElementById("notification-container");
+    let container = byId("notification-container");
     if (!container) {
         container = document.createElement("div");
         container.id = "notification-container";

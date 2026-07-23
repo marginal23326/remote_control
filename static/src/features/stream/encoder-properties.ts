@@ -1,4 +1,4 @@
-import { escapeHtml } from "@/shared/dom-helpers";
+import { byId, escapeHtml } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { showPromptModal } from "@/shared/modal";
 import type { EncoderPropertyConstraint } from "@/shared/types";
@@ -16,7 +16,7 @@ export function setEncoderProperties(props: Record<string, string>): void {
 }
 
 function renderEncoderProperties(): void {
-    const tbody = document.getElementById("encoderPropsList");
+    const tbody = byId("encoderPropsList");
     if (!tbody) return;
     tbody.innerHTML = "";
 
@@ -145,9 +145,9 @@ export function readEncoderPropsFromDOM(): Record<string, string> | null {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const toggle = document.getElementById("advancedToggle");
-    const panel = document.getElementById("advancedSettingsPanel");
-    const icon = document.getElementById("advancedToggleIcon");
+    const toggle = byId("advancedToggle");
+    const panel = byId("advancedSettingsPanel");
+    const icon = byId("advancedToggleIcon");
     if (toggle && panel) {
         toggle.addEventListener("click", () => {
             panel.classList.toggle("expanded");
@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    const addBtn = document.getElementById("addEncoderProp");
+    const addBtn = byId("addEncoderProp");
     if (addBtn) {
         addBtn.addEventListener("click", async () => {
             const knownKeys = Object.keys(encoderPropertyConstraints);
@@ -170,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             const container = addBtn.parentElement!;
-            const existing = document.getElementById("addPropRow");
+            const existing = byId("addPropRow");
             if (existing) existing.remove();
             const row = document.createElement("div");
             row.id = "addPropRow";
@@ -183,13 +183,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 <button id="cancelAddProp" class="px-2 py-1 text-xs rounded text-zinc-500 hover:text-zinc-200 transition-colors">Cancel</button>
             `;
             container.append(row);
-            document.getElementById("confirmAddProp")!.addEventListener("click", () => {
-                const k = (document.getElementById("addPropSelect") as HTMLSelectElement).value;
+            byId("confirmAddProp")!.addEventListener("click", () => {
+                const k = byId<HTMLSelectElement>("addPropSelect")!.value;
                 encoderProperties[k] = encoderPropertyConstraints[k]?.value_type === "bool" ? "false" : "";
                 renderEncoderProperties();
                 row.remove();
             });
-            document.getElementById("cancelAddProp")!.addEventListener("click", () => {
+            byId("cancelAddProp")!.addEventListener("click", () => {
                 row.remove();
             });
         });

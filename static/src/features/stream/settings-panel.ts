@@ -1,4 +1,5 @@
 import { apiCall } from "@/shared/api";
+import { byId } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { setStunServer } from "./stream-state";
 import { getNativeDimensions, setNativeDimensions } from "./geometry";
@@ -18,24 +19,24 @@ export function updateSettingsDisplay(settings: StreamSettings | null | undefine
         setNativeDimensions(settings.native_width, settings.native_height);
     }
 
-    (document.getElementById("streamBitrate") as HTMLInputElement).value = String(settings.bitrate);
-    (document.getElementById("streamResolution") as HTMLInputElement).value = String(settings.resolution_percentage);
+    byId<HTMLInputElement>("streamBitrate")!.value = String(settings.bitrate);
+    byId<HTMLInputElement>("streamResolution")!.value = String(settings.resolution_percentage);
     if (settings.max_fps) {
         maxFps = settings.max_fps;
-        (document.getElementById("streamFPS") as HTMLInputElement).max = String(maxFps);
+        byId<HTMLInputElement>("streamFPS")!.max = String(maxFps);
     }
-    (document.getElementById("streamFPS") as HTMLInputElement).value = String(settings.target_fps);
+    byId<HTMLInputElement>("streamFPS")!.value = String(settings.target_fps);
 
     const bitrateVal = settings.bitrate;
-    document.getElementById("bitrateValue")!.textContent = formatBitrateLabel(bitrateVal);
+    byId("bitrateValue")!.textContent = formatBitrateLabel(bitrateVal);
 
     const resText = formatResolutionLabel(settings.resolution_percentage);
-    document.getElementById("resolutionValue")!.textContent = resText;
+    byId("resolutionValue")!.textContent = resText;
 
-    document.getElementById("fpsValue")!.textContent = `(Target: ${settings.target_fps} FPS)`;
+    byId("fpsValue")!.textContent = `(Target: ${settings.target_fps} FPS)`;
 
     if (settings.encoder_type) {
-        document.getElementById("encoderTypeLabel")!.textContent = settings.encoder_type;
+        byId("encoderTypeLabel")!.textContent = settings.encoder_type;
     }
     if (settings.encoder_property_constraints) {
         setEncoderPropertyConstraints(settings.encoder_property_constraints);
@@ -57,18 +58,18 @@ function formatResolutionLabel(pct: number): string {
 }
 
 function updateSliderLabels(): void {
-    const bitrate = parseInt((document.getElementById("streamBitrate") as HTMLInputElement).value, 10);
-    const resolution = parseInt((document.getElementById("streamResolution") as HTMLInputElement).value, 10);
-    const fps = parseInt((document.getElementById("streamFPS") as HTMLInputElement).value, 10);
-    document.getElementById("bitrateValue")!.textContent = formatBitrateLabel(bitrate);
-    document.getElementById("resolutionValue")!.textContent = formatResolutionLabel(resolution);
-    document.getElementById("fpsValue")!.textContent = `(Target: ${fps} FPS)`;
+    const bitrate = parseInt(byId<HTMLInputElement>("streamBitrate")!.value, 10);
+    const resolution = parseInt(byId<HTMLInputElement>("streamResolution")!.value, 10);
+    const fps = parseInt(byId<HTMLInputElement>("streamFPS")!.value, 10);
+    byId("bitrateValue")!.textContent = formatBitrateLabel(bitrate);
+    byId("resolutionValue")!.textContent = formatResolutionLabel(resolution);
+    byId("fpsValue")!.textContent = `(Target: ${fps} FPS)`;
 }
 
 async function updateStreamSettings(includeEncoderProps = false): Promise<void> {
-    const bitrate = parseInt((document.getElementById("streamBitrate") as HTMLInputElement).value, 10);
-    const resolutionPercentage = parseInt((document.getElementById("streamResolution") as HTMLInputElement).value, 10);
-    const fps = parseInt((document.getElementById("streamFPS") as HTMLInputElement).value, 10);
+    const bitrate = parseInt(byId<HTMLInputElement>("streamBitrate")!.value, 10);
+    const resolutionPercentage = parseInt(byId<HTMLInputElement>("streamResolution")!.value, 10);
+    const fps = parseInt(byId<HTMLInputElement>("streamFPS")!.value, 10);
 
     const payload: UpdateStreamSettingsPayload = {
         bitrate,
@@ -90,24 +91,24 @@ async function updateStreamSettings(includeEncoderProps = false): Promise<void> 
 }
 
 function setAutoFPS(): void {
-    (document.getElementById("streamFPS") as HTMLInputElement).value = String(maxFps);
-    document.getElementById("fpsValue")!.textContent = `${maxFps} FPS`;
+    byId<HTMLInputElement>("streamFPS")!.value = String(maxFps);
+    byId("fpsValue")!.textContent = `${maxFps} FPS`;
     void updateStreamSettings();
 }
 
 export function initSettingsPanel(): void {
-    document.getElementById("streamBitrate")!.addEventListener("input", updateSliderLabels);
-    document.getElementById("streamBitrate")!.addEventListener("change", () => void updateStreamSettings());
-    document.getElementById("streamResolution")!.addEventListener("input", updateSliderLabels);
-    document.getElementById("streamResolution")!.addEventListener("change", () => void updateStreamSettings());
-    document.getElementById("streamFPS")!.addEventListener("input", updateSliderLabels);
-    document.getElementById("streamFPS")!.addEventListener("change", () => void updateStreamSettings());
-    document.getElementById("autoFpsButton")!.addEventListener("click", setAutoFPS);
+    byId("streamBitrate")!.addEventListener("input", updateSliderLabels);
+    byId("streamBitrate")!.addEventListener("change", () => void updateStreamSettings());
+    byId("streamResolution")!.addEventListener("input", updateSliderLabels);
+    byId("streamResolution")!.addEventListener("change", () => void updateStreamSettings());
+    byId("streamFPS")!.addEventListener("input", updateSliderLabels);
+    byId("streamFPS")!.addEventListener("change", () => void updateStreamSettings());
+    byId("autoFpsButton")!.addEventListener("click", setAutoFPS);
 }
 
 // Front-loaded like the rest of the advanced-settings panel, so it works regardless of when initializeStream() runs.
 document.addEventListener("DOMContentLoaded", () => {
-    const applyBtn = document.getElementById("applyEncoderProps");
+    const applyBtn = byId("applyEncoderProps");
     if (applyBtn) {
         applyBtn.addEventListener("click", () => {
             void updateStreamSettings(true);

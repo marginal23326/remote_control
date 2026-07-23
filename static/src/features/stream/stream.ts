@@ -1,4 +1,5 @@
 import { apiCall } from "@/shared/api";
+import { byId } from "@/shared/dom-helpers";
 import { LoadingButton, showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { registerShortcuts } from "@/core/shortcuts";
@@ -42,7 +43,7 @@ export function initializeStream(socket: AppSocket): void {
             console.log("Stream settings not yet available");
         });
 
-    document.getElementById("toggleStream")!.addEventListener("click", async () => {
+    byId("toggleStream")!.addEventListener("click", async () => {
         if (streamActive) {
             streamUI.hide();
             streamUI.hideScreenshot();
@@ -57,14 +58,14 @@ export function initializeStream(socket: AppSocket): void {
         }
     });
 
-    document.getElementById("streamOverlayPlayButton")?.addEventListener("click", () => {
-        document.getElementById("toggleStream")!.click();
+    byId("streamOverlayPlayButton")?.addEventListener("click", () => {
+        byId("toggleStream")!.click();
     });
 
     let currentScreenshotUrl: string | null = null;
 
-    document.getElementById("screenshot")!.addEventListener("click", async () => {
-        const loader = new LoadingButton(document.getElementById("screenshot") as HTMLButtonElement, "");
+    byId("screenshot")!.addEventListener("click", async () => {
+        const loader = new LoadingButton(byId<HTMLButtonElement>("screenshot")!, "");
         loader.startLoading();
 
         try {
@@ -93,7 +94,7 @@ export function initializeStream(socket: AppSocket): void {
     });
 
     let isFullscreen = false;
-    const fullscreenBtn = document.getElementById("fullscreenBtn")!;
+    const fullscreenBtn = byId("fullscreenBtn")!;
 
     function handleFullscreen(): void {
         if (isFullscreen) {
@@ -138,7 +139,7 @@ export function initializeStream(socket: AppSocket): void {
     });
 
     (["pull", "push"] as const).forEach((action) => {
-        document.getElementById(`${action}ClipboardBtn`)?.addEventListener("click", async (e) => {
+        byId(`${action}ClipboardBtn`)?.addEventListener("click", async (e) => {
             if (!navigator.clipboard) {
                 showNotification(
                     "Clipboard sync requires a Secure Context (HTTPS or localhost). See the README for the Chrome flag workaround.",
@@ -166,10 +167,10 @@ export function initializeStream(socket: AppSocket): void {
     });
 
     registerShortcuts("streamSection", {
-        " ": () => document.getElementById("toggleStream")?.click(),
-        f: () => document.getElementById("fullscreenBtn")?.click(),
-        k: () => document.getElementById("keyboardCaptureBtn")?.click(),
-        m: () => document.getElementById("mouseCaptureBtn")?.click(),
-        s: () => document.getElementById("screenshot")?.click(),
+        " ": () => byId("toggleStream")?.click(),
+        f: () => byId("fullscreenBtn")?.click(),
+        k: () => byId("keyboardCaptureBtn")?.click(),
+        m: () => byId("mouseCaptureBtn")?.click(),
+        s: () => byId("screenshot")?.click(),
     });
 }

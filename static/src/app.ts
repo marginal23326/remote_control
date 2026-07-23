@@ -3,6 +3,7 @@ import "../css/styles.css";
 import { initializeSocketIO } from "@/core/socket";
 import { initializeNavigation } from "@/core/navigation";
 import { initializeShortcuts } from "@/core/shortcuts";
+import { byId } from "@/shared/dom-helpers";
 import { AudioManager } from "@/features/audio/audio-manager";
 import { initializeStream } from "@/features/stream/stream";
 import { initializeCamera } from "@/features/camera/camera";
@@ -23,14 +24,14 @@ function updateUIBasedOnAuthentication(isAuthenticated: boolean): void {
         "processSection",
     ];
 
-    const logoutButton = document.getElementById("logoutButton")!;
+    const logoutButton = byId("logoutButton")!;
     logoutButton.classList.toggle("hidden", !isAuthenticated);
 
     if (isAuthenticated) {
         initializeNavigation(isAuthenticated);
     } else {
         sections.forEach((sectionId) => {
-            document.getElementById(sectionId)!.classList.add("hidden");
+            byId(sectionId)!.classList.add("hidden");
         });
         if (window.location.pathname !== "/login") {
             window.location.href = "/login";
@@ -67,7 +68,7 @@ document.addEventListener("click", (e) => {
     void updateSystemInfo();
 
     // Handle logout
-    document.getElementById("logoutButton")!.addEventListener("click", async (e) => {
+    byId("logoutButton")!.addEventListener("click", async (e) => {
         e.preventDefault();
         const response = await fetch("/logout");
         if (response.ok) {

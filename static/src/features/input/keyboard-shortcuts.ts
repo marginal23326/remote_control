@@ -1,3 +1,4 @@
+import { byId } from "@/shared/dom-helpers";
 import { captureState } from "./capture-state";
 import type { AppSocket } from "@/core/socket";
 import type { KeyboardEventPayload } from "@/core/socket-events";
@@ -65,7 +66,7 @@ const KEY_BUTTON_ACTIVE_CLASSES = ["bg-zinc-100", "text-zinc-900", "border-zinc-
 
 // Helper to collect currently active modifiers if sticky mode is enabled
 function getActiveModifiers(): string[] {
-    const stickyToggle = document.getElementById("stickyToggle") as HTMLInputElement | null;
+    const stickyToggle = byId<HTMLInputElement>("stickyToggle");
     if (stickyToggle && !stickyToggle.checked) {
         return [];
     }
@@ -114,8 +115,8 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
     });
 
     // 2. Text Input Handling
-    const textInput = document.getElementById("textInput") as HTMLTextAreaElement | null;
-    const sendTextButton = document.getElementById("sendText") as HTMLButtonElement | null;
+    const textInput = byId<HTMLTextAreaElement>("textInput");
+    const sendTextButton = byId<HTMLButtonElement>("sendText");
 
     if (sendTextButton && textInput) {
         const sendText = () => {
@@ -149,10 +150,10 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
     }
 
     // 3. Custom Shortcut Builder & Modifier Toggles
-    const customKeyInput = document.getElementById("customKey") as HTMLInputElement | null;
-    const sendCustomButton = document.getElementById("sendCustomShortcut") as HTMLButtonElement | null;
+    const customKeyInput = byId<HTMLInputElement>("customKey");
+    const sendCustomButton = byId<HTMLButtonElement>("sendCustomShortcut");
     const modifierButtons = document.querySelectorAll<HTMLElement>(".modifier-btn");
-    const stickyToggle = document.getElementById("stickyToggle") as HTMLInputElement | null;
+    const stickyToggle = byId<HTMLInputElement>("stickyToggle");
 
     // Toggle logic / immediate emittance logic for modifier buttons
     modifierButtons.forEach((button) => {

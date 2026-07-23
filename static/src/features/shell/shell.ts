@@ -3,6 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { SVG_TEMPLATES } from "@/shared/icons";
+import { byId } from "@/shared/dom-helpers";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import type { AppSocket } from "@/core/socket";
 
@@ -32,7 +33,7 @@ export class InteractiveShell {
     stopButton!: HTMLElement;
 
     constructor(containerId: string, socket: AppSocket) {
-        this.container = document.getElementById(containerId);
+        this.container = byId(containerId);
         this.sessionId = null;
         this.socket = socket;
         this.isStarted = false;
@@ -74,8 +75,8 @@ export class InteractiveShell {
     }
 
     toggleTextMode(): void {
-        const overlay = document.getElementById("shellTextOverlay");
-        const content = document.getElementById("shellTextContent");
+        const overlay = byId("shellTextOverlay");
+        const content = byId("shellTextContent");
 
         if (overlay && content) {
             overlay.classList.remove("hidden");
@@ -84,7 +85,7 @@ export class InteractiveShell {
     }
 
     closeTextMode(): void {
-        const overlay = document.getElementById("shellTextOverlay");
+        const overlay = byId("shellTextOverlay");
         if (overlay) {
             overlay.classList.add("hidden");
         }
@@ -102,7 +103,7 @@ export class InteractiveShell {
     }
 
     initializeTerminal(): void {
-        const terminalElement = document.getElementById("terminalContainer")!;
+        const terminalElement = byId("terminalContainer")!;
 
         // Open terminal
         this.terminal.open(terminalElement);
@@ -161,13 +162,13 @@ export class InteractiveShell {
     }
 
     setupEventHandlers(): void {
-        const startButton = document.getElementById("startShellBtn")!;
-        const restartButton = document.getElementById("restartShellBtn")!;
-        const stopButton = document.getElementById("stopShellBtn")!;
-        const terminalContainer = document.getElementById("terminalContainer")!;
-        const textModeBtn = document.getElementById("shellTextModeBtn");
-        const closeTextBtn = document.getElementById("shellCloseTextBtn");
-        this.shellTypeSelect = document.getElementById("shellTypeSelect") as HTMLSelectElement | null;
+        const startButton = byId("startShellBtn")!;
+        const restartButton = byId("restartShellBtn")!;
+        const stopButton = byId("stopShellBtn")!;
+        const terminalContainer = byId("terminalContainer")!;
+        const textModeBtn = byId("shellTextModeBtn");
+        const closeTextBtn = byId("shellCloseTextBtn");
+        this.shellTypeSelect = byId<HTMLSelectElement>("shellTypeSelect");
         this.startButton = startButton;
         this.restartButton = restartButton;
         this.stopButton = stopButton;

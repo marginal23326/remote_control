@@ -1,3 +1,5 @@
+import { byId } from "@/shared/dom-helpers";
+
 let activeSectionId = "streamSection";
 let isInitialized = false;
 
@@ -7,7 +9,7 @@ let cachedNavContainer: HTMLElement | null = null;
 
 function syncStateFromHash(): boolean {
     const hash = window.location.hash.slice(1);
-    if (hash && document.getElementById(hash)?.classList.contains("section")) {
+    if (hash && byId(hash)?.classList.contains("section")) {
         activeSectionId = hash;
         return true;
     }

@@ -1,5 +1,5 @@
 import { apiCall } from "@/shared/api";
-import { escapeHtml } from "@/shared/dom-helpers";
+import { byId, escapeHtml } from "@/shared/dom-helpers";
 import type { SystemInfo } from "@/shared/types";
 
 const svg = (inner: string) =>
@@ -74,7 +74,7 @@ async function updateSystemInfo(): Promise<void> {
         },
     ];
 
-    document.getElementById("systemInfo")!.innerHTML = cards
+    byId("systemInfo")!.innerHTML = cards
         .map(
             (c) => `
         <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col gap-4 shadow-sm">

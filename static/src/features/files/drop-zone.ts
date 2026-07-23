@@ -1,3 +1,5 @@
+import { byId } from "@/shared/dom-helpers";
+
 export type DropZoneUploadHandler = (files: FileList, isDrop: boolean) => void;
 
 const preventDefault = (e: Event): void => {
@@ -14,10 +16,10 @@ export class DropZone {
     dragCounter = 0;
 
     constructor(elementId: string, onUpload: DropZoneUploadHandler) {
-        this.element = document.getElementById(elementId);
-        this.overlay = document.getElementById("dropOverlay");
-        this.promptEl = document.getElementById("dropPrompt");
-        this.spinnerEl = document.getElementById("dropSpinner");
+        this.element = byId(elementId);
+        this.overlay = byId("dropOverlay");
+        this.promptEl = byId("dropPrompt");
+        this.spinnerEl = byId("dropSpinner");
         this.onUpload = onUpload;
         this.setupEventListeners();
     }

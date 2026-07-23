@@ -2,7 +2,12 @@ import { apiCall } from "@/shared/api";
 import { CLASSES, type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import type { ContextMenuItem } from "@/shared/context-menu";
 import { formatDate, formatFileSize } from "@/shared/format";
-import { bindDebouncedInput, escapeHtml, updateSortIndicators as renderSortIndicators } from "@/shared/dom-helpers";
+import {
+    bindDebouncedInput,
+    byId,
+    escapeHtml,
+    updateSortIndicators as renderSortIndicators,
+} from "@/shared/dom-helpers";
 import { showConfirmModal, showPromptModal } from "@/shared/modal";
 import { LoadingButton, showNotification } from "@/shared/feedback";
 import { registerShortcuts } from "@/core/shortcuts";
@@ -110,9 +115,9 @@ class FileManager extends ListManager {
     }
 
     initializeElements(): void {
-        this.elements.fileList = document.getElementById("fileList");
-        this.elements.currentPath = document.getElementById("currentPath");
-        this.elements.searchInput = document.getElementById("searchInput") as HTMLInputElement | null;
+        this.elements.fileList = byId("fileList");
+        this.elements.currentPath = byId("currentPath");
+        this.elements.searchInput = byId<HTMLInputElement>("searchInput");
         this.elements.scrollContainer = this.elements.fileList!.closest<HTMLElement>(".overflow-auto");
 
         if (this.elements.scrollContainer) {
@@ -153,7 +158,7 @@ class FileManager extends ListManager {
         this.buttons = Object.fromEntries(
             Object.entries(buttonConfigs)
                 .map(([id, loadingText]): [string, LoadingButton] | null => {
-                    const button = document.getElementById(id) as HTMLButtonElement | null;
+                    const button = byId<HTMLButtonElement>(id);
                     if (button) {
                         button.classList.add(
                             "inline-flex",
@@ -181,7 +186,7 @@ class FileManager extends ListManager {
         if (isDropZone) this.dropZone!.setLoading();
 
         const uploadLabel = document.querySelector('label[for="fileUpload"] span');
-        const cancelBtn = document.getElementById("cancelUpload");
+        const cancelBtn = byId("cancelUpload");
         if (uploadLabel) uploadLabel.textContent = "Uploading... 0%";
         if (cancelBtn) cancelBtn.classList.remove("hidden");
 
@@ -220,7 +225,7 @@ class FileManager extends ListManager {
             if (uploadLabel) uploadLabel.textContent = "Upload";
             if (cancelBtn) cancelBtn.classList.add("hidden");
 
-            const fileInput = document.getElementById("fileUpload") as HTMLInputElement | null;
+            const fileInput = byId<HTMLInputElement>("fileUpload");
             if (fileInput) fileInput.value = "";
         }
     }
@@ -244,12 +249,12 @@ class FileManager extends ListManager {
     updateFileOperationsUI(): void {
         const selectedCount = this.selectionManager?.selectedIds?.size ?? 0;
         const hasSelection = selectedCount > 0;
-        const downloadBtn = document.getElementById("downloadFile");
-        const deleteBtn = document.getElementById("deleteItem");
+        const downloadBtn = byId("downloadFile");
+        const deleteBtn = byId("deleteItem");
         if (downloadBtn) downloadBtn.style.display = hasSelection ? "" : "none";
         if (deleteBtn) deleteBtn.style.display = hasSelection ? "" : "none";
 
-        const countEl = document.getElementById("fileSelectionCount");
+        const countEl = byId("fileSelectionCount");
         if (countEl) {
             countEl.classList.toggle("hidden", !hasSelection);
             countEl.textContent = `${selectedCount} selected`;
@@ -405,7 +410,7 @@ class FileManager extends ListManager {
         this.scrollToPath = null;
         this.lastRenderedRange = { end: -1, start: -1 };
         this.updateFileOperationsUI();
-        const fileList = document.getElementById("fileList")!;
+        const fileList = byId("fileList")!;
 
         this.isLoading = true;
         const token = ++this.navToken;
@@ -483,8 +488,8 @@ class FileManager extends ListManager {
     }
 
     updateNavButtons(): void {
-        const backBtn = document.getElementById("navBackBtn") as HTMLButtonElement | null;
-        const upBtn = document.getElementById("navUpBtn") as HTMLButtonElement | null;
+        const backBtn = byId<HTMLButtonElement>("navBackBtn");
+        const upBtn = byId<HTMLButtonElement>("navUpBtn");
         if (backBtn) backBtn.disabled = this.navigationHistory.length === 0;
         if (upBtn) upBtn.disabled = this.currentPath === "";
     }
@@ -495,7 +500,7 @@ class FileManager extends ListManager {
             return;
         }
 
-        let iframe = document.getElementById("global-download-iframe") as HTMLIFrameElement | null;
+        let iframe = byId<HTMLIFrameElement>("global-download-iframe");
         if (!iframe) {
             iframe = document.createElement("iframe");
             iframe.id = "global-download-iframe";
@@ -574,30 +579,28 @@ class FileManager extends ListManager {
             }
         };
 
-        document
-            .getElementById("refresh")
-            ?.addEventListener(
-                "click",
-                () => void handleButtonClick("refresh", () => this.listFiles(this.currentPath)),
-            );
+        byId("refresh")?.addEventListener(
+            "click",
+            () => void handleButtonClick("refresh", () => this.listFiles(this.currentPath)),
+        );
 
-        document.getElementById("downloadFile")?.addEventListener("click", () =>
+        byId("downloadFile")?.addEventListener("click", () =>
             handleButtonClick("downloadFile", () => {
                 this.handleDownload(this.getSelectedItems());
             }),
         );
 
-        document.getElementById("fileUpload")?.addEventListener("change", async (e) => {
+        byId("fileUpload")?.addEventListener("change", async (e) => {
             const { files } = e.target as HTMLInputElement;
             if (!files || files.length === 0) return;
             await this.handleFileUpload(files);
         });
 
-        document.getElementById("cancelUpload")?.addEventListener("click", () => {
+        byId("cancelUpload")?.addEventListener("click", () => {
             this.currentUploadXhr?.abort();
         });
 
-        document.getElementById("deleteItem")?.addEventListener(
+        byId("deleteItem")?.addEventListener(
             "click",
             () =>
                 void handleButtonClick("deleteItem", async () => {
@@ -605,7 +608,7 @@ class FileManager extends ListManager {
                 }),
         );
 
-        document.getElementById("createFolder")?.addEventListener("click", () => {
+        byId("createFolder")?.addEventListener("click", () => {
             void (async () => {
                 const folderName = await showPromptModal({
                     confirmLabel: "Create",
@@ -627,14 +630,14 @@ class FileManager extends ListManager {
         });
 
         // --- Navigation: Back / Up / Home ---
-        document.getElementById("navBackBtn")?.addEventListener("click", () => this.goBack());
-        document.getElementById("navUpBtn")?.addEventListener("click", () => this.goUp());
-        document.getElementById("homeButton")?.addEventListener("click", () => this.goHome());
+        byId("navBackBtn")?.addEventListener("click", () => this.goBack());
+        byId("navUpBtn")?.addEventListener("click", () => this.goUp());
+        byId("homeButton")?.addEventListener("click", () => this.goHome());
 
         // --- Search mode helpers ---
-        const searchToggleBtn = document.getElementById("searchToggleBtn");
+        const searchToggleBtn = byId("searchToggleBtn");
         searchToggleBtn?.addEventListener("click", () => {
-            const searchWrapper = document.getElementById("searchWrapper");
+            const searchWrapper = byId("searchWrapper");
             if (searchWrapper?.classList.contains("is-swapped-out")) {
                 this.setSearchMode(true);
             } else {
@@ -643,8 +646,8 @@ class FileManager extends ListManager {
         });
 
         // Class-based toggles for directory/edit transitions
-        const pathContainer = document.getElementById("pathContainer");
-        const pathInput = document.getElementById("pathInput") as HTMLInputElement | null;
+        const pathContainer = byId("pathContainer");
+        const pathInput = byId<HTMLInputElement>("pathInput");
 
         if (pathContainer && pathInput) {
             pathContainer.addEventListener("click", () => {
@@ -672,7 +675,7 @@ class FileManager extends ListManager {
             });
         }
 
-        const searchInput = document.getElementById("searchInput") as HTMLInputElement | null;
+        const searchInput = byId<HTMLInputElement>("searchInput");
         if (searchInput) {
             bindDebouncedInput(searchInput, () => {
                 this.applySortAndFilter(true);
@@ -686,7 +689,7 @@ class FileManager extends ListManager {
         }
 
         registerShortcuts("fileSection", {
-            delete: () => document.getElementById("deleteItem")?.click(),
+            delete: () => byId("deleteItem")?.click(),
             f2: () => {
                 this.renameSelectedItem();
             },
@@ -694,10 +697,10 @@ class FileManager extends ListManager {
     }
 
     setSearchMode(active: boolean, refilter = false): void {
-        document.getElementById("pathContainer")?.classList.toggle("is-swapped-out", active);
-        document.getElementById("searchWrapper")?.classList.toggle("is-swapped-out", !active);
-        document.getElementById("searchIcon")?.classList.toggle("hidden", active);
-        document.getElementById("searchCloseIcon")?.classList.toggle("hidden", !active);
+        byId("pathContainer")?.classList.toggle("is-swapped-out", active);
+        byId("searchWrapper")?.classList.toggle("is-swapped-out", !active);
+        byId("searchIcon")?.classList.toggle("hidden", active);
+        byId("searchCloseIcon")?.classList.toggle("hidden", !active);
 
         if (active) {
             this.elements.searchInput?.focus();
