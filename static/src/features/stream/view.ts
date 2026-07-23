@@ -4,121 +4,114 @@ import { LoadingButton } from "@/shared/feedback";
 const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5L19 12L7 19Z"></path></svg>`;
 const STREAM_ICON_STOP = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" stroke-width="2"></rect></svg>`;
 
-interface StreamUI {
+interface StreamUIState {
     container: HTMLElement;
     status: HTMLElement;
     view: HTMLVideoElement;
     screenshotView: HTMLImageElement | null;
-    nativeWidth: number | null;
-    nativeHeight: number | null;
     fpsCounter: HTMLElement;
     activeWindowText: HTMLElement;
     frameTimes: number[];
+}
 
-    show(): void;
-    hide(): void;
-    startFpsCounter(): void;
-    stopFpsCounter(): void;
-    updateMeta(data: { win?: string }): void;
-    clear(): void;
-    initScreenshotView(): void;
-    displayScreenshot(url: string): void;
-    hideScreenshot(): void;
+export const streamUI: StreamUIState = {
+    activeWindowText: byId("activeWindow")!,
+    container: byId("streamContainer")!,
+    fpsCounter: byId("currentFPS")!,
+    frameTimes: [],
+    screenshotView: null,
+    status: byId("streamStatus")!,
+    view: byId<HTMLVideoElement>("streamView")!,
+};
+
+export function showStreamUI(): void {
+    byId("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
+    streamUI.view.classList.remove("opacity-0");
+
+    streamUI.status.classList.remove("hidden");
+    streamUI.status.classList.add("inline-flex");
+}
+
+export function hideStreamUI(): void {
+    byId("streamOverlay")?.classList.remove("opacity-0", "pointer-events-none");
+    streamUI.view.classList.add("opacity-0");
+
+    streamUI.status.classList.remove("inline-flex");
+    streamUI.status.classList.add("hidden");
 }
 
 let cancelFpsCounter: (() => void) | null = null;
 
-export const streamUI: StreamUI = {
-    activeWindowText: byId("activeWindow")!,
-    clear() {
-        this.stopFpsCounter();
-        this.fpsCounter.textContent = "0";
-        this.frameTimes = [];
-        if (this.view.srcObject) {
-            (this.view.srcObject as MediaStream).getTracks().forEach((t) => {
-                t.stop();
-            });
-            this.view.srcObject = null;
-        }
-    },
-    container: byId("streamContainer")!,
-    displayScreenshot(url) {
-        this.initScreenshotView();
-        this.screenshotView!.src = url;
-        this.screenshotView!.classList.remove("hidden");
-        this.view.classList.add("hidden");
+export function startFpsCounter(): void {
+    stopFpsCounter();
+    const { frameTimes, fpsCounter, view } = streamUI;
 
-        byId("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
-    },
-    fpsCounter: byId("currentFPS")!,
-    frameTimes: [],
-    hide() {
-        byId("streamOverlay")?.classList.remove("opacity-0", "pointer-events-none");
-        this.view.classList.add("opacity-0");
+    let rafId: number;
 
-        this.status.classList.remove("inline-flex");
-        this.status.classList.add("hidden");
-    },
-    hideScreenshot() {
-        if (this.screenshotView) {
-            this.screenshotView.classList.add("hidden");
+    function onFrame(now: number, _metadata: VideoFrameCallbackMetadata) {
+        frameTimes.push(now);
+        while (frameTimes.length > 0 && frameTimes[0]! <= now - 1000) {
+            frameTimes.shift();
         }
-        this.view.classList.remove("hidden");
-    },
-    initScreenshotView() {
-        if (!this.screenshotView) {
-            this.screenshotView = document.createElement("img");
-            this.screenshotView.className =
-                "absolute inset-0 w-full h-full object-contain object-center pointer-events-auto hidden z-10 bg-black";
-            this.view.parentNode!.insertBefore(this.screenshotView, this.view.nextSibling);
-        }
-    },
-    nativeHeight: null,
-    nativeWidth: null,
-    screenshotView: null,
-    show() {
-        byId("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
-        this.view.classList.remove("opacity-0");
+        fpsCounter.textContent = String(frameTimes.length);
+        rafId = view.requestVideoFrameCallback(onFrame);
+    }
 
-        this.status.classList.remove("hidden");
-        this.status.classList.add("inline-flex");
-    },
-    startFpsCounter() {
-        this.stopFpsCounter();
-        const frameTimes = this.frameTimes;
-        const fpsCounter = this.fpsCounter;
-        const video = this.view;
+    rafId = view.requestVideoFrameCallback(onFrame);
+    cancelFpsCounter = () => {
+        view.cancelVideoFrameCallback(rafId);
+    };
+}
 
-        let rafId: number;
+export function stopFpsCounter(): void {
+    if (cancelFpsCounter) {
+        cancelFpsCounter();
+        cancelFpsCounter = null;
+    }
+}
 
-        function onFrame(now: number, _metadata: VideoFrameCallbackMetadata) {
-            frameTimes.push(now);
-            while (frameTimes.length > 0 && frameTimes[0]! <= now - 1000) {
-                frameTimes.shift();
-            }
-            fpsCounter.textContent = String(frameTimes.length);
-            rafId = video.requestVideoFrameCallback(onFrame);
-        }
+export function updateStreamMeta(data: { win?: string }): void {
+    if (Object.prototype.hasOwnProperty.call(data, "win")) {
+        streamUI.activeWindowText.textContent = `Active Window: ${data.win || "Unknown"}`;
+    }
+}
 
-        rafId = video.requestVideoFrameCallback(onFrame);
-        cancelFpsCounter = () => {
-            video.cancelVideoFrameCallback(rafId);
-        };
-    },
-    status: byId("streamStatus")!,
-    stopFpsCounter() {
-        if (cancelFpsCounter) {
-            cancelFpsCounter();
-            cancelFpsCounter = null;
-        }
-    },
-    updateMeta(data) {
-        if (Object.prototype.hasOwnProperty.call(data, "win")) {
-            this.activeWindowText.textContent = `Active Window: ${data.win || "Unknown"}`;
-        }
-    },
-    view: byId<HTMLVideoElement>("streamView")!,
-};
+export function clearStreamUI(): void {
+    stopFpsCounter();
+    streamUI.fpsCounter.textContent = "0";
+    streamUI.frameTimes = [];
+    if (streamUI.view.srcObject) {
+        (streamUI.view.srcObject as MediaStream).getTracks().forEach((t) => {
+            t.stop();
+        });
+        streamUI.view.srcObject = null;
+    }
+}
+
+function initScreenshotView(): void {
+    if (!streamUI.screenshotView) {
+        streamUI.screenshotView = document.createElement("img");
+        streamUI.screenshotView.className =
+            "absolute inset-0 w-full h-full object-contain object-center pointer-events-auto hidden z-10 bg-black";
+        streamUI.view.parentNode!.insertBefore(streamUI.screenshotView, streamUI.view.nextSibling);
+    }
+}
+
+export function displayScreenshot(url: string): void {
+    initScreenshotView();
+    streamUI.screenshotView!.src = url;
+    streamUI.screenshotView!.classList.remove("hidden");
+    streamUI.view.classList.add("hidden");
+
+    byId("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
+}
+
+export function hideScreenshotView(): void {
+    if (streamUI.screenshotView) {
+        streamUI.screenshotView.classList.add("hidden");
+    }
+    streamUI.view.classList.remove("hidden");
+}
 
 function isCursorCaptureEnabled(): boolean {
     const checkbox = byId<HTMLInputElement>("showCursorToggle");

@@ -3,7 +3,17 @@ import { byId } from "@/shared/dom-helpers";
 import { LoadingButton, showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { registerShortcuts } from "@/core/shortcuts";
-import { getStartButtonLoader, isCursorCaptureEnabled, setStreamToggleUI, streamUI } from "./view";
+import {
+    clearStreamUI,
+    displayScreenshot,
+    getStartButtonLoader,
+    hideScreenshotView,
+    hideStreamUI,
+    isCursorCaptureEnabled,
+    setStreamToggleUI,
+    streamUI,
+    updateStreamMeta,
+} from "./view";
 import { invalidateDimensionsCache } from "./geometry";
 import { setStreamActive, streamActive } from "./stream-state";
 import { cleanupPeerConnection, initializePeerConnectionSignaling } from "./peer-connection";
@@ -19,7 +29,7 @@ async function executeStopStream(): Promise<void> {
     setStreamToggleUI(false);
     await apiCall("/api/stream/stop").catch(() => {});
     cleanupPeerConnection();
-    streamUI.clear();
+    clearStreamUI();
 }
 
 export function initializeStream(socket: AppSocket): void {
@@ -45,11 +55,11 @@ export function initializeStream(socket: AppSocket): void {
 
     byId("toggleStream")!.addEventListener("click", async () => {
         if (streamActive) {
-            streamUI.hide();
-            streamUI.hideScreenshot();
+            hideStreamUI();
+            hideScreenshotView();
             await executeStopStream();
         } else {
-            streamUI.hideScreenshot();
+            hideScreenshotView();
             setStreamActive(true);
 
             getStartButtonLoader()?.startLoading();
@@ -82,7 +92,7 @@ export function initializeStream(socket: AppSocket): void {
             }
 
             currentScreenshotUrl = URL.createObjectURL(blob);
-            streamUI.displayScreenshot(currentScreenshotUrl);
+            displayScreenshot(currentScreenshotUrl);
             await executeStopStream();
 
             showNotification("Screenshot captured. Right-click to save.", "info");
@@ -120,7 +130,7 @@ export function initializeStream(socket: AppSocket): void {
     });
 
     socket.on("active_window", (data) => {
-        streamUI.updateMeta({ win: data.title });
+        updateStreamMeta({ win: data.title });
     });
 
     bindMediaSessionReconnect(socket, {

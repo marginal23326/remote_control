@@ -1,5 +1,13 @@
 import { showNotification } from "@/shared/feedback";
-import { getStartButtonLoader, setStreamToggleUI, streamUI } from "./view";
+import {
+    getStartButtonLoader,
+    hideStreamUI,
+    setStreamToggleUI,
+    showStreamUI,
+    startFpsCounter,
+    stopFpsCounter,
+    streamUI,
+} from "./view";
 import { activeStunServer, setStreamActive, streamActive } from "./stream-state";
 import { apiCall } from "@/shared/api";
 import { updateSettingsDisplay } from "./settings-panel";
@@ -28,7 +36,7 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
 
             pc.onconnectionstatechange = () => {
                 if (pc.connectionState === "connected") {
-                    streamUI.startFpsCounter();
+                    startFpsCounter();
                     void apiCall<StreamSettings>("/api/stream/settings", "GET").then((s) => {
                         if (s) updateSettingsDisplay(s);
                     });
@@ -54,7 +62,7 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
         if (!streamActive) return;
 
         getStartButtonLoader()?.stopLoading();
-        streamUI.show();
+        showStreamUI();
         setStreamToggleUI(true);
 
         await signaling.handleOffer(sdpText);
@@ -78,11 +86,11 @@ function handleStreamError(message: string): void {
     getStartButtonLoader()?.stopLoading();
     setStreamToggleUI(false);
     cleanupPeerConnection();
-    streamUI.hide();
+    hideStreamUI();
 }
 
 export function cleanupPeerConnection(): void {
-    streamUI.stopFpsCounter();
+    stopFpsCounter();
     mouseMoveChannel = null;
     mouseControlChannel = null;
     pendingMouseMove = null;
