@@ -1,5 +1,9 @@
+export function isWindowsPath(path: string): boolean {
+    return path.includes("\\") || /^[A-Z]:/iu.test(path);
+}
+
 export function getSeparator(path: string): "\\" | "/" {
-    return path.includes("\\") ? "\\" : "/";
+    return isWindowsPath(path) ? "\\" : "/";
 }
 
 export function joinPath(parent: string, child: string): string {
