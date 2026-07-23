@@ -124,16 +124,14 @@ export function showNotification(message: string, type: NotificationType = "erro
         return;
     }
 
-    const config = (
-        {
-            error: {
-                icon: "text-red-500",
-                path: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
-            },
-            info: { icon: "text-zinc-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-            warning: { icon: "text-amber-500", path: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-        } as Record<NotificationType, { icon: string; path: string }>
-    )[type] ?? { icon: "text-zinc-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" };
+    const config = {
+        error: {
+            icon: "text-red-500",
+            path: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+        },
+        info: { icon: "text-zinc-400", path: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+        warning: { icon: "text-amber-500", path: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    };
 
     const wrapper = document.createElement("div") as NotificationWrapper;
     wrapper.className = "flex items-center gap-2";
@@ -149,9 +147,10 @@ export function showNotification(message: string, type: NotificationType = "erro
     toast.className =
         "toast-el bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg px-4 py-3 text-sm flex items-start gap-3 pointer-events-auto max-w-sm translate-x-4 opacity-0";
 
+    const { icon, path } = config[type];
     toast.innerHTML = `
-        <div class="shrink-0 ${config.icon} mt-0.5">
-            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${config.path}"/></svg>
+        <div class="shrink-0 ${icon} mt-0.5">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>
         </div>
         <div class="flex-1 min-w-0 break-words">
             <span class="notification-text whitespace-pre-wrap text-[13px] leading-snug text-zinc-200"></span>
