@@ -4,7 +4,7 @@ import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
 import audioWorkletProcessorUrl from "./audio-worklet-processor.ts?worker&url";
 import type { AppSocket } from "@/core/socket";
-import type { AudioFormat } from "@/shared/types";
+import type { AudioSourceInfo, AudioFormat } from "@/shared/types";
 import type { AudioStartPayload } from "@/core/socket-events";
 
 const MIN_RATE = 3000;
@@ -200,7 +200,7 @@ class AudioManager {
         const select = byId<HTMLSelectElement>("audioSourceSelect");
         if (!select) return;
 
-        let sources: { id: string; name: string; kind: string }[] = [];
+        let sources: AudioSourceInfo[] = [];
         try {
             sources = await new Promise((resolve, reject) => {
                 this.socket.once("audio_sources", (data) => {
