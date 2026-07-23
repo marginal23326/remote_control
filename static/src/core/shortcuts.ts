@@ -1,4 +1,4 @@
-import { isTypingField } from "@/shared/dom-helpers";
+import { byId, isTypingField } from "@/shared/dom-helpers";
 
 export type ShortcutHandler = (event: KeyboardEvent) => void;
 export type SectionShortcuts = Record<string, ShortcutHandler>;
@@ -10,12 +10,12 @@ function isModalOpen(): boolean {
 }
 
 function isDisconnected(): boolean {
-    const overlay = document.getElementById("connectionOverlay");
+    const overlay = byId("connectionOverlay");
     return !!overlay && !overlay.classList.contains("hidden");
 }
 
 function isSectionActive(sectionId: string): boolean {
-    const section = document.getElementById(sectionId);
+    const section = byId(sectionId);
     return !!section && !section.classList.contains("hidden");
 }
 

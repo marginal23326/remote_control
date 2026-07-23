@@ -1,4 +1,4 @@
-import { setToggleStyle } from "@/shared/dom-helpers";
+import { byId, setToggleStyle } from "@/shared/dom-helpers";
 
 export const captureState = {
     keyboard: false,
@@ -6,14 +6,14 @@ export const captureState = {
 };
 
 function toggleBtn(id: string, active: boolean): void {
-    const btn = document.getElementById(id);
+    const btn = byId(id);
     if (!btn) return;
     setToggleStyle(btn, active);
 }
 
 function updateCaptureUI(): void {
     const anyActive = captureState.keyboard || captureState.mouse;
-    const container = document.getElementById("streamContainer");
+    const container = byId("streamContainer");
 
     if (container) {
         container.classList.toggle("ring-2", anyActive);
@@ -27,13 +27,13 @@ function updateCaptureUI(): void {
 }
 
 export function initializeCaptureToggles(): void {
-    document.getElementById("keyboardCaptureBtn")?.addEventListener("click", (e) => {
+    byId("keyboardCaptureBtn")?.addEventListener("click", (e) => {
         captureState.keyboard = !captureState.keyboard;
         updateCaptureUI();
         (e.currentTarget as HTMLElement).blur();
     });
 
-    document.getElementById("mouseCaptureBtn")?.addEventListener("click", (e) => {
+    byId("mouseCaptureBtn")?.addEventListener("click", (e) => {
         captureState.mouse = !captureState.mouse;
         updateCaptureUI();
         (e.currentTarget as HTMLElement).blur();

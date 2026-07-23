@@ -1,3 +1,5 @@
+import { byId } from "@/shared/dom-helpers";
+
 const renderIcon = (path: string): string =>
     `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>`;
 
@@ -13,7 +15,7 @@ export function renderInputGrids(): void {
         { k: "alt", l: "Alt" },
         { k: "shift", l: "Shift" },
     ];
-    document.getElementById("modifierGrid")!.innerHTML = modifiers
+    byId("modifierGrid")!.innerHTML = modifiers
         .map(
             (m) =>
                 `<button class="modifier-btn ${btnCls} data-[active=true]:bg-zinc-100 data-[active=true]:text-zinc-900" data-modifier="${m.k}">
@@ -29,12 +31,12 @@ export function renderInputGrids(): void {
         { k: "backspace", l: "Bksp" },
         { k: "delete", l: "Del" },
     ];
-    document.getElementById("systemGrid")!.innerHTML = sysKeys
+    byId("systemGrid")!.innerHTML = sysKeys
         .map((k) => `<button class="${btnCls}" data-key="${k.k}">${k.l}</button>`)
         .join("");
 
     // 3. Navigation / Arrows (D-Pad)
-    document.getElementById("navGrid")!.innerHTML = `
+    byId("navGrid")!.innerHTML = `
         <div class="flex gap-2">
             <button class="${btnCls} w-10" data-key="up">${renderIcon("M5 10l7-7m0 0l7 7m-7-7v18")}</button>
         </div>

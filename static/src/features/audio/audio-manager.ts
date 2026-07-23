@@ -1,3 +1,4 @@
+import { byId } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
@@ -127,7 +128,7 @@ class AudioManager {
                     );
                 }
 
-                const rateInput = document.getElementById("clientAudioRate") as HTMLInputElement | null;
+                const rateInput = byId<HTMLInputElement>("clientAudioRate");
                 if (rateInput) rateInput.value = String(targetSettings.rate);
 
                 await this.ensureAudioContext(targetSettings.rate);
@@ -161,7 +162,7 @@ class AudioManager {
                         rate: info.rate,
                     };
 
-                    const rateInput = document.getElementById("serverAudioRate") as HTMLInputElement | null;
+                    const rateInput = byId<HTMLInputElement>("serverAudioRate");
                     if (rateInput) rateInput.value = String(info.rate);
 
                     if (this.playbackNode || this.serverAudioWorker) {
@@ -196,7 +197,7 @@ class AudioManager {
     }
 
     async refreshAudioSources(): Promise<void> {
-        const select = document.getElementById("audioSourceSelect") as HTMLSelectElement | null;
+        const select = byId<HTMLSelectElement>("audioSourceSelect");
         if (!select) return;
 
         let sources: { id: string; name: string; kind: string }[] = [];
@@ -246,7 +247,7 @@ class AudioManager {
     }
 
     updateAudioToggleButton(type: AudioKind, active: boolean = this.streamActive[type]): void {
-        const button = document.getElementById(AUDIO_KIND_CONFIG[type].toggleButtonId);
+        const button = byId(AUDIO_KIND_CONFIG[type].toggleButtonId);
         if (!button) return;
 
         button.textContent = active ? "Stop" : "Start";
@@ -362,13 +363,13 @@ class AudioManager {
     }
 
     getServerAudioSettingsFromForm(): AudioKindSettings {
-        const select = document.getElementById("audioSourceSelect") as HTMLSelectElement;
+        const select = byId<HTMLSelectElement>("audioSourceSelect")!;
         const selected = select.selectedOptions[0]!;
         const isDefault = selected.value === "mic" || selected.value === "system";
 
         return {
             device_id: isDefault ? null : selected.value,
-            rate: parseInt((document.getElementById("serverAudioRate") as HTMLInputElement).value, 10),
+            rate: parseInt(byId<HTMLInputElement>("serverAudioRate")!.value, 10),
             source: selected.dataset.kind ?? "mic",
         };
     }
@@ -379,7 +380,7 @@ class AudioManager {
     }
 
     initializeEventListeners(): void {
-        document.getElementById("toggleServerAudio")!.addEventListener("click", async (e) => {
+        byId("toggleServerAudio")!.addEventListener("click", async (e) => {
             if ((e.currentTarget as HTMLElement).textContent?.trim() === "Stop") {
                 await this.stopAudioStream("server");
                 return;
@@ -388,22 +389,22 @@ class AudioManager {
             await this.startAudioStream("server", this.getServerAudioSettingsFromForm());
         });
 
-        document.getElementById("audioSourceSelect")!.addEventListener("change", () => {
+        byId("audioSourceSelect")!.addEventListener("change", () => {
             const targetSettings = { ...this.currentSettings.server, ...this.getServerAudioSettingsFromForm() };
             const matchesRunning =
                 this.streamActive.server && settingsEqual(this.currentSettings.server, targetSettings);
             this.updateAudioToggleButton("server", matchesRunning);
         });
 
-        document.getElementById("toggleClientAudio")!.addEventListener("click", async (e) => {
+        byId("toggleClientAudio")!.addEventListener("click", async (e) => {
             if ((e.currentTarget as HTMLElement).textContent?.trim() === "Stop") {
                 await this.stopAudioStream("client");
                 return;
             }
 
             const settings: AudioKindSettings = {
-                chunk: parseInt((document.getElementById("clientAudioChunk") as HTMLInputElement).value, 10),
-                rate: parseInt((document.getElementById("clientAudioRate") as HTMLInputElement).value, 10),
+                chunk: parseInt(byId<HTMLInputElement>("clientAudioChunk")!.value, 10),
+                rate: parseInt(byId<HTMLInputElement>("clientAudioRate")!.value, 10),
             };
             await this.startAudioStream("client", settings);
         });

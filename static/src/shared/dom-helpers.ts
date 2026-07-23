@@ -21,6 +21,10 @@ export function bindDebouncedInput(input: HTMLInputElement, callback: () => void
     });
 }
 
+export function byId<T extends HTMLElement = HTMLElement>(id: string): T | null {
+    return document.getElementById(id) as T | null;
+}
+
 export function setToggleStyle(el: HTMLElement, active: boolean): void {
     el.classList.toggle("bg-zinc-200", active);
     el.classList.toggle("text-zinc-900", active);

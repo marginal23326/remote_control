@@ -1,6 +1,6 @@
 import { apiCall } from "@/shared/api";
 import { LoadingButton, showNotification } from "@/shared/feedback";
-import { escapeHtml, setToggleStyle } from "@/shared/dom-helpers";
+import { byId, escapeHtml, setToggleStyle } from "@/shared/dom-helpers";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { createPeerSignaling } from "@/shared/peer-signaling";
 import type { AppSocket } from "@/core/socket";
@@ -14,10 +14,10 @@ interface CameraPipElements {
 }
 
 const pip: CameraPipElements = {
-    container: document.getElementById("cameraPip"),
-    deviceSelect: document.getElementById("cameraDeviceSelect") as HTMLSelectElement,
-    toggleBtn: document.getElementById("toggleCamera") as HTMLButtonElement | null,
-    video: document.getElementById("cameraPipView") as HTMLVideoElement,
+    container: byId("cameraPip"),
+    deviceSelect: byId<HTMLSelectElement>("cameraDeviceSelect")!,
+    toggleBtn: byId<HTMLButtonElement>("toggleCamera"),
+    video: byId<HTMLVideoElement>("cameraPipView")!,
 };
 
 function showPip(): void {
@@ -74,7 +74,7 @@ function selectedDeviceId(): string | null {
 
 function initializeCameraDrag(): void {
     const el = pip.container;
-    const parent = document.getElementById("streamContainer");
+    const parent = byId("streamContainer");
     if (!el || !parent) return;
 
     let dragging = false;

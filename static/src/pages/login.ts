@@ -1,13 +1,14 @@
 import "../../input.css";
 import "../../css/styles.css";
+import { byId } from "@/shared/dom-helpers";
 
 document.addEventListener("DOMContentLoaded", () => {
-    const loginForm = document.getElementById("loginForm")!;
-    const errorBox = document.getElementById("errorBox")!;
-    const errorMessage = document.getElementById("errorMessage")!;
-    const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement;
-    const btnText = document.getElementById("btnText")!;
-    const btnSpinner = document.getElementById("btnSpinner")!;
+    const loginForm = byId("loginForm")!;
+    const errorBox = byId("errorBox")!;
+    const errorMessage = byId("errorMessage")!;
+    const submitBtn = byId<HTMLButtonElement>("submitBtn")!;
+    const btnText = byId("btnText")!;
+    const btnSpinner = byId("btnSpinner")!;
 
     loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -15,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
         errorBox.classList.add("hidden");
         setLoading(true);
 
-        const password = (document.getElementById("password") as HTMLInputElement).value;
+        const password = byId<HTMLInputElement>("password")!.value;
 
         try {
             const response = await fetch("/login", {

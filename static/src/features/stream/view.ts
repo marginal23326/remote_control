@@ -1,3 +1,4 @@
+import { byId } from "@/shared/dom-helpers";
 import { LoadingButton } from "@/shared/feedback";
 
 const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5L19 12L7 19Z"></path></svg>`;
@@ -28,7 +29,7 @@ interface StreamUI {
 let cancelFpsCounter: (() => void) | null = null;
 
 export const streamUI: StreamUI = {
-    activeWindowText: document.getElementById("activeWindow")!,
+    activeWindowText: byId("activeWindow")!,
     clear() {
         this.stopFpsCounter();
         this.fpsCounter.textContent = "0";
@@ -40,19 +41,19 @@ export const streamUI: StreamUI = {
             this.view.srcObject = null;
         }
     },
-    container: document.getElementById("streamContainer")!,
+    container: byId("streamContainer")!,
     displayScreenshot(url) {
         this.initScreenshotView();
         this.screenshotView!.src = url;
         this.screenshotView!.classList.remove("hidden");
         this.view.classList.add("hidden");
 
-        document.getElementById("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
+        byId("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
     },
-    fpsCounter: document.getElementById("currentFPS")!,
+    fpsCounter: byId("currentFPS")!,
     frameTimes: [],
     hide() {
-        document.getElementById("streamOverlay")?.classList.remove("opacity-0", "pointer-events-none");
+        byId("streamOverlay")?.classList.remove("opacity-0", "pointer-events-none");
         this.view.classList.add("opacity-0");
 
         this.status.classList.remove("inline-flex");
@@ -76,7 +77,7 @@ export const streamUI: StreamUI = {
     nativeWidth: null,
     screenshotView: null,
     show() {
-        document.getElementById("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
+        byId("streamOverlay")?.classList.add("opacity-0", "pointer-events-none");
         this.view.classList.remove("opacity-0");
 
         this.status.classList.remove("hidden");
@@ -104,7 +105,7 @@ export const streamUI: StreamUI = {
             video.cancelVideoFrameCallback(rafId);
         };
     },
-    status: document.getElementById("streamStatus")!,
+    status: byId("streamStatus")!,
     stopFpsCounter() {
         if (cancelFpsCounter) {
             cancelFpsCounter();
@@ -116,16 +117,16 @@ export const streamUI: StreamUI = {
             this.activeWindowText.textContent = `Active Window: ${data.win || "Unknown"}`;
         }
     },
-    view: document.getElementById("streamView") as HTMLVideoElement,
+    view: byId<HTMLVideoElement>("streamView")!,
 };
 
 function isCursorCaptureEnabled(): boolean {
-    const checkbox = document.getElementById("showCursorToggle") as HTMLInputElement | null;
+    const checkbox = byId<HTMLInputElement>("showCursorToggle");
     return checkbox ? checkbox.checked : true;
 }
 
 function setStreamToggleUI(active: boolean): void {
-    const btn = document.getElementById("toggleStream");
+    const btn = byId("toggleStream");
     if (!btn) return;
     btn.innerHTML = active ? STREAM_ICON_STOP : STREAM_ICON_PLAY;
     btn.title = active ? "Stop Stream (Space)" : "Start Stream (Space)";
@@ -137,7 +138,7 @@ function setStreamToggleUI(active: boolean): void {
 let startButtonLoader: LoadingButton | null = null;
 
 function getStartButtonLoader(): LoadingButton | null {
-    const btn = document.getElementById("toggleStream") as HTMLButtonElement | null;
+    const btn = byId<HTMLButtonElement>("toggleStream");
     if (btn && !startButtonLoader) {
         startButtonLoader = new LoadingButton(btn, "");
     }

@@ -2,7 +2,7 @@ import { apiCall } from "@/shared/api";
 import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import { showConfirmModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
-import { bindDebouncedInput, escapeHtml, updateSortIndicators } from "@/shared/dom-helpers";
+import { bindDebouncedInput, byId, escapeHtml, updateSortIndicators } from "@/shared/dom-helpers";
 import { registerShortcuts } from "@/core/shortcuts";
 import type { AppSocket } from "@/core/socket";
 import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
@@ -31,7 +31,7 @@ async function killProcesses(items: string[]): Promise<void> {
             showNotification(msg, "error");
         }
     }
-    document.getElementById("endTaskContainer")!.classList.remove("is-visible");
+    byId("endTaskContainer")!.classList.remove("is-visible");
 }
 
 function sortProcesses(rows: ProcessInfo[], column: SortColumn, order: SortOrder): ProcessInfo[] {
@@ -50,8 +50,8 @@ export function initializeTaskManager(socket: AppSocket): void {
     let processes: ProcessInfo[] = [];
     let searchTerm = "";
 
-    const taskList = document.getElementById("taskList")!;
-    const searchInput = document.getElementById("taskSearchInput") as HTMLInputElement | null;
+    const taskList = byId("taskList")!;
+    const searchInput = byId<HTMLInputElement>("taskSearchInput");
 
     let taskManager: ListManager;
     taskManager = new ListManager({
@@ -89,8 +89,8 @@ export function initializeTaskManager(socket: AppSocket): void {
         getItemId: (element) => element.dataset.pid,
         itemDataAttribute: "pid",
         onSelectionChange: (selectedItems) => {
-            const endTaskContainer = document.getElementById("endTaskContainer")!;
-            const countEl = document.getElementById("taskSelectionCount");
+            const endTaskContainer = byId("endTaskContainer")!;
+            const countEl = byId("taskSelectionCount");
             endTaskContainer.classList.toggle("is-visible", selectedItems.length > 0);
             if (countEl) {
                 countEl.textContent = `${selectedItems.length} selected`;
@@ -132,8 +132,8 @@ export function initializeTaskManager(socket: AppSocket): void {
         taskManager.selectionManager!.notifyItemsUpdate();
         taskManager.config.onSelectionChange(taskManager.getSelectedItems());
 
-        const endTaskButton = document.getElementById("endTaskButton") as HTMLElement & { hasListener?: boolean };
-        if (!endTaskButton.hasListener) {
+        const endTaskButton = byId<HTMLElement & { hasListener?: boolean }>("endTaskButton");
+        if (endTaskButton && !endTaskButton.hasListener) {
             endTaskButton.innerHTML = `End Task`;
             endTaskButton.addEventListener("click", () => {
                 const selectedItems = taskManager.getSelectedItems();
@@ -198,7 +198,7 @@ export function initializeTaskManager(socket: AppSocket): void {
     });
 
     registerShortcuts("processSection", {
-        delete: () => document.getElementById("endTaskButton")?.click(),
+        delete: () => byId("endTaskButton")?.click(),
     });
 
     taskManager.initialize();
