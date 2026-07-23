@@ -89,6 +89,12 @@ export function cleanupPeerConnection(): void {
     peerSignaling?.cleanup();
 }
 
+function onChannelLost(channel: RTCDataChannel, onCleared: () => void): void {
+    const clear = () => onCleared();
+    channel.addEventListener("close", clear);
+    channel.addEventListener("error", clear);
+}
+
 function registerInputDataChannel(channel: RTCDataChannel): void {
     if (channel.label === "mouse-move") {
         mouseMoveChannel = channel;
@@ -96,13 +102,7 @@ function registerInputDataChannel(channel: RTCDataChannel): void {
         channel.addEventListener("bufferedamountlow", () => {
             flushPendingMouseMove();
         });
-        channel.addEventListener("close", () => {
-            if (mouseMoveChannel === channel) {
-                mouseMoveChannel = null;
-                pendingMouseMove = null;
-            }
-        });
-        channel.addEventListener("error", () => {
+        onChannelLost(channel, () => {
             if (mouseMoveChannel === channel) {
                 mouseMoveChannel = null;
                 pendingMouseMove = null;
@@ -110,10 +110,7 @@ function registerInputDataChannel(channel: RTCDataChannel): void {
         });
     } else if (channel.label === "mouse-control") {
         mouseControlChannel = channel;
-        channel.addEventListener("close", () => {
-            if (mouseControlChannel === channel) mouseControlChannel = null;
-        });
-        channel.addEventListener("error", () => {
+        onChannelLost(channel, () => {
             if (mouseControlChannel === channel) mouseControlChannel = null;
         });
     }
