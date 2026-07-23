@@ -1,4 +1,4 @@
-use crate::state::SharedState;
+use crate::state::AppState;
 use crate::utils::auth::{Claims, create_jwt, verify_password};
 use crate::utils::error::success;
 use crate::utils::error::{AppError, AppResult};
@@ -18,7 +18,7 @@ pub struct LoginRequest {
     password: String,
 }
 
-pub async fn login_handler(State(state): State<SharedState>, Json(payload): Json<LoginRequest>) -> AppResult<Response> {
+pub async fn login_handler(State(state): State<AppState>, Json(payload): Json<LoginRequest>) -> AppResult<Response> {
     let config = &state.config;
 
     if verify_password(&payload.password, &config.password_hash) {

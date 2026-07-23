@@ -301,7 +301,7 @@ impl ScreenManager {
     pub async fn start_stream(
         &self,
         socket: socketioxide::extract::SocketRef,
-        state: crate::state::SharedState,
+        state: crate::state::AppState,
         capture_cursor: bool,
     ) -> anyhow::Result<()> {
         let startup_guard = self

@@ -1,4 +1,4 @@
-use crate::state::SharedState;
+use crate::state::AppState;
 use crate::utils::error::{AppError, AppResult, run_blocking, success};
 use axum::{
     Json,
@@ -13,7 +13,7 @@ pub struct KillPayload {
 }
 
 pub async fn kill_process_handler(
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
     Json(payload): Json<KillPayload>,
 ) -> AppResult<Json<Value>> {
     let pid = payload.pid.ok_or(AppError::BadRequest("PID required".to_string()))?;
@@ -25,7 +25,7 @@ pub async fn kill_process_handler(
 }
 
 pub async fn get_process_details_handler(
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
     Path(pid): Path<u32>,
 ) -> AppResult<Json<Value>> {
     let details = run_blocking(move || state.tasks.get_process_details(pid))

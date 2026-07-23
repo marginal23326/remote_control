@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::services::screen::EncoderPropertyConstraint;
-use crate::state::SharedState;
+use crate::state::AppState;
 use crate::utils::error::success;
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ pub struct CurrentSettingsResponse {
     pub stun_server: Option<String>,
 }
 
-pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<CurrentSettingsResponse> {
+pub async fn get_settings_handler(State(state): State<AppState>) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
     let s = screen.settings.lock();
     let (native_width, native_height) = *screen.native_size.lock();
@@ -57,7 +57,7 @@ pub async fn get_settings_handler(State(state): State<SharedState>) -> Json<Curr
 }
 
 pub async fn update_settings_handler(
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
     Json(payload): Json<StreamSettingsDTO>,
 ) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
@@ -88,7 +88,7 @@ pub async fn update_settings_handler(
     Json(settings)
 }
 
-pub async fn stop_stream_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+pub async fn stop_stream_handler(State(state): State<AppState>) -> Json<serde_json::Value> {
     state.screen.stop_stream();
     success!()
 }

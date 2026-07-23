@@ -2,7 +2,7 @@ use crate::services::screen::detect_encoder;
 use crate::services::webrtc_session::{
     GstCommand, GstSession, WebRtcSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
-use crate::state::SharedState;
+use crate::state::AppState;
 use serde::Serialize;
 use socketioxide::extract::SocketRef;
 use std::sync::atomic::Ordering;
@@ -58,7 +58,7 @@ impl CameraManager {
     pub async fn start_stream(
         &self,
         socket: SocketRef,
-        state: SharedState,
+        state: AppState,
         device_id: Option<String>,
     ) -> anyhow::Result<()> {
         let guard = self

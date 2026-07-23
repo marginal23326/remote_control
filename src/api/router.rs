@@ -9,7 +9,7 @@ use crate::api::{
     system::{get_clipboard_handler, get_system_info_handler, set_clipboard_handler},
     tasks::{get_process_details_handler, kill_process_handler},
 };
-use crate::state::SharedState;
+use crate::state::AppState;
 use crate::utils::auth::is_authenticated;
 use axum::{
     Router,
@@ -37,7 +37,7 @@ async fn serve_no_cache(file: &str, req: Request) -> Response {
     }
 }
 
-async fn index_handler(State(state): State<SharedState>, req: Request) -> Response {
+async fn index_handler(State(state): State<AppState>, req: Request) -> Response {
     if is_authenticated(req.headers(), &state.config.jwt_secret) {
         serve_no_cache("static/dist/index.html", req).await
     } else {
@@ -45,7 +45,7 @@ async fn index_handler(State(state): State<SharedState>, req: Request) -> Respon
     }
 }
 
-async fn login_page_handler(State(state): State<SharedState>, req: Request) -> Response {
+async fn login_page_handler(State(state): State<AppState>, req: Request) -> Response {
     if is_authenticated(req.headers(), &state.config.jwt_secret) {
         Redirect::to("/").into_response()
     } else {
@@ -53,7 +53,7 @@ async fn login_page_handler(State(state): State<SharedState>, req: Request) -> R
     }
 }
 
-pub fn create_router(state: SharedState) -> Router {
+pub fn create_router(state: AppState) -> Router {
     // Serve static files (JS, CSS, assets)
     let serve_static = ServeDir::new("static");
 
