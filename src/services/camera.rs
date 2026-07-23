@@ -1,4 +1,4 @@
-use crate::services::screen::detect_encoder;
+use crate::services::screen::{LEAKY_QUEUE, detect_encoder};
 use crate::services::webrtc_session::{
     GstCommand, GstSession, WebRtcSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
@@ -83,7 +83,7 @@ impl CameraManager {
         let rest_desc = format!(
             "videoconvert ! \
              video/x-raw,format=NV12 ! \
-             queue leaky=downstream max-size-buffers=2 max-size-time=0 max-size-bytes=0 ! \
+             {LEAKY_QUEUE} ! \
              {} ! \
              rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
              webrtcbin name=webrtc bundle-policy=max-bundle latency=0",
