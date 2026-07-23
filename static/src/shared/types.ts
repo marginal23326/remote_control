@@ -43,19 +43,7 @@ export type MouseEventPayload = Omit<MouseEventDTO, "type" | "button"> & {
     button?: "left" | "right" | "middle";
 };
 
-export type { KeyboardEventPayload };
-export type { ShellCreatePayload };
-export type { ShellInputPayload };
-export type { ShellResizePayload };
-export type { StartStreamPayload };
-export type { StartCameraStreamPayload };
-export type { TaskListPayload };
-
 export type AudioStartPayload = AudioConfig & { chunk?: number };
-
-export type { SystemInfo };
-
-export type { EncoderPropertyConstraint };
 
 export type StreamSettings = Omit<CurrentSettingsResponse, "encoder_properties" | "encoder_property_constraints"> & {
     encoder_properties: Record<string, string>;
@@ -66,15 +54,10 @@ export type UpdateStreamSettingsPayload = Omit<StreamSettingsDTO, "encoder_prope
     encoder_properties?: Record<string, string>;
 };
 
-export type { ProcessInfo };
-export type { ProcessDetails };
-
 export interface ProcessDetailsResponse {
     status: "success";
     data: ProcessDetails;
 }
-
-export type { AudioSourceInfo };
 
 export interface AudioFormat {
     rate: number;
@@ -82,7 +65,21 @@ export interface AudioFormat {
     format: "int16" | "float32" | (string & {});
 }
 
-export type { CameraDeviceInfo };
+export type {
+    AudioSourceInfo,
+    CameraDeviceInfo,
+    EncoderPropertyConstraint,
+    KeyboardEventPayload,
+    ProcessDetails,
+    ProcessInfo,
+    ShellCreatePayload,
+    ShellInputPayload,
+    ShellResizePayload,
+    StartCameraStreamPayload,
+    StartStreamPayload,
+    SystemInfo,
+    TaskListPayload,
+};
 
 export interface ApiMessageResponse {
     status: string;
