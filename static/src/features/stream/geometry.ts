@@ -19,8 +19,6 @@ let cachedDimensions: StreamDimensions | null = null;
 export function setNativeDimensions(width: number, height: number): void {
     nativeWidth = width;
     nativeHeight = height;
-    streamUI.nativeWidth = width;
-    streamUI.nativeHeight = height;
     cachedDimensions = null;
 }
 
