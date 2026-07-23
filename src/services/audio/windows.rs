@@ -6,6 +6,36 @@ use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 use wasapi::*;
 
+fn decode_sample(sample: &[u8], sample_type: SampleType, bytes_per_sample: usize) -> f32 {
+    match (sample_type, bytes_per_sample) {
+        (SampleType::Float, 4) => f32::from_le_bytes(sample.try_into().unwrap()),
+        (SampleType::Int, 2) => i16::from_le_bytes(sample.try_into().unwrap()) as f32 / i16::MAX as f32,
+        (SampleType::Int, 4) => i32::from_le_bytes(sample.try_into().unwrap()) as f32 / i32::MAX as f32,
+        (SampleType::Int, 3) => {
+            let b = [0, sample[0], sample[1], sample[2]];
+            (i32::from_le_bytes(b) >> 8) as f32 / 8388607.0
+        }
+        _ => 0.0,
+    }
+}
+
+fn encode_sample(f: f32, sample_type: SampleType, bytes_per_sample: usize, out: &mut VecDeque<u8>) {
+    match (sample_type, bytes_per_sample) {
+        (SampleType::Float, 4) => out.extend(&f.to_le_bytes()),
+        (SampleType::Int, 2) => out.extend(&((f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16).to_le_bytes()),
+        (SampleType::Int, 4) => out.extend(&((f.clamp(-1.0, 1.0) * i32::MAX as f32) as i32).to_le_bytes()),
+        (SampleType::Int, 3) => {
+            let i = (f.clamp(-1.0, 1.0) * 8388607.0) as i32;
+            out.extend(&i.to_le_bytes()[0..3]);
+        }
+        _ => {
+            for _ in 0..bytes_per_sample {
+                out.push_back(0);
+            }
+        }
+    }
+}
+
 pub(crate) fn server_loop(
     socket: SocketRef,
     source: String,
@@ -86,18 +116,7 @@ pub(crate) fn server_loop(
                 for c in 0..channels {
                     let offset = c * bytes_per_sample;
                     let sample = &frame[offset..offset + bytes_per_sample];
-
-                    let val = match (sample_type, bytes_per_sample) {
-                        (SampleType::Float, 4) => f32::from_le_bytes(sample.try_into().unwrap()),
-                        (SampleType::Int, 2) => i16::from_le_bytes(sample.try_into().unwrap()) as f32 / i16::MAX as f32,
-                        (SampleType::Int, 4) => i32::from_le_bytes(sample.try_into().unwrap()) as f32 / i32::MAX as f32,
-                        (SampleType::Int, 3) => {
-                            let b = [0, sample[0], sample[1], sample[2]];
-                            i32::from_le_bytes(b) as f32 / i32::MAX as f32
-                        }
-                        _ => 0.0,
-                    };
-                    sum += val;
+                    sum += decode_sample(sample, sample_type, bytes_per_sample);
                 }
 
                 let avg = sum / channels as f32;
@@ -158,22 +177,7 @@ pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Ar
             let f = queue.pop().unwrap_or(0.0);
 
             for _ in 0..channels {
-                if sample_type == SampleType::Float && bytes_per_sample == 4 {
-                    sample_queue.extend(&f.to_le_bytes());
-                } else if sample_type == SampleType::Int && bytes_per_sample == 2 {
-                    let i = (f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-                    sample_queue.extend(&i.to_le_bytes());
-                } else if sample_type == SampleType::Int && bytes_per_sample == 4 {
-                    let i = (f.clamp(-1.0, 1.0) * i32::MAX as f32) as i32;
-                    sample_queue.extend(&i.to_le_bytes());
-                } else if sample_type == SampleType::Int && bytes_per_sample == 3 {
-                    let i = (f.clamp(-1.0, 1.0) * 8388607.0) as i32;
-                    sample_queue.extend(&i.to_le_bytes()[0..3]);
-                } else {
-                    for _ in 0..bytes_per_sample {
-                        sample_queue.push_back(0);
-                    }
-                }
+                encode_sample(f, sample_type, bytes_per_sample, &mut sample_queue);
             }
         }
 
