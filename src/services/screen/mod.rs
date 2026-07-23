@@ -41,6 +41,8 @@ impl Default for StreamSettings {
     }
 }
 
+pub(crate) const LEAKY_QUEUE: &str = "queue leaky=downstream max-size-buffers=2 max-size-time=0 max-size-bytes=0";
+
 pub(crate) struct RawFrame {
     pub buffer: Vec<u8>,
     pub width: u32,
@@ -337,18 +339,10 @@ impl ScreenManager {
                 max-buffers=2 \
                 leaky-type=downstream \
                 max-bytes=0 ! \
-             queue \
-                leaky=downstream \
-                max-size-buffers=2 \
-                max-size-time=0 \
-                max-size-bytes=0 ! \
+             {LEAKY_QUEUE} ! \
              videoconvert ! \
              video/x-raw,format=NV12 ! \
-             queue \
-                leaky=downstream \
-                max-size-buffers=2 \
-                max-size-time=0 \
-                max-size-bytes=0 ! \
+             {LEAKY_QUEUE} ! \
              {} ! \
              rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
              webrtcbin name=webrtc \
