@@ -97,12 +97,10 @@ function setAutoFPS(): void {
 }
 
 export function initSettingsPanel(): void {
-    byId("streamBitrate")!.addEventListener("input", updateSliderLabels);
-    byId("streamBitrate")!.addEventListener("change", () => void updateStreamSettings());
-    byId("streamResolution")!.addEventListener("input", updateSliderLabels);
-    byId("streamResolution")!.addEventListener("change", () => void updateStreamSettings());
-    byId("streamFPS")!.addEventListener("input", updateSliderLabels);
-    byId("streamFPS")!.addEventListener("change", () => void updateStreamSettings());
+    for (const id of ["streamBitrate", "streamResolution", "streamFPS"]) {
+        byId(id)!.addEventListener("input", updateSliderLabels);
+        byId(id)!.addEventListener("change", () => void updateStreamSettings());
+    }
     byId("autoFpsButton")!.addEventListener("click", setAutoFPS);
 }
 
