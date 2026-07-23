@@ -74,4 +74,3 @@ impl AppState {
         }
     }
 }
-pub type SharedState = AppState;

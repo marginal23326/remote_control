@@ -1,6 +1,6 @@
 use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
-use crate::state::SharedState;
+use crate::state::AppState;
 use serde::Deserialize;
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
@@ -81,11 +81,11 @@ pub struct StartStreamConfig {
 
 // --- HANDLERS ---
 
-pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<SharedState>) {
+pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<AppState>) {
     apply_mouse_event(&state.input, data).await;
 }
 
-pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<SharedState>) {
+pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<AppState>) {
     match data {
         KeyboardEvent::Text { text } => state.input.type_text(&text).await,
         KeyboardEvent::Shortcut { shortcut, modifiers } => {
@@ -97,11 +97,7 @@ pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state)
     };
 }
 
-pub async fn handle_shell_create(
-    socket: SocketRef,
-    Data(data): Data<ShellCreateEvent>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreateEvent>, State(state): State<AppState>) {
     let socket_id = socket.id.to_string();
 
     if socket.extensions.insert(ShellPendingMarker).is_some() {
@@ -146,31 +142,23 @@ pub async fn handle_shell_create(
     }
 }
 
-pub async fn handle_shell_input(
-    socket: SocketRef,
-    Data(data): Data<ShellInputEvent>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_shell_input(socket: SocketRef, Data(data): Data<ShellInputEvent>, State(state): State<AppState>) {
     if let Err(e) = state.shell.write_to_shell(&socket.id.to_string(), &data.command) {
         tracing::error!("Shell write error: {}", e);
     }
 }
 
-pub async fn handle_shell_resize(
-    socket: SocketRef,
-    Data(data): Data<ShellResizeEvent>,
-    State(state): State<SharedState>,
-) {
+pub async fn handle_shell_resize(socket: SocketRef, Data(data): Data<ShellResizeEvent>, State(state): State<AppState>) {
     if let Err(e) = state.shell.resize_shell(&socket.id.to_string(), data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
     }
 }
 
-pub async fn handle_shell_close(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_shell_close(socket: SocketRef, State(state): State<AppState>) {
     state.shell.close_session(&socket.id.to_string());
 }
 
-pub async fn handle_list_shells(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>) {
     let shell = state.shell.clone();
     let (shells, default) = tokio::task::spawn_blocking(move || shell.list_available_shells())
         .await
@@ -179,7 +167,7 @@ pub async fn handle_list_shells(socket: SocketRef, State(state): State<SharedSta
     let _ = socket.emit("available_shells", &json!({ "shells": shells, "default": default }));
 }
 
-pub async fn handle_disconnect(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.remove::<TaskPollMarker>().is_some() {
         ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
     }
@@ -218,7 +206,7 @@ pub async fn handle_task_poll_stop(socket: SocketRef) {
 pub async fn handle_start_server_audio(
     socket: SocketRef,
     Data(data): Data<AudioConfig>,
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
 ) {
     let audio = &state.audio;
     let source = data.source.unwrap_or("mic".to_string());
@@ -231,7 +219,7 @@ pub async fn handle_start_server_audio(
     }
 }
 
-pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<AppState>) {
     let audio = state.audio.clone();
     let sources = tokio::task::spawn_blocking(move || audio.list_sources()).await.unwrap();
 
@@ -246,14 +234,14 @@ pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<Sh
     }
 }
 
-pub async fn handle_stop_server_audio(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_stop_server_audio(socket: SocketRef, State(state): State<AppState>) {
     state.audio.stop_server_stream_if_owner(&socket.id.to_string());
 }
 
 pub async fn handle_start_client_audio(
     socket: SocketRef,
     Data(data): Data<AudioConfig>,
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
 ) {
     let audio = &state.audio;
     let rate = data.rate.unwrap_or(48000);
@@ -264,14 +252,14 @@ pub async fn handle_start_client_audio(
     }
 }
 
-pub async fn handle_stop_client_audio(socket: SocketRef, State(state): State<SharedState>) {
+pub async fn handle_stop_client_audio(socket: SocketRef, State(state): State<AppState>) {
     state.audio.stop_client_playback_if_owner(&socket.id.to_string());
 }
 
 pub async fn handle_client_audio_data(
     socket: SocketRef,
     Data(data): Data<bytes::Bytes>,
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
 ) {
     state.audio.process_client_audio(&socket.id.to_string(), data.to_vec());
 }
@@ -279,7 +267,7 @@ pub async fn handle_client_audio_data(
 pub async fn handle_start_stream(
     socket: SocketRef,
     Data(data): Data<StartStreamConfig>,
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
 ) {
     let screen = state.screen.clone();
     if let Err(e) = screen
@@ -301,7 +289,7 @@ pub async fn handle_list_cameras(socket: SocketRef) {
 pub async fn handle_start_camera_stream(
     socket: SocketRef,
     Data(data): Data<CameraStartConfig>,
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
 ) {
     let camera = state.camera.clone();
     if let Err(e) = camera.start_stream(socket.clone(), state, data.device_id).await {
@@ -310,7 +298,7 @@ pub async fn handle_start_camera_stream(
     }
 }
 
-pub async fn handle_stop_camera_stream(State(state): State<SharedState>) {
+pub async fn handle_stop_camera_stream(State(state): State<AppState>) {
     state.camera.stop_stream();
 }
 
@@ -329,12 +317,12 @@ fn extract_ice(data: &serde_json::Value) -> Option<(u32, String)> {
 
 macro_rules! webrtc_signal_handlers {
     ($answer_fn:ident, $ice_fn:ident, $manager:ident) => {
-        pub async fn $answer_fn(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
+        pub async fn $answer_fn(Data(data): Data<serde_json::Value>, State(state): State<AppState>) {
             let Some(sdp_str) = extract_sdp(&data) else { return };
             state.$manager.set_remote_description(sdp_str);
         }
 
-        pub async fn $ice_fn(Data(data): Data<serde_json::Value>, State(state): State<SharedState>) {
+        pub async fn $ice_fn(Data(data): Data<serde_json::Value>, State(state): State<AppState>) {
             let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
                 return;
             };

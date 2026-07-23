@@ -6,7 +6,7 @@ use crate::realtime::handlers::{
     handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
     handle_webrtc_answer, handle_webrtc_ice,
 };
-use crate::state::SharedState;
+use crate::state::AppState;
 use crate::utils::auth::is_authenticated;
 use serde_json::json;
 use socketioxide::{
@@ -24,7 +24,7 @@ struct TaskPayload {
     total_memory_percentage: f64,
 }
 
-pub fn register(io: SocketIo, state: SharedState) {
+pub fn register(io: SocketIo, state: AppState) {
     io.ns("/", on_connect);
 
     let io_clone = io.clone();
@@ -76,7 +76,7 @@ pub fn register(io: SocketIo, state: SharedState) {
     });
 }
 
-async fn on_connect(socket: SocketRef, State(state): State<SharedState>) {
+async fn on_connect(socket: SocketRef, State(state): State<AppState>) {
     let headers = &socket.req_parts().headers;
     let is_authenticated = is_authenticated(headers, &state.config.jwt_secret);
 
