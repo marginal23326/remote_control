@@ -13,7 +13,6 @@ mod services;
 mod state;
 mod utils;
 
-use crate::config::ConfigManager;
 use crate::state::AppState;
 
 #[tokio::main]
@@ -43,7 +42,7 @@ async fn main() -> Result<()> {
     tracing::info!("Initializing Remote Control System...");
 
     // 1. Load Config
-    let config = ConfigManager::load().await?;
+    let config = config::load().await?;
     let port = config.port;
 
     // 2. Initialize State with Config
