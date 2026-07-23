@@ -53,8 +53,7 @@ export function initializeTaskManager(socket: AppSocket): void {
     const taskList = byId("taskList")!;
     const searchInput = byId<HTMLInputElement>("taskSearchInput");
 
-    let taskManager: ListManager;
-    taskManager = new ListManager({
+    const taskManager = new ListManager({
         containerSelector: "#taskList",
         getContextMenuItems: (context?: ContextMenuContext) => {
             const selectedItems = context?.selectedItems ?? taskManager.getSelectedItems();
