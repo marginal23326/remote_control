@@ -1,3 +1,5 @@
+import { isWindowsPath } from "./path-utils";
+
 export function renderBreadcrumbs(
     container: HTMLElement | null,
     path: string,
@@ -6,7 +8,7 @@ export function renderBreadcrumbs(
     if (!container) return;
     container.innerHTML = "";
 
-    const isWindows = path.includes("\\") || /^[A-Z]:/iu.test(path);
+    const isWindows = isWindowsPath(path);
     const separator = isWindows ? "\\" : "/";
 
     const createPartBtn = (text: string, targetPath: string, isActive: boolean): HTMLButtonElement => {
