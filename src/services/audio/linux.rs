@@ -11,6 +11,26 @@ use socketioxide::extract::SocketRef;
 use pipewire as pw;
 use pw::{properties::properties, spa, types::ObjectType};
 
+fn serialize_audio_format(rate: u32) -> Result<Vec<u8>, String> {
+    let mut audio_info = spa::param::audio::AudioInfoRaw::new();
+    audio_info.set_format(spa::param::audio::AudioFormat::F32LE);
+    audio_info.set_rate(rate);
+    audio_info.set_channels(1);
+
+    let obj = pw::spa::pod::Object {
+        type_: pw::spa::utils::SpaTypes::ObjectParamFormat.as_raw(),
+        id: pw::spa::param::ParamType::EnumFormat.as_raw(),
+        properties: audio_info.into(),
+    };
+
+    pw::spa::pod::serialize::PodSerializer::serialize(
+        std::io::Cursor::new(Vec::new()),
+        &pw::spa::pod::Value::Object(obj),
+    )
+    .map(|(cursor, _)| cursor.into_inner())
+    .map_err(|e| e.to_string())
+}
+
 pub(crate) fn server_loop(
     socket: SocketRef,
     source: String,
@@ -155,25 +175,7 @@ pub(crate) fn server_loop(
         }
     });
 
-    let mut audio_info = spa::param::audio::AudioInfoRaw::new();
-    audio_info.set_format(spa::param::audio::AudioFormat::F32LE);
-    audio_info.set_rate(rate);
-    audio_info.set_channels(1);
-
-    let obj = pw::spa::pod::Object {
-        type_: pw::spa::utils::SpaTypes::ObjectParamFormat.as_raw(),
-        id: pw::spa::param::ParamType::EnumFormat.as_raw(),
-        properties: audio_info.into(),
-    };
-
-    let values: Vec<u8> = pw::spa::pod::serialize::PodSerializer::serialize(
-        std::io::Cursor::new(Vec::new()),
-        &pw::spa::pod::Value::Object(obj),
-    )
-    .unwrap()
-    .0
-    .into_inner();
-
+    let values = serialize_audio_format(rate)?;
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
 
     stream
@@ -262,25 +264,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
         .register()
         .map_err(|e| e.to_string())?;
 
-    let mut audio_info = spa::param::audio::AudioInfoRaw::new();
-    audio_info.set_format(spa::param::audio::AudioFormat::F32LE);
-    audio_info.set_rate(rate);
-    audio_info.set_channels(1);
-
-    let obj = pw::spa::pod::Object {
-        type_: pw::spa::utils::SpaTypes::ObjectParamFormat.as_raw(),
-        id: pw::spa::param::ParamType::EnumFormat.as_raw(),
-        properties: audio_info.into(),
-    };
-
-    let values: Vec<u8> = pw::spa::pod::serialize::PodSerializer::serialize(
-        std::io::Cursor::new(Vec::new()),
-        &pw::spa::pod::Value::Object(obj),
-    )
-    .unwrap()
-    .0
-    .into_inner();
-
+    let values = serialize_audio_format(rate)?;
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
 
     stream
