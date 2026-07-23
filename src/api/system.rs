@@ -18,7 +18,7 @@ pub struct ClipboardRequest {
     pub text: String,
 }
 
-pub async fn get_clipboard_handler() -> crate::utils::error::AppResult<axum::Json<ClipboardResponse>> {
+pub async fn get_clipboard_handler() -> crate::utils::error::AppResult<Json<ClipboardResponse>> {
     let text = run_blocking(|| -> anyhow::Result<String> {
         let mut ctx = arboard::Clipboard::new()?;
         match ctx.get_text() {
@@ -29,12 +29,12 @@ pub async fn get_clipboard_handler() -> crate::utils::error::AppResult<axum::Jso
     })
     .await??;
 
-    Ok(axum::Json(ClipboardResponse { text }))
+    Ok(Json(ClipboardResponse { text }))
 }
 
 pub async fn set_clipboard_handler(
-    axum::Json(payload): axum::Json<ClipboardRequest>,
-) -> crate::utils::error::AppResult<axum::Json<serde_json::Value>> {
+    Json(payload): Json<ClipboardRequest>,
+) -> crate::utils::error::AppResult<Json<serde_json::Value>> {
     run_blocking(move || -> anyhow::Result<()> {
         let mut ctx = arboard::Clipboard::new()?;
         ctx.set_text(payload.text)?;
