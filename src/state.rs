@@ -4,32 +4,12 @@ use crate::services::camera::CameraManager;
 use crate::services::input::InputManager;
 use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
+use crate::services::system::WanInfo;
 use crate::services::tasks::TaskManager;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use sysinfo::{Networks, System};
 use tokio::sync::OnceCell;
-
-#[derive(Clone)]
-pub struct WanInfo {
-    pub ip: String,
-    pub asn: String,
-    pub isp: String,
-    pub country: String,
-    pub timezone: String,
-}
-
-impl WanInfo {
-    pub fn na() -> Self {
-        Self {
-            ip: "N/A".to_string(),
-            asn: "N/A".to_string(),
-            isp: "N/A".to_string(),
-            country: "N/A".to_string(),
-            timezone: "N/A".to_string(),
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct AppState {

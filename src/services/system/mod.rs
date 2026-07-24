@@ -1,4 +1,3 @@
-use crate::state::WanInfo;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -9,6 +8,27 @@ const NA: &str = "N/A";
 
 fn or_na(value: Option<String>) -> String {
     value.unwrap_or_else(|| NA.to_string())
+}
+
+#[derive(Clone)]
+pub struct WanInfo {
+    pub ip: String,
+    pub asn: String,
+    pub isp: String,
+    pub country: String,
+    pub timezone: String,
+}
+
+impl WanInfo {
+    pub fn na() -> Self {
+        Self {
+            ip: or_na(None),
+            asn: or_na(None),
+            isp: or_na(None),
+            country: or_na(None),
+            timezone: or_na(None),
+        }
+    }
 }
 
 fn get_local_ip() -> String {
