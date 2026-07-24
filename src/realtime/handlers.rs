@@ -1,3 +1,4 @@
+use crate::realtime::event_names::ServerEvent;
 use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
 use crate::state::AppState;
@@ -128,7 +129,7 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
             if socket.connected() {
                 state.shell.add_session(socket_id, session);
                 let _ = socket.emit(
-                    "shell_created",
+                    ServerEvent::ShellCreated.as_str(),
                     &json!({ "status": "success", "session_id": session_id }),
                 );
             } else {
@@ -137,7 +138,7 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
         }
         Err(e) => {
             tracing::error!("Failed to create shell: {}", e);
-            let _ = socket.emit("shell_error", &json!({ "message": e.to_string() }));
+            let _ = socket.emit(ServerEvent::ShellError.as_str(), &json!({ "message": e.to_string() }));
         }
     }
 }
@@ -164,7 +165,10 @@ pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>
         .await
         .unwrap_or_default();
 
-    let _ = socket.emit("available_shells", &json!({ "shells": shells, "default": default }));
+    let _ = socket.emit(
+        ServerEvent::AvailableShells.as_str(),
+        &json!({ "shells": shells, "default": default }),
+    );
 }
 
 pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>) {
@@ -215,7 +219,7 @@ pub async fn handle_start_server_audio(
 
     if let Err(e) = audio.start_server_stream(socket.clone(), source, device_id, rate) {
         tracing::error!("Failed to start server audio: {}", e);
-        let _ = socket.emit("server_audio_error", &json!({ "message": e }));
+        let _ = socket.emit(ServerEvent::ServerAudioError.as_str(), &json!({ "message": e }));
     }
 }
 
@@ -225,11 +229,11 @@ pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<Ap
 
     match sources {
         Ok(sources) => {
-            let _ = socket.emit("audio_sources", &json!({ "sources": sources }));
+            let _ = socket.emit(ServerEvent::AudioSources.as_str(), &json!({ "sources": sources }));
         }
         Err(e) => {
             tracing::error!("Failed to list audio sources: {}", e);
-            let _ = socket.emit("audio_sources_error", &json!({ "message": e }));
+            let _ = socket.emit(ServerEvent::AudioSourcesError.as_str(), &json!({ "message": e }));
         }
     }
 }
@@ -248,7 +252,7 @@ pub async fn handle_start_client_audio(
 
     if let Err(e) = audio.start_client_playback(socket.id.to_string(), rate) {
         tracing::error!("Failed to start client playback: {}", e);
-        let _ = socket.emit("client_audio_error", &json!({ "message": e }));
+        let _ = socket.emit(ServerEvent::ClientAudioError.as_str(), &json!({ "message": e }));
     }
 }
 
@@ -275,7 +279,7 @@ pub async fn handle_start_stream(
         .await
     {
         tracing::error!("Failed to start: {e:#}");
-        let _ = socket.emit("stream_error", &json!({ "message": e.to_string() }));
+        let _ = socket.emit(ServerEvent::StreamError.as_str(), &json!({ "message": e.to_string() }));
     }
 }
 
@@ -283,7 +287,7 @@ pub async fn handle_list_cameras(socket: SocketRef) {
     let cameras = tokio::task::spawn_blocking(CameraManager::list_cameras)
         .await
         .unwrap_or_default();
-    let _ = socket.emit("camera_list", &json!({ "cameras": cameras }));
+    let _ = socket.emit(ServerEvent::CameraList.as_str(), &json!({ "cameras": cameras }));
 }
 
 pub async fn handle_start_camera_stream(
@@ -294,7 +298,10 @@ pub async fn handle_start_camera_stream(
     let camera = state.camera.clone();
     if let Err(e) = camera.start_stream(socket.clone(), state, data.device_id).await {
         tracing::error!("Failed to start: {e:#}");
-        let _ = socket.emit("camera_stream_error", &json!({ "message": e.to_string() }));
+        let _ = socket.emit(
+            ServerEvent::CameraStreamError.as_str(),
+            &json!({ "message": e.to_string() }),
+        );
     }
 }
 

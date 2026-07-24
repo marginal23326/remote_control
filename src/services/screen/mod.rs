@@ -19,6 +19,7 @@ use gstreamer_webrtc as gst_webrtc;
 use super::webrtc_session::{
     GstCommand, GstSession, WebRtcSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
+use crate::realtime::event_names::ServerEvent;
 
 #[derive(Clone, Debug)]
 pub struct StreamSettings {
@@ -395,8 +396,8 @@ impl ScreenManager {
             state.config.stun_server.clone(),
             WebRtcSignalConfig {
                 label: "screen",
-                offer_event: "webrtc_offer",
-                ice_event: "webrtc_remote_ice",
+                offer_event: ServerEvent::WebrtcOffer.as_str(),
+                ice_event: ServerEvent::WebrtcRemoteIce.as_str(),
             },
         );
         let input_handle =
@@ -483,7 +484,8 @@ impl ScreenManager {
                     let title = backend::get_active_window_title();
                     if title != last {
                         last = title;
-                        let _ = socket_emit.emit("active_window", &serde_json::json!({"title": &last}));
+                        let _ =
+                            socket_emit.emit(ServerEvent::ActiveWindow.as_str(), &serde_json::json!({"title": &last}));
                     }
                     thread::sleep(Duration::from_millis(500));
                 }

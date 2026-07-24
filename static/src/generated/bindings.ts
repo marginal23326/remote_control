@@ -10,6 +10,8 @@ export type CameraDeviceInfo = { id: string, name: string, };
 
 export type CameraStartConfig = { device_id?: string | null, };
 
+export type ClientEvent = "mouse_event" | "keyboard_event" | "shell_create" | "shell_input" | "shell_resize" | "shell_close" | "list_shells" | "task_poll_start" | "task_poll_stop" | "list_audio_sources" | "start_server_audio" | "stop_server_audio" | "start_client_audio" | "stop_client_audio" | "client_audio_data" | "start_stream" | "webrtc_answer" | "webrtc_ice_candidate" | "list_cameras" | "start_camera_stream" | "stop_camera_stream" | "camera_webrtc_answer" | "camera_webrtc_ice_candidate";
+
 export type CurrentSettingsResponse = { bitrate: number, resolution_percentage: number, target_fps: number, max_fps: number, native_width: number, native_height: number, encoder_type: string, encoder_properties: { [key in string]: string }, encoder_property_constraints: { [key in string]: EncoderPropertyConstraint }, rejected_properties: Array<string>, stun_server: string | null, };
 
 export type DriveEntry = { name: string, path: string, is_dir: boolean, drive_type: number, };
@@ -27,6 +29,8 @@ export type MouseEvent = { type: string, seq?: number, x?: number, y?: number, b
 export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
 
 export type ProcessDetailsDTO = { pid: number, name: string, rss_memory_mb: number, exact_memory_mb: number, };
+
+export type ServerEvent = "auth_status" | "auth_error" | "shell_output" | "shell_created" | "shell_error" | "shell_closed" | "available_shells" | "task_list" | "audio_sources" | "audio_sources_error" | "server_audio_format" | "server_audio_data" | "server_audio_error" | "client_audio_error" | "stream_error" | "webrtc_offer" | "webrtc_remote_ice" | "active_window" | "camera_list" | "camera_webrtc_offer" | "camera_webrtc_remote_ice" | "camera_stream_error";
 
 export type ShellCreateEvent = { cols: number, rows: number, session_id: string, shell?: string, };
 

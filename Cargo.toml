@@ -49,6 +49,7 @@ bytes = "1"
 walkdir = "2"
 parking_lot = "0.12"
 percent-encoding = "2"
+strum = { version = "0.28", features = ["derive"] }
 
 # --- System & Media ---
 tracing = "0.1"
