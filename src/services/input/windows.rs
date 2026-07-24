@@ -11,6 +11,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
 
+use super::keymap::LogicalKey;
+
 #[derive(Clone)]
 pub(crate) struct OsInputManager;
 
@@ -91,44 +93,44 @@ impl OsInputManager {
     }
 
     fn map_key_to_vk(&self, key: &str) -> VIRTUAL_KEY {
-        match key.to_lowercase().as_str() {
-            "shift" => VK_SHIFT,
-            "ctrl" | "control" => VK_CONTROL,
-            "alt" => VK_MENU,
-            "win" | "super" | "meta" => VK_LWIN,
-            "enter" | "return" => VK_RETURN,
-            "backspace" => VK_BACK,
-            "tab" => VK_TAB,
-            "esc" | "escape" => VK_ESCAPE,
-            "space" => VK_SPACE,
-            "up" => VK_UP,
-            "down" => VK_DOWN,
-            "left" => VK_LEFT,
-            "right" => VK_RIGHT,
-            "home" => VK_HOME,
-            "end" => VK_END,
-            "pageup" => VK_PRIOR,
-            "pagedown" => VK_NEXT,
-            "insert" => VK_INSERT,
-            "delete" => VK_DELETE,
-            "printscreen" => VK_SNAPSHOT,
-            "f1" => VK_F1,
-            "f2" => VK_F2,
-            "f3" => VK_F3,
-            "f4" => VK_F4,
-            "f5" => VK_F5,
-            "f6" => VK_F6,
-            "f7" => VK_F7,
-            "f8" => VK_F8,
-            "f9" => VK_F9,
-            "f10" => VK_F10,
-            "f11" => VK_F11,
-            "f12" => VK_F12,
-            s if s.len() == 1 => {
-                let char_code = s.chars().next().unwrap().to_ascii_uppercase();
-                VIRTUAL_KEY(char_code as u16)
-            }
-            _ => VIRTUAL_KEY(0),
+        let Some(logical) = LogicalKey::parse(key) else {
+            return VIRTUAL_KEY(0);
+        };
+        match logical {
+            LogicalKey::Shift => VK_SHIFT,
+            LogicalKey::Control => VK_CONTROL,
+            LogicalKey::Alt => VK_MENU,
+            LogicalKey::Super => VK_LWIN,
+            LogicalKey::Return => VK_RETURN,
+            LogicalKey::BackSpace => VK_BACK,
+            LogicalKey::Tab => VK_TAB,
+            LogicalKey::Escape => VK_ESCAPE,
+            LogicalKey::Space => VK_SPACE,
+            LogicalKey::Up => VK_UP,
+            LogicalKey::Down => VK_DOWN,
+            LogicalKey::Left => VK_LEFT,
+            LogicalKey::Right => VK_RIGHT,
+            LogicalKey::Home => VK_HOME,
+            LogicalKey::End => VK_END,
+            LogicalKey::PageUp => VK_PRIOR,
+            LogicalKey::PageDown => VK_NEXT,
+            LogicalKey::Insert => VK_INSERT,
+            LogicalKey::Delete => VK_DELETE,
+            LogicalKey::Print => VK_SNAPSHOT,
+            LogicalKey::F1 => VK_F1,
+            LogicalKey::F2 => VK_F2,
+            LogicalKey::F3 => VK_F3,
+            LogicalKey::F4 => VK_F4,
+            LogicalKey::F5 => VK_F5,
+            LogicalKey::F6 => VK_F6,
+            LogicalKey::F7 => VK_F7,
+            LogicalKey::F8 => VK_F8,
+            LogicalKey::F9 => VK_F9,
+            LogicalKey::F10 => VK_F10,
+            LogicalKey::F11 => VK_F11,
+            LogicalKey::F12 => VK_F12,
+            LogicalKey::Char(ch) if ch.is_ascii() => VIRTUAL_KEY(ch.to_ascii_uppercase() as u16),
+            LogicalKey::Char(_) => VIRTUAL_KEY(0),
         }
     }
 }
