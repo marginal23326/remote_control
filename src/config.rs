@@ -32,40 +32,44 @@ pub async fn load() -> Result<AppConfig> {
         let content = fs::read_to_string(CONFIG_FILE).await?;
         serde_json::from_str(&content)?
     } else {
-        println!("\n=== First Time Setup ===");
-        println!("No configuration found. Please create your admin password.\n");
-
-        let password = prompt_password()?;
-        let port_str = prompt_input("Enter port (default 5000): ")?;
-
-        let port = if port_str.is_empty() {
-            5000
-        } else {
-            port_str.parse::<u16>().unwrap_or(5000)
-        };
-
-        println!("\nGenerating security keys...");
-        let salt = Uuid::new_v4().as_bytes().to_vec();
-        let password_hash = crate::utils::auth::hash_password(&password, &salt);
-        let jwt_secret = Uuid::new_v4().to_string();
-
-        let config = AppConfig {
-            password_hash,
-            jwt_secret,
-            port,
-            stun_server: None,
-        };
-
-        let json = serde_json::to_string_pretty(&config)?;
-        fs::write(CONFIG_FILE, json).await?;
-        println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
-
-        config
+        prompt_and_save_new_config().await?
     };
 
     if let Ok(env_stun) = std::env::var("STUN_SERVER") {
         config.stun_server = Some(env_stun);
     }
+
+    Ok(config)
+}
+
+async fn prompt_and_save_new_config() -> Result<AppConfig> {
+    println!("\n=== First Time Setup ===");
+    println!("No configuration found. Please create your admin password.\n");
+
+    let password = prompt_password()?;
+    let port_str = prompt_input("Enter port (default 5000): ")?;
+
+    let port = if port_str.is_empty() {
+        5000
+    } else {
+        port_str.parse::<u16>().unwrap_or(5000)
+    };
+
+    println!("\nGenerating security keys...");
+    let salt = Uuid::new_v4().as_bytes().to_vec();
+    let password_hash = crate::utils::auth::hash_password(&password, &salt);
+    let jwt_secret = Uuid::new_v4().to_string();
+
+    let config = AppConfig {
+        password_hash,
+        jwt_secret,
+        port,
+        stun_server: None,
+    };
+
+    let json = serde_json::to_string_pretty(&config)?;
+    fs::write(CONFIG_FILE, json).await?;
+    println!("Configuration saved to '{}'. Starting server...\n", CONFIG_FILE);
 
     Ok(config)
 }
