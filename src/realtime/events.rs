@@ -1,3 +1,4 @@
+use crate::realtime::event_names::{ClientEvent, ServerEvent};
 use crate::realtime::handlers::{
     handle_camera_webrtc_answer, handle_camera_webrtc_ice, handle_client_audio_data, handle_disconnect,
     handle_keyboard_event, handle_list_audio_sources, handle_list_cameras, handle_list_shells, handle_mouse_event,
@@ -70,7 +71,10 @@ pub fn register(io: SocketIo, state: AppState) {
             .await;
 
             if let Ok(data) = data_res {
-                let _ = io_clone.to("task_watchers").emit("task_list", &data).await;
+                let _ = io_clone
+                    .to("task_watchers")
+                    .emit(ServerEvent::TaskList.as_str(), &data)
+                    .await;
             }
         }
     });
@@ -82,44 +86,44 @@ async fn on_connect(socket: SocketRef, State(state): State<AppState>) {
 
     if !is_authenticated {
         warn!("Socket connection rejected: Invalid or missing token");
-        let _ = socket.emit("auth_error", &json!({ "message": "Unauthorized" }));
+        let _ = socket.emit(ServerEvent::AuthError.as_str(), &json!({ "message": "Unauthorized" }));
         let _ = socket.disconnect();
         return;
     }
 
     info!("Socket connected & authenticated: {}", socket.id);
-    let _ = socket.emit("auth_status", &json!({ "authenticated": true }));
+    let _ = socket.emit(ServerEvent::AuthStatus.as_str(), &json!({ "authenticated": true }));
 
-    socket.on("mouse_event", handle_mouse_event);
-    socket.on("keyboard_event", handle_keyboard_event);
+    socket.on(ClientEvent::MouseEvent.as_str(), handle_mouse_event);
+    socket.on(ClientEvent::KeyboardEvent.as_str(), handle_keyboard_event);
 
-    socket.on("shell_create", handle_shell_create);
-    socket.on("shell_input", handle_shell_input);
-    socket.on("shell_resize", handle_shell_resize);
-    socket.on("shell_close", handle_shell_close);
-    socket.on("list_shells", handle_list_shells);
+    socket.on(ClientEvent::ShellCreate.as_str(), handle_shell_create);
+    socket.on(ClientEvent::ShellInput.as_str(), handle_shell_input);
+    socket.on(ClientEvent::ShellResize.as_str(), handle_shell_resize);
+    socket.on(ClientEvent::ShellClose.as_str(), handle_shell_close);
+    socket.on(ClientEvent::ListShells.as_str(), handle_list_shells);
 
-    socket.on("task_poll_start", handle_task_poll_start);
-    socket.on("task_poll_stop", handle_task_poll_stop);
+    socket.on(ClientEvent::TaskPollStart.as_str(), handle_task_poll_start);
+    socket.on(ClientEvent::TaskPollStop.as_str(), handle_task_poll_stop);
 
-    socket.on("list_audio_sources", handle_list_audio_sources);
-    socket.on("start_server_audio", handle_start_server_audio);
-    socket.on("stop_server_audio", handle_stop_server_audio);
-    socket.on("start_client_audio", handle_start_client_audio);
-    socket.on("stop_client_audio", handle_stop_client_audio);
-    socket.on("client_audio_data", handle_client_audio_data);
+    socket.on(ClientEvent::ListAudioSources.as_str(), handle_list_audio_sources);
+    socket.on(ClientEvent::StartServerAudio.as_str(), handle_start_server_audio);
+    socket.on(ClientEvent::StopServerAudio.as_str(), handle_stop_server_audio);
+    socket.on(ClientEvent::StartClientAudio.as_str(), handle_start_client_audio);
+    socket.on(ClientEvent::StopClientAudio.as_str(), handle_stop_client_audio);
+    socket.on(ClientEvent::ClientAudioData.as_str(), handle_client_audio_data);
 
-    socket.on("start_stream", handle_start_stream);
+    socket.on(ClientEvent::StartStream.as_str(), handle_start_stream);
 
-    socket.on("webrtc_answer", handle_webrtc_answer);
-    socket.on("webrtc_ice_candidate", handle_webrtc_ice);
+    socket.on(ClientEvent::WebrtcAnswer.as_str(), handle_webrtc_answer);
+    socket.on(ClientEvent::WebrtcIceCandidate.as_str(), handle_webrtc_ice);
 
-    socket.on("list_cameras", handle_list_cameras);
-    socket.on("start_camera_stream", handle_start_camera_stream);
-    socket.on("stop_camera_stream", handle_stop_camera_stream);
+    socket.on(ClientEvent::ListCameras.as_str(), handle_list_cameras);
+    socket.on(ClientEvent::StartCameraStream.as_str(), handle_start_camera_stream);
+    socket.on(ClientEvent::StopCameraStream.as_str(), handle_stop_camera_stream);
 
-    socket.on("camera_webrtc_answer", handle_camera_webrtc_answer);
-    socket.on("camera_webrtc_ice_candidate", handle_camera_webrtc_ice);
+    socket.on(ClientEvent::CameraWebrtcAnswer.as_str(), handle_camera_webrtc_answer);
+    socket.on(ClientEvent::CameraWebrtcIceCandidate.as_str(), handle_camera_webrtc_ice);
 
     socket.on_disconnect(handle_disconnect);
 }

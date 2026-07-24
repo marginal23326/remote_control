@@ -1,3 +1,4 @@
+use crate::realtime::event_names::ServerEvent;
 use anyhow::Result;
 use parking_lot::Mutex;
 use portable_pty::{ChildKiller, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
@@ -73,7 +74,10 @@ impl ShellManager {
                 while !leftover.is_empty() {
                     match std::str::from_utf8(&leftover) {
                         Ok(s) => {
-                            let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
+                            let _ = socket_clone.emit(
+                                ServerEvent::ShellOutput.as_str(),
+                                &json!({ "session_id": sid, "output": s }),
+                            );
                             leftover.clear();
                             break;
                         }
@@ -82,15 +86,20 @@ impl ShellManager {
 
                             if valid > 0 {
                                 let s = std::str::from_utf8(&leftover[..valid]).unwrap();
-                                let _ = socket_clone.emit("shell_output", &json!({ "session_id": sid, "output": s }));
+                                let _ = socket_clone.emit(
+                                    ServerEvent::ShellOutput.as_str(),
+                                    &json!({ "session_id": sid, "output": s }),
+                                );
 
                                 leftover.drain(..valid);
                                 continue;
                             }
 
                             if let Some(err_len) = e.error_len() {
-                                let _ = socket_clone
-                                    .emit("shell_output", &json!({ "session_id": sid, "output": "\u{FFFD}" }));
+                                let _ = socket_clone.emit(
+                                    ServerEvent::ShellOutput.as_str(),
+                                    &json!({ "session_id": sid, "output": "\u{FFFD}" }),
+                                );
                                 leftover.drain(..err_len);
                                 continue;
                             } else {
@@ -111,10 +120,10 @@ impl ShellManager {
         thread::spawn(move || {
             let _ = child.wait();
             let _ = socket_wait.emit(
-                "shell_output",
+                ServerEvent::ShellOutput.as_str(),
                 &json!({ "session_id": sid_wait, "output": "\r\n\x1b[33m[Process Terminated]\x1b[0m\r\n" }),
             );
-            let _ = socket_wait.emit("shell_closed", &json!({ "session_id": sid_wait }));
+            let _ = socket_wait.emit(ServerEvent::ShellClosed.as_str(), &json!({ "session_id": sid_wait }));
 
             if active_for_wait.load(Ordering::Acquire) {
                 let removed = sessions_for_wait.lock().remove(&socket_id_wait);

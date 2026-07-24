@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::realtime::event_names::ServerEvent;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 use wasapi::*;
@@ -78,7 +79,7 @@ pub(crate) fn server_loop(
     const OUTPUT_FORMAT: &str = "int16";
 
     let _ = socket.emit(
-        "server_audio_format",
+        ServerEvent::ServerAudioFormat.as_str(),
         &serde_json::json!({
             "rate": actual_rate,
             "channels": 1,
@@ -126,7 +127,7 @@ pub(crate) fn server_loop(
 
             sample_queue.drain(..process_bytes);
 
-            let _ = socket.emit("server_audio_data", &pcm);
+            let _ = socket.emit(ServerEvent::ServerAudioData.as_str(), &pcm);
         }
 
         let _ = h_event.wait_for_event(100);

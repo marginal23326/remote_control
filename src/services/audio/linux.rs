@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
+use crate::realtime::event_names::ServerEvent;
 use crossbeam_channel::bounded;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
@@ -95,7 +96,7 @@ pub(crate) fn server_loop(
             if format.parse(param).is_ok() {
                 let negotiated_rate = format.rate();
                 let _ = user_data.socket.emit(
-                    "server_audio_format",
+                    ServerEvent::ServerAudioFormat.as_str(),
                     &serde_json::json!({
                         "rate": negotiated_rate,
                         "channels": 1,
@@ -162,7 +163,7 @@ pub(crate) fn server_loop(
             }
 
             if !pcm.is_empty() {
-                let _ = socket_clone.emit("server_audio_data", &pcm);
+                let _ = socket_clone.emit(ServerEvent::ServerAudioData.as_str(), &pcm);
                 pcm.clear();
             }
         }
@@ -171,7 +172,7 @@ pub(crate) fn server_loop(
             pcm.extend_from_slice(&sample.to_le_bytes());
         }
         if !pcm.is_empty() {
-            let _ = socket_clone.emit("server_audio_data", &pcm);
+            let _ = socket_clone.emit(ServerEvent::ServerAudioData.as_str(), &pcm);
         }
     });
 
