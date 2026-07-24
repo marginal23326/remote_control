@@ -409,7 +409,7 @@ impl ScreenManager {
         spawn_bus_watch(pipeline.clone(), "screen", || {});
 
         #[cfg(target_os = "linux")]
-        let mut inner = {
+        let (pw_handle, title_handle): (Option<thread::JoinHandle<()>>, Option<thread::JoinHandle<()>>) = {
             let (pw_node_id, pw_size, pw_fd) = {
                 let portal = linux::portal_session();
                 portal.open_pipewire_remote(capture_cursor).await
@@ -422,7 +422,7 @@ impl ScreenManager {
             let recycle_rx_cap = recycle_rx.clone();
             let native_size_cap = self.native_size.clone();
 
-            let pw_handle = thread::spawn(move || {
+            let pw = thread::spawn(move || {
                 if let Err(e) = linux::run_pipewire_capture(
                     pw_node_id,
                     pw_fd,
@@ -436,24 +436,16 @@ impl ScreenManager {
                 }
             });
 
-            let title_handle = {
+            let title = {
                 let r = is_running.clone();
                 thread::spawn(move || linux::run_active_window_title_poll(r))
             };
 
-            InnerState {
-                pipeline,
-                encoder,
-                cmd_tx,
-                input_handle: Some(input_handle),
-                pw_handle: Some(pw_handle),
-                title_handle: Some(title_handle),
-                emit_handle: None,
-            }
+            (Some(pw), Some(title))
         };
 
         #[cfg(windows)]
-        let mut inner = {
+        let (pw_handle, title_handle): (Option<thread::JoinHandle<()>>, Option<thread::JoinHandle<()>>) = {
             windows::start_os_capture(
                 frame_tx,
                 recycle_rx,
@@ -464,15 +456,17 @@ impl ScreenManager {
             )
             .await?;
 
-            InnerState {
-                pipeline,
-                encoder,
-                cmd_tx,
-                input_handle: Some(input_handle),
-                pw_handle: None,
-                title_handle: None,
-                emit_handle: None,
-            }
+            (None, None)
+        };
+
+        let mut inner = InnerState {
+            pipeline,
+            encoder,
+            cmd_tx,
+            input_handle: Some(input_handle),
+            pw_handle,
+            title_handle,
+            emit_handle: None,
         };
 
         let emit_handle = {
