@@ -33,7 +33,7 @@ pub struct CurrentSettingsResponse {
     pub stun_server: Option<String>,
 }
 
-pub async fn get_settings_handler(State(state): State<AppState>) -> Json<CurrentSettingsResponse> {
+fn build_settings_response(state: &AppState) -> CurrentSettingsResponse {
     let screen = state.screen.clone();
     let s = screen.settings.lock();
     let (native_width, native_height) = *screen.native_size.lock();
@@ -41,7 +41,7 @@ pub async fn get_settings_handler(State(state): State<AppState>) -> Json<Current
     let encoder_properties = s.encoder_properties.clone();
     let encoder_property_constraints = screen.encoder_property_constraints.lock().clone();
 
-    Json(CurrentSettingsResponse {
+    CurrentSettingsResponse {
         bitrate: s.bitrate,
         resolution_percentage: s.resolution_percentage,
         target_fps: s.target_fps,
@@ -53,7 +53,11 @@ pub async fn get_settings_handler(State(state): State<AppState>) -> Json<Current
         encoder_property_constraints,
         rejected_properties: Vec::new(),
         stun_server: state.config.stun_server.clone(),
-    })
+    }
+}
+
+pub async fn get_settings_handler(State(state): State<AppState>) -> Json<CurrentSettingsResponse> {
+    Json(build_settings_response(&state))
 }
 
 pub async fn update_settings_handler(
@@ -82,7 +86,7 @@ pub async fn update_settings_handler(
         Vec::new()
     };
 
-    let Json(mut settings) = get_settings_handler(State(state)).await;
+    let mut settings = build_settings_response(&state);
     settings.rejected_properties = rejected;
 
     Json(settings)
