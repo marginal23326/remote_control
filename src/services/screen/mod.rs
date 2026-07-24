@@ -16,9 +16,8 @@ use gstreamer::glib;
 use gstreamer_app as gst_app;
 use gstreamer_webrtc as gst_webrtc;
 
-use super::webrtc_session::{
-    GstCommand, GstSession, WebRtcSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
-};
+use super::owned_worker::OwnedSession;
+use super::webrtc_session::{GstCommand, GstSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling};
 use crate::realtime::event_names::ServerEvent;
 
 #[derive(Clone, Debug)]
@@ -253,7 +252,7 @@ pub struct ScreenManager {
     pub native_size: Arc<Mutex<(i32, i32)>>,
     pub encoder_type: Arc<Mutex<String>>,
     pub encoder_property_constraints: Arc<Mutex<HashMap<String, EncoderPropertyConstraint>>>,
-    session: WebRtcSession<InnerState>,
+    session: OwnedSession<InnerState>,
 }
 
 struct InnerState {
@@ -297,7 +296,7 @@ impl ScreenManager {
             native_size: Arc::new(Mutex::new(native_size)),
             encoder_type: Arc::new(Mutex::new(String::new())),
             encoder_property_constraints: Arc::new(Mutex::new(HashMap::new())),
-            session: WebRtcSession::new(),
+            session: OwnedSession::new(),
         }
     }
 

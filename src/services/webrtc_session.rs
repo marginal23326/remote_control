@@ -148,9 +148,7 @@ impl<T: GstSession> Stoppable for T {
     }
 }
 
-pub(crate) type WebRtcSession<T> = OwnedSession<T>;
-
-impl<T: GstSession> WebRtcSession<T> {
+impl<T: GstSession> OwnedSession<T> {
     pub(crate) fn set_remote_description(&self, sdp: String) {
         self.with_inner(|s| {
             let _ = s.cmd_tx().send(GstCommand::SetRemoteDescription(sdp));

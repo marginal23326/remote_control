@@ -1,7 +1,8 @@
 use crate::realtime::event_names::ServerEvent;
+use crate::services::owned_worker::OwnedSession;
 use crate::services::screen::{LEAKY_QUEUE, detect_encoder};
 use crate::services::webrtc_session::{
-    GstCommand, GstSession, WebRtcSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
+    GstCommand, GstSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
 use crate::state::AppState;
 use serde::Serialize;
@@ -35,13 +36,13 @@ impl GstSession for CameraInner {
 }
 
 pub struct CameraManager {
-    session: WebRtcSession<CameraInner>,
+    session: OwnedSession<CameraInner>,
 }
 
 impl CameraManager {
     pub fn new() -> Self {
         Self {
-            session: WebRtcSession::new(),
+            session: OwnedSession::new(),
         }
     }
 
