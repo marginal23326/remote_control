@@ -2,7 +2,6 @@ use serde::Deserialize;
 use tokio::sync::mpsc;
 use ts_rs::TS;
 
-#[cfg(target_os = "linux")]
 pub(crate) mod keymap;
 
 #[cfg(target_os = "linux")]
