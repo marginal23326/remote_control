@@ -16,7 +16,8 @@ import { renderBreadcrumbs } from "./breadcrumbs";
 import { AccessChecker } from "./access-checker";
 import { uploadFiles } from "./upload-service";
 import { DropZone } from "./drop-zone";
-import { computeVisibleRange, renderEmptyRow, renderFileRow, renderSpacerRow } from "./file-list-renderer";
+import { renderEmptyRow, renderFileRow } from "./file-list-renderer";
+import { VirtualList } from "./virtual-list";
 import type { ApiMessageResponse, FileListItem, RenderableFileItem } from "@/shared/types";
 
 type SortColumn = "name" | "size" | "modified";
@@ -45,17 +46,11 @@ class FileManager extends ListManager {
         scrollContainer: null,
         searchInput: null,
     };
-    rowHeight = 21;
-    rowHeightNeedsUpdate = true;
-    buffer = 15;
-    resizeObserver: ResizeObserver | null = null;
-    lastRenderedRange = { start: -1, end: -1 };
-    ticking = false;
+    virtualList: VirtualList<RenderableFileItem> | null = null;
     isLoading = false;
     scrollToPath: string | null = null;
     currentUploadXhr: XMLHttpRequest | null = null;
     accessChecker!: AccessChecker;
-    lastContainerHeight = 0;
     private navToken = 0;
     private hasError = false;
 
@@ -97,7 +92,7 @@ class FileManager extends ListManager {
         this.accessChecker = new AccessChecker({
             checkAccess: (batch) => apiCall<string[]>(`/api/files/check-access`, "POST", batch),
             getVisiblePaths: () => {
-                const { start, end } = this.lastRenderedRange;
+                const { start, end } = this.virtualList?.visibleRange ?? { end: -1, start: -1 };
                 return new Set(
                     this.filteredList
                         .slice(Math.max(0, start), end)
@@ -121,30 +116,28 @@ class FileManager extends ListManager {
         this.elements.scrollContainer = this.elements.fileList!.closest<HTMLElement>(".overflow-auto");
 
         if (this.elements.scrollContainer) {
-            this.elements.scrollContainer.addEventListener("scroll", () => {
-                if (!this.ticking) {
-                    window.requestAnimationFrame(() => {
-                        this.renderViewport();
-                        this.ticking = false;
-                    });
-                    this.ticking = true;
-                }
-            });
+            this.virtualList = new VirtualList<RenderableFileItem>({
+                container: this.elements.scrollContainer,
+                getItems: () => this.filteredList,
+                isPaused: () => this.isLoading,
+                list: this.elements.fileList!,
+                renderEmpty: renderEmptyRow,
+                renderRow: (item) => {
+                    const cachedAccess = this.accessChecker.get(item.path);
+                    const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
 
-            this.lastContainerHeight = this.elements.scrollContainer?.clientHeight || 0;
-            this.resizeObserver = new ResizeObserver(() => {
-                if (this.filteredList.length > 0) {
-                    const newHeight = this.elements.scrollContainer!.clientHeight || 0;
-                    if (newHeight !== this.lastContainerHeight) {
-                        this.lastContainerHeight = newHeight;
-                        this.rowHeightNeedsUpdate = true;
-                        window.requestAnimationFrame(() => {
-                            this.renderViewport(true);
-                        });
+                    if (item.is_dir && cachedAccess === undefined) {
+                        this.accessChecker.queuePath(item.path);
                     }
-                }
+
+                    const selectedCls = this.selectionManager
+                        ? this.selectionManager.getItemClasses(item.path)
+                        : CLASSES.defaultHover;
+
+                    return renderFileRow(item, { accessCls, rowHeight: this.virtualList!.rowHeight, selectedCls });
+                },
             });
-            this.resizeObserver.observe(this.elements.scrollContainer);
+            this.virtualList.attach();
         }
     }
 
@@ -306,20 +299,18 @@ class FileManager extends ListManager {
 
         this.filteredList = list;
 
-        this.renderViewport(true);
+        this.virtualList?.render(true);
 
         if (this.elements.scrollContainer) {
-            if (this.scrollToPath && this.rowHeight > 0) {
+            const rowHeight = this.virtualList!.rowHeight;
+            if (this.scrollToPath && rowHeight > 0) {
                 const index = this.filteredList.findIndex((i) => i.path === this.scrollToPath);
                 if (index !== -1) {
-                    const targetScroll = index * this.rowHeight;
+                    const targetScroll = index * rowHeight;
                     const containerHeight = this.elements.scrollContainer.clientHeight;
                     const currentScroll = this.elements.scrollContainer.scrollTop;
 
-                    if (
-                        targetScroll < currentScroll ||
-                        targetScroll > currentScroll + containerHeight - this.rowHeight
-                    ) {
+                    if (targetScroll < currentScroll || targetScroll > currentScroll + containerHeight - rowHeight) {
                         this.elements.scrollContainer.scrollTop = Math.max(0, targetScroll - containerHeight / 2);
                     }
                 }
@@ -328,75 +319,6 @@ class FileManager extends ListManager {
                 this.elements.scrollContainer.scrollTop = 0;
             }
         }
-    }
-
-    renderViewport(force = false): void {
-        if (!this.elements.scrollContainer || this.isLoading) return;
-
-        if (this.rowHeightNeedsUpdate) {
-            const firstRealRow = this.elements.fileList!.querySelector<HTMLElement>(`tr[data-path]`);
-            if (firstRealRow) {
-                const measured = firstRealRow.getBoundingClientRect().height;
-                if (measured > 0) {
-                    this.rowHeight = measured;
-                    this.rowHeightNeedsUpdate = false;
-                }
-            }
-        }
-
-        const containerHeight = this.elements.scrollContainer.clientHeight || 500;
-        const { scrollTop } = this.elements.scrollContainer;
-        const totalItems = this.filteredList.length;
-        const totalHeight = totalItems * this.rowHeight;
-
-        const { startIndex, endIndex } = computeVisibleRange({
-            buffer: this.buffer,
-            containerHeight,
-            rowHeight: this.rowHeight,
-            scrollTop,
-            totalItems,
-        });
-
-        if (!force && startIndex === this.lastRenderedRange.start && endIndex === this.lastRenderedRange.end) {
-            return;
-        }
-        this.lastRenderedRange = { end: endIndex, start: startIndex };
-
-        const paddingTop = startIndex * this.rowHeight;
-        const paddingBottom = Math.max(0, totalHeight - endIndex * this.rowHeight);
-
-        let html = "";
-        if (paddingTop > 0) {
-            html += renderSpacerRow(paddingTop);
-        }
-
-        for (let i = startIndex; i < endIndex; i++) {
-            const item = this.filteredList[i];
-            if (!item) continue;
-
-            const cachedAccess = this.accessChecker.get(item.path);
-            const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
-
-            if (item.is_dir && cachedAccess === undefined) {
-                this.accessChecker.queuePath(item.path);
-            }
-
-            const selectedCls = this.selectionManager
-                ? this.selectionManager.getItemClasses(item.path)
-                : CLASSES.defaultHover;
-
-            html += renderFileRow(item, { accessCls, rowHeight: this.rowHeight, selectedCls });
-        }
-
-        if (totalItems === 0) {
-            html += renderEmptyRow();
-        }
-
-        if (paddingBottom > 0) {
-            html += renderSpacerRow(paddingBottom);
-        }
-
-        this.elements.fileList!.innerHTML = html;
     }
 
     async listFiles(
@@ -408,7 +330,7 @@ class FileManager extends ListManager {
         this.clearSelection();
         this.accessChecker.reset();
         this.scrollToPath = null;
-        this.lastRenderedRange = { end: -1, start: -1 };
+        this.virtualList?.resetRange();
         this.updateFileOperationsUI();
         const fileList = byId("fileList")!;
 
