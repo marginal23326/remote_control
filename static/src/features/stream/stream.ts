@@ -15,15 +15,15 @@ import {
     updateStreamMeta,
 } from "./view";
 import { invalidateDimensionsCache } from "./geometry";
-import { setStreamActive, streamActive } from "./stream-state";
+import { streamState } from "./stream-state";
 import { cleanupPeerConnection, initializePeerConnectionSignaling } from "./peer-connection";
 import { initSettingsPanel, updateSettingsDisplay } from "./settings-panel";
 import type { AppSocket } from "@/core/socket";
 import type { StreamSettings } from "@/shared/types";
 
 async function executeStopStream(): Promise<void> {
-    if (!streamActive) return;
-    setStreamActive(false);
+    if (!streamState.active) return;
+    streamState.active = false;
 
     getStartButtonLoader()?.stopLoading();
     setStreamToggleUI(false);
@@ -54,13 +54,13 @@ export function initializeStream(socket: AppSocket): void {
         });
 
     byId("toggleStream")!.addEventListener("click", async () => {
-        if (streamActive) {
+        if (streamState.active) {
             hideStreamUI();
             hideScreenshotView();
             await executeStopStream();
         } else {
             hideScreenshotView();
-            setStreamActive(true);
+            streamState.active = true;
 
             getStartButtonLoader()?.startLoading();
 
@@ -134,15 +134,15 @@ export function initializeStream(socket: AppSocket): void {
     });
 
     bindMediaSessionReconnect(socket, {
-        isActive: () => streamActive,
+        isActive: () => streamState.active,
         onDisconnect: () => {
-            setStreamActive(false);
+            streamState.active = false;
             getStartButtonLoader()?.stopLoading();
             setStreamToggleUI(false);
             cleanupPeerConnection();
         },
         onReconnect: () => {
-            setStreamActive(true);
+            streamState.active = true;
             setStreamToggleUI(true);
             socket.emit("start_stream", { capture_cursor: isCursorCaptureEnabled() });
         },

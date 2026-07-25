@@ -1,10 +1,6 @@
-export let streamActive = false;
-export let activeStunServer: string | null = null;
-
-export function setStreamActive(value: boolean): void {
-    streamActive = value;
-}
-
-export function setStunServer(url: string | null): void {
-    activeStunServer = url;
-}
+export const streamState = {
+    active: false,
+    stunServer: null as string | null,
+    nativeWidth: null as number | null,
+    nativeHeight: null as number | null,
+};

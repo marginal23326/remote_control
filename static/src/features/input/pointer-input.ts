@@ -1,5 +1,5 @@
 import { streamUI } from "@/features/stream/view";
-import { streamActive } from "@/features/stream/stream-state";
+import { streamState } from "@/features/stream/stream-state";
 import { calculateStreamDimensions } from "@/features/stream/geometry";
 import { sendMouseEventOverDataChannel } from "@/features/stream/peer-connection";
 import { captureState } from "./capture-state";
@@ -21,7 +21,7 @@ export function initializePointerInput(socket: AppSocket): void {
         event: { clientX: number; clientY: number },
         options: Partial<MouseEventPayload> = {},
     ): void {
-        if (!streamActive) return;
+        if (!streamState.active) return;
         const { clientX } = event;
         const { clientY } = event;
         const dimensions = calculateStreamDimensions();

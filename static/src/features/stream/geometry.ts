@@ -1,4 +1,5 @@
 import { streamUI } from "./view";
+import { streamState } from "./stream-state";
 
 export interface StreamDimensions {
     container: DOMRect;
@@ -12,18 +13,12 @@ export interface StreamDimensions {
     nativeHeight: number;
 }
 
-let nativeWidth: number | null = null;
-let nativeHeight: number | null = null;
 let cachedDimensions: StreamDimensions | null = null;
 
 export function setNativeDimensions(width: number, height: number): void {
-    nativeWidth = width;
-    nativeHeight = height;
+    streamState.nativeWidth = width;
+    streamState.nativeHeight = height;
     cachedDimensions = null;
-}
-
-export function getNativeDimensions(): { width: number | null; height: number | null } {
-    return { height: nativeHeight, width: nativeWidth };
 }
 
 export function invalidateDimensionsCache(): void {
@@ -33,8 +28,8 @@ export function invalidateDimensionsCache(): void {
 export function calculateStreamDimensions(): StreamDimensions {
     if (cachedDimensions) return cachedDimensions;
 
-    const w = nativeWidth || streamUI.view.videoWidth || 1920;
-    const h = nativeHeight || streamUI.view.videoHeight || 1080;
+    const w = streamState.nativeWidth || streamUI.view.videoWidth || 1920;
+    const h = streamState.nativeHeight || streamUI.view.videoHeight || 1080;
     const container = streamUI.container.getBoundingClientRect();
 
     const containerAspect = container.width / container.height;

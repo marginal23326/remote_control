@@ -8,7 +8,7 @@ import {
     stopFpsCounter,
     streamUI,
 } from "./view";
-import { activeStunServer, setStreamActive, streamActive } from "./stream-state";
+import { streamState } from "./stream-state";
 import { apiCall } from "@/shared/api";
 import { updateSettingsDisplay } from "./settings-panel";
 import { createPeerSignaling } from "@/shared/peer-signaling";
@@ -25,7 +25,7 @@ let mouseInputSeq = 0;
 
 export function initializePeerConnectionSignaling(socket: AppSocket): void {
     const signaling = createPeerSignaling({
-        getStunServer: () => activeStunServer,
+        getStunServer: () => streamState.stunServer,
         onAnswer: (sdp) => {
             socket.emit("webrtc_answer", sdp);
         },
@@ -59,7 +59,7 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
     peerSignaling = signaling;
 
     socket.on("webrtc_offer", async (sdpText) => {
-        if (!streamActive) return;
+        if (!streamState.active) return;
 
         getStartButtonLoader()?.stopLoading();
         showStreamUI();
@@ -69,12 +69,12 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
     });
 
     socket.on("webrtc_remote_ice", async (data) => {
-        if (!streamActive) return;
+        if (!streamState.active) return;
         await signaling.handleRemoteIce(data);
     });
 
     socket.on("stream_error", (data) => {
-        if (!streamActive) return;
+        if (!streamState.active) return;
         console.error("Stream error:", data.message);
         handleStreamError(data.message);
     });
@@ -82,7 +82,7 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
 
 function handleStreamError(message: string): void {
     showNotification(message, "error");
-    setStreamActive(false);
+    streamState.active = false;
     getStartButtonLoader()?.stopLoading();
     setStreamToggleUI(false);
     cleanupPeerConnection();

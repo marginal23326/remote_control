@@ -1,8 +1,8 @@
 import { apiCall } from "@/shared/api";
 import { byId } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
-import { setStunServer } from "./stream-state";
-import { getNativeDimensions, setNativeDimensions } from "./geometry";
+import { streamState } from "./stream-state";
+import { setNativeDimensions } from "./geometry";
 import { readEncoderPropsFromDOM, setEncoderProperties, setEncoderPropertyConstraints } from "./encoder-properties";
 import type { StreamSettings, UpdateStreamSettingsPayload } from "@/shared/types";
 
@@ -12,7 +12,7 @@ export function updateSettingsDisplay(settings: StreamSettings | null | undefine
     if (!settings) return;
 
     if (settings.stun_server !== undefined) {
-        setStunServer(settings.stun_server);
+        streamState.stunServer = settings.stun_server;
     }
 
     if (settings.native_width !== undefined) {
@@ -51,9 +51,8 @@ function formatBitrateLabel(bitrate: number): string {
 }
 
 function formatResolutionLabel(pct: number): string {
-    const { width, height } = getNativeDimensions();
-    const w = width || 1920;
-    const h = height || 1080;
+    const w = streamState.nativeWidth || 1920;
+    const h = streamState.nativeHeight || 1080;
     return pct === 100 ? "100% (Native)" : `${pct}% (${Math.round((w * pct) / 100)} x ${Math.round((h * pct) / 100)})`;
 }
 
