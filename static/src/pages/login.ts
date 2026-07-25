@@ -1,5 +1,6 @@
 import "../../input.css";
 import "../../css/styles.css";
+import { parseJsonResponse } from "@/shared/api";
 import { byId } from "@/shared/dom-helpers";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -25,16 +26,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
             });
 
-            const data = (await response.json()) as { status: string; message?: string };
+            await parseJsonResponse(response);
 
-            if (response.ok && data.status === "success") {
-                btnText.textContent = "Success";
-                setTimeout(() => {
-                    window.location.href = "/";
-                }, 300);
-            } else {
-                throw new Error(data.message ?? "Invalid credentials");
-            }
+            btnText.textContent = "Success";
+            setTimeout(() => {
+                window.location.href = "/";
+            }, 300);
         } catch (error) {
             setLoading(false);
             errorMessage.textContent = (error as Error).message || "Connection Error";
