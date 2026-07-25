@@ -97,6 +97,10 @@ export function initializeTaskManager(socket: AppSocket): void {
         },
     });
 
+    byId("endTaskButton")?.addEventListener("click", () => {
+        void killProcesses(taskManager.getSelectedItems());
+    });
+
     function renderTaskList(newProcesses?: ProcessInfo[]): void {
         if (newProcesses) {
             allProcesses = newProcesses;
@@ -130,16 +134,6 @@ export function initializeTaskManager(socket: AppSocket): void {
 
         taskManager.selectionManager!.notifyItemsUpdate();
         taskManager.config.onSelectionChange(taskManager.getSelectedItems());
-
-        const endTaskButton = byId<HTMLElement & { hasListener?: boolean }>("endTaskButton");
-        if (endTaskButton && !endTaskButton.hasListener) {
-            endTaskButton.innerHTML = `End Task`;
-            endTaskButton.addEventListener("click", () => {
-                const selectedItems = taskManager.getSelectedItems();
-                void killProcesses(selectedItems);
-            });
-            endTaskButton.hasListener = true;
-        }
     }
 
     // Handle sorting
