@@ -113,5 +113,3 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
-
-export { updateStreamSettings, updateSliderLabels, setAutoFPS };

@@ -113,12 +113,12 @@ export function hideScreenshotView(): void {
     streamUI.view.classList.remove("hidden");
 }
 
-function isCursorCaptureEnabled(): boolean {
+export function isCursorCaptureEnabled(): boolean {
     const checkbox = byId<HTMLInputElement>("showCursorToggle");
     return checkbox ? checkbox.checked : true;
 }
 
-function setStreamToggleUI(active: boolean): void {
+export function setStreamToggleUI(active: boolean): void {
     const btn = byId("toggleStream");
     if (!btn) return;
     btn.innerHTML = active ? STREAM_ICON_STOP : STREAM_ICON_PLAY;
@@ -130,12 +130,10 @@ function setStreamToggleUI(active: boolean): void {
 // Lazily-created loading spinner for the toggle-stream button.
 let startButtonLoader: LoadingButton | null = null;
 
-function getStartButtonLoader(): LoadingButton | null {
+export function getStartButtonLoader(): LoadingButton | null {
     const btn = byId<HTMLButtonElement>("toggleStream");
     if (btn && !startButtonLoader) {
         startButtonLoader = new LoadingButton(btn, "");
     }
     return startButtonLoader;
 }
-
-export { isCursorCaptureEnabled, setStreamToggleUI, getStartButtonLoader };
