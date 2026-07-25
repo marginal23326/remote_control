@@ -1,8 +1,8 @@
-interface ClientAudioProcessorOptions extends AudioWorkletNodeOptions {
+interface ClientAudioProcessorOptions {
     processorOptions: { bufferSize?: number };
 }
 
-class ClientAudioProcessor extends AudioWorkletProcessor {
+class ClientAudioProcessor extends AudioWorkletProcessor implements AudioWorkletProcessorImpl {
     bufferSize: number;
     buffer: Float32Array;
     pointer: number;
@@ -14,7 +14,7 @@ class ClientAudioProcessor extends AudioWorkletProcessor {
         this.pointer = 0;
     }
 
-    override process(inputs: Float32Array[][]): boolean {
+    process(inputs: Float32Array[][]): boolean {
         const inputChannelData = inputs[0]?.[0];
         if (!inputChannelData) return true;
 
@@ -42,7 +42,7 @@ interface ServerPcmMessage {
     samples: Float32Array;
 }
 
-class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
+class ServerAudioPlaybackProcessor extends AudioWorkletProcessor implements AudioWorkletProcessorImpl {
     capacity: number;
     buffer: Float32Array;
     readIndex: number;
@@ -103,7 +103,7 @@ class ServerAudioPlaybackProcessor extends AudioWorkletProcessor {
         };
     }
 
-    override process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+    process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
         const output = outputs[0];
         if (!output || output.length === 0) return true;
 

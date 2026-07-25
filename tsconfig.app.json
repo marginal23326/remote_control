@@ -5,5 +5,8 @@
         "types": ["vite/client"]
     },
     "include": ["static/src/**/*.ts", "static/src/**/*.d.ts"],
-    "exclude": ["static/src/features/audio/audio-converter.worker.ts"]
+    "exclude": [
+        "static/src/features/audio/audio-converter.worker.ts",
+        "static/src/features/audio/audio-worklet-processor.ts"
+    ]
 }
