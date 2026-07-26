@@ -74,7 +74,7 @@ pub struct SystemInfoDTO {
     pub disk_total: String,
     pub disk_used: String,
     pub disk_free: String,
-    pub active_processes: usize,
+    pub active_processes: String,
 }
 
 #[derive(Deserialize)]
@@ -265,7 +265,7 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         isp: wan_info.isp.clone(),
         country: wan_info.country.clone(),
         timezone: wan_info.timezone.clone(),
-        active_processes: base.active_processes,
+        active_processes: base.active_processes.to_string(),
         os: os_info.os,
         architecture: std::env::consts::ARCH.to_string(),
         gpu: os_info.gpu,

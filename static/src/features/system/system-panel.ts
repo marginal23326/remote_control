@@ -9,7 +9,7 @@ const path = (d: string) => `<path stroke-linecap="round" stroke-linejoin="round
 interface InfoCard {
     title: string;
     icon: string;
-    data: [string, string | number | null | undefined][];
+    data: [string, string | null | undefined][];
 }
 
 async function updateSystemInfo(): Promise<void> {
