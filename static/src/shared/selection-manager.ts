@@ -6,7 +6,6 @@ export interface SelectionManagerConfig {
     selectedClass?: string;
     defaultHoverClass?: string;
     selectedHoverClass?: string;
-    disabledClass?: string;
     getItemId?: (element: HTMLElement) => string | undefined;
     isItemSelectable?: (element: HTMLElement) => boolean;
     getAllIds?: (() => string[]) | null;
@@ -19,7 +18,6 @@ interface ResolvedSelectionManagerConfig {
     selectedClass: string;
     defaultHoverClass: string;
     selectedHoverClass: string;
-    disabledClass: string;
     getItemId: (element: HTMLElement) => string | undefined;
     isItemSelectable: (element: HTMLElement) => boolean;
     getAllIds: (() => string[]) | null;
@@ -44,7 +42,6 @@ export class SelectionManager {
     constructor(config: SelectionManagerConfig) {
         this.config = {
             defaultHoverClass: "hover:bg-zinc-800",
-            disabledClass: "cursor-not-allowed opacity-50",
             getAllIds: null,
             getItemId: (element) => element.dataset.id,
             isItemSelectable: (element) => !element.classList.contains("cursor-not-allowed"),
