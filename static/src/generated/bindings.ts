@@ -30,7 +30,7 @@ export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memor
 
 export type ProcessDetailsDTO = { pid: number, name: string, rss_memory_mb: number, exact_memory_mb: number, };
 
-export type ServerEvent = "auth_status" | "auth_error" | "shell_output" | "shell_created" | "shell_error" | "shell_closed" | "available_shells" | "task_list" | "audio_sources" | "audio_sources_error" | "server_audio_format" | "server_audio_data" | "server_audio_error" | "client_audio_error" | "stream_error" | "webrtc_offer" | "webrtc_remote_ice" | "active_window" | "camera_list" | "camera_webrtc_offer" | "camera_webrtc_remote_ice" | "camera_stream_error";
+export type ServerEvent = "auth_status" | "auth_error" | "shell_output" | "shell_created" | "shell_error" | "shell_closed" | "available_shells" | "task_list" | "audio_sources" | "audio_sources_error" | "server_audio_format" | "server_audio_data" | "server_audio_error" | "client_audio_error" | "webrtc_error" | "webrtc_offer" | "webrtc_remote_ice" | "active_window" | "camera_list" | "camera_webrtc_offer" | "camera_webrtc_remote_ice" | "camera_webrtc_error";
 
 export type ShellCreateEvent = { cols: number, rows: number, session_id: string, shell?: string, };
 

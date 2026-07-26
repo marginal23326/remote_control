@@ -77,7 +77,7 @@ interface ServerEventPayloads {
     server_audio_error: MessagePayload;
     client_audio_error: MessagePayload;
 
-    stream_error: MessagePayload;
+    webrtc_error: MessagePayload;
     webrtc_offer: string;
     webrtc_remote_ice: IceCandidatePayload;
     active_window: ActiveWindowPayload;
@@ -85,7 +85,7 @@ interface ServerEventPayloads {
     camera_list: CameraListPayload;
     camera_webrtc_offer: string;
     camera_webrtc_remote_ice: IceCandidatePayload;
-    camera_stream_error: MessagePayload;
+    camera_webrtc_error: MessagePayload;
 }
 
 interface ClientEventPayloads {

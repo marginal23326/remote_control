@@ -11,12 +11,13 @@ import {
 import { streamState } from "./stream-state";
 import { apiCall } from "@/shared/api";
 import { updateSettingsDisplay } from "./settings-panel";
-import { createPeerSignaling } from "@/shared/peer-signaling";
+import { initWebRtcFeature } from "@/shared/webrtc-feature";
 import type { AppSocket } from "@/core/socket";
 import type { MouseEventPayload } from "@/core/socket-events";
 import type { StreamSettings } from "@/shared/types";
+import type { WebRtcFeature } from "@/shared/webrtc-feature";
 
-let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
+let webrtcFeature: WebRtcFeature | null = null;
 
 let mouseMoveChannel: RTCDataChannel | null = null;
 let mouseControlChannel: RTCDataChannel | null = null;
@@ -24,11 +25,9 @@ let pendingMouseMove: (MouseEventPayload & { seq: number }) | null = null;
 let mouseInputSeq = 0;
 
 export function initializePeerConnectionSignaling(socket: AppSocket): void {
-    const signaling = createPeerSignaling({
+    webrtcFeature = initWebRtcFeature(socket, "stream", {
         getStunServer: () => streamState.stunServer,
-        onAnswer: (sdp) => {
-            socket.emit("webrtc_answer", sdp);
-        },
+        isActive: () => streamState.active,
         onConnectionCreated: (pc) => {
             pc.ondatachannel = (event) => {
                 registerInputDataChannel(event.channel);
@@ -43,40 +42,17 @@ export function initializePeerConnectionSignaling(socket: AppSocket): void {
                 }
             };
         },
-        onIceCandidate: (candidate) => {
-            socket.emit("webrtc_ice_candidate", candidate);
-        },
-        onNegotiationError: (error) => {
-            console.error("WebRTC offer handling failed:", error);
-            handleStreamError("Failed to establish stream connection");
+        onError: handleStreamError,
+        onOfferReceived: () => {
+            getStartButtonLoader()?.stopLoading();
+            showStreamUI();
+            setStreamToggleUI(true);
         },
         onTrack: (stream) => {
             if (streamUI.view.srcObject !== stream) {
                 streamUI.view.srcObject = stream;
             }
         },
-    });
-    peerSignaling = signaling;
-
-    socket.on("webrtc_offer", async (sdpText) => {
-        if (!streamState.active) return;
-
-        getStartButtonLoader()?.stopLoading();
-        showStreamUI();
-        setStreamToggleUI(true);
-
-        await signaling.handleOffer(sdpText);
-    });
-
-    socket.on("webrtc_remote_ice", async (data) => {
-        if (!streamState.active) return;
-        await signaling.handleRemoteIce(data);
-    });
-
-    socket.on("stream_error", (data) => {
-        if (!streamState.active) return;
-        console.error("Stream error:", data.message);
-        handleStreamError(data.message);
     });
 }
 
@@ -94,7 +70,7 @@ export function cleanupPeerConnection(): void {
     mouseMoveChannel = null;
     mouseControlChannel = null;
     pendingMouseMove = null;
-    peerSignaling?.cleanup();
+    webrtcFeature?.cleanup();
 }
 
 function onChannelLost(channel: RTCDataChannel, onCleared: () => void): void {

@@ -279,7 +279,7 @@ pub async fn handle_start_stream(
         .await
     {
         tracing::error!("Failed to start: {e:#}");
-        let _ = socket.emit(ServerEvent::StreamError.as_str(), &json!({ "message": e.to_string() }));
+        let _ = socket.emit(ServerEvent::WebrtcError.as_str(), &json!({ "message": e.to_string() }));
     }
 }
 
@@ -299,7 +299,7 @@ pub async fn handle_start_camera_stream(
     if let Err(e) = camera.start_stream(socket.clone(), state, data.device_id).await {
         tracing::error!("Failed to start: {e:#}");
         let _ = socket.emit(
-            ServerEvent::CameraStreamError.as_str(),
+            ServerEvent::CameraWebrtcError.as_str(),
             &json!({ "message": e.to_string() }),
         );
     }

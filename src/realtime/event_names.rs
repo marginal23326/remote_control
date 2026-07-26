@@ -23,7 +23,7 @@ pub enum ServerEvent {
     ServerAudioError,
     ClientAudioError,
 
-    StreamError,
+    WebrtcError,
     WebrtcOffer,
     WebrtcRemoteIce,
     ActiveWindow,
@@ -31,7 +31,7 @@ pub enum ServerEvent {
     CameraList,
     CameraWebrtcOffer,
     CameraWebrtcRemoteIce,
-    CameraStreamError,
+    CameraWebrtcError,
 }
 
 impl ServerEvent {

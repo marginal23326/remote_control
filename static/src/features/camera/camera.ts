@@ -2,9 +2,10 @@ import { apiCall } from "@/shared/api";
 import { LoadingButton, showNotification } from "@/shared/feedback";
 import { byId, escapeHtml, setToggleStyle } from "@/shared/dom-helpers";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
-import { createPeerSignaling } from "@/shared/peer-signaling";
+import { initWebRtcFeature } from "@/shared/webrtc-feature";
 import type { AppSocket } from "@/core/socket";
 import type { CameraDeviceInfo, StreamSettings } from "@/shared/types";
+import type { WebRtcFeature } from "@/shared/webrtc-feature";
 
 interface CameraPipElements {
     container: HTMLElement | null;
@@ -29,7 +30,7 @@ function hidePip(): void {
 }
 
 let cameraActive = false;
-let peerSignaling: ReturnType<typeof createPeerSignaling> | null = null;
+let webrtcFeature: WebRtcFeature | null = null;
 let activeStunServer: string | null = null;
 let toggleBtnLoader: LoadingButton | null = null;
 
@@ -41,7 +42,7 @@ function setToggleUI(active: boolean): void {
 }
 
 function cleanupPeerConnection(): void {
-    peerSignaling?.cleanup();
+    webrtcFeature?.cleanup();
     if (pip.video?.srcObject) {
         (pip.video.srcObject as MediaStream).getTracks().forEach((track) => {
             track.stop();
@@ -177,40 +178,18 @@ export function initializeCamera(socket: AppSocket): void {
         }
     });
 
-    const signaling = createPeerSignaling({
+    webrtcFeature = initWebRtcFeature(socket, "camera", {
         getStunServer: () => activeStunServer,
-        onAnswer: (sdp) => {
-            socket.emit("camera_webrtc_answer", sdp);
-        },
-        onIceCandidate: (candidate) => {
-            socket.emit("camera_webrtc_ice_candidate", candidate);
-        },
-        onNegotiationError: (error) => {
-            console.error("Camera WebRTC offer handling failed:", error);
-            handleCameraError("Failed to establish camera connection");
+        isActive: () => cameraActive,
+        onError: handleCameraError,
+        onOfferReceived: () => {
+            toggleBtnLoader?.stopLoading();
         },
         onTrack: (stream) => {
             if (pip.video.srcObject !== stream) {
                 pip.video.srcObject = stream;
             }
         },
-    });
-    peerSignaling = signaling;
-
-    socket.on("camera_webrtc_offer", async (sdpText) => {
-        if (!cameraActive) return;
-        toggleBtnLoader?.stopLoading();
-        await signaling.handleOffer(sdpText);
-    });
-
-    socket.on("camera_webrtc_remote_ice", async (data) => {
-        if (!cameraActive) return;
-        await signaling.handleRemoteIce(data);
-    });
-
-    socket.on("camera_stream_error", (data) => {
-        if (!cameraActive) return;
-        handleCameraError(data.message);
     });
 
     bindMediaSessionReconnect(socket, {
