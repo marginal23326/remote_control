@@ -88,13 +88,13 @@ pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): Stat
 
 pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<AppState>) {
     match data {
-        KeyboardEvent::Text { text } => state.input.type_text(&text).await,
+        KeyboardEvent::Text { text } => state.input.type_text(text).await,
         KeyboardEvent::Shortcut { shortcut, modifiers } => {
             let mods = modifiers.unwrap_or_default();
-            state.input.send_shortcut(&shortcut, mods).await
+            state.input.send_shortcut(shortcut, mods).await
         }
-        KeyboardEvent::KeyDown { key } => state.input.set_key_state(&key, true).await,
-        KeyboardEvent::KeyUp { key } => state.input.set_key_state(&key, false).await,
+        KeyboardEvent::KeyDown { key } => state.input.set_key_state(key, true).await,
+        KeyboardEvent::KeyUp { key } => state.input.set_key_state(key, false).await,
     };
 }
 
@@ -186,9 +186,9 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>)
     if was_screen_owner {
         let input = state.input.clone();
         tokio::spawn(async move {
-            input.click_mouse("left", false).await;
-            input.click_mouse("right", false).await;
-            input.click_mouse("middle", false).await;
+            input.click_mouse("left".to_string(), false).await;
+            input.click_mouse("right".to_string(), false).await;
+            input.click_mouse("middle".to_string(), false).await;
         });
     }
 }
