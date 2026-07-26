@@ -7,7 +7,7 @@ use axum::{
 };
 
 pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: Next) -> Result<Response, StatusCode> {
-    if is_authenticated(req.headers(), &state.config.jwt_secret) {
+    if is_authenticated(req.headers(), &state.config.session_token) {
         Ok(next.run(req).await)
     } else {
         Err(StatusCode::UNAUTHORIZED)

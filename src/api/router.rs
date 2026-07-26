@@ -38,7 +38,7 @@ async fn serve_no_cache(file: &str, req: Request) -> Response {
 }
 
 async fn index_handler(State(state): State<AppState>, req: Request) -> Response {
-    if is_authenticated(req.headers(), &state.config.jwt_secret) {
+    if is_authenticated(req.headers(), &state.config.session_token) {
         serve_no_cache("static/dist/index.html", req).await
     } else {
         Redirect::to("/login").into_response()
@@ -46,7 +46,7 @@ async fn index_handler(State(state): State<AppState>, req: Request) -> Response 
 }
 
 async fn login_page_handler(State(state): State<AppState>, req: Request) -> Response {
-    if is_authenticated(req.headers(), &state.config.jwt_secret) {
+    if is_authenticated(req.headers(), &state.config.session_token) {
         Redirect::to("/").into_response()
     } else {
         serve_no_cache("static/dist/login.html", req).await

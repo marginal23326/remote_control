@@ -10,7 +10,7 @@ const CONFIG_FILE: &str = "user_config.json";
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct AppConfig {
     pub password_hash: String,
-    pub jwt_secret: String,
+    pub session_token: String,
     pub port: u16,
     pub stun_server: Option<String>,
 }
@@ -20,7 +20,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             password_hash: String::new(),
-            jwt_secret: String::new(),
+            session_token: String::new(),
             port: 5000,
             stun_server: None,
         }
@@ -56,13 +56,13 @@ async fn prompt_and_save_new_config() -> Result<AppConfig> {
     };
 
     println!("\nGenerating security keys...");
-    let salt = Uuid::new_v4().as_bytes().to_vec();
+    let salt = Uuid::new_v4().to_string();
     let password_hash = crate::utils::auth::hash_password(&password, &salt);
-    let jwt_secret = Uuid::new_v4().to_string();
+    let session_token = Uuid::new_v4().to_string();
 
     let config = AppConfig {
         password_hash,
-        jwt_secret,
+        session_token,
         port,
         stun_server: None,
     };

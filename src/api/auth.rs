@@ -1,5 +1,5 @@
 use crate::state::AppState;
-use crate::utils::auth::{Claims, create_jwt, verify_password};
+use crate::utils::auth::verify_password;
 use crate::utils::error::success;
 use crate::utils::error::{AppError, AppResult};
 use axum::{
@@ -35,18 +35,8 @@ pub async fn login_handler(State(state): State<AppState>, Json(payload): Json<Lo
     let config = &state.config;
 
     if verify_password(&payload.password, &config.password_hash) {
-        let expiration = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize
-            + SESSION_DURATION.whole_seconds() as usize;
-
-        let claims = Claims { exp: expiration };
-
-        let token = create_jwt(&claims, &config.jwt_secret)?;
-
         let mut headers = HeaderMap::new();
-        headers.insert(header::SET_COOKIE, auth_cookie(&token, SESSION_DURATION));
+        headers.insert(header::SET_COOKIE, auth_cookie(&config.session_token, SESSION_DURATION));
 
         Ok((headers, success!()).into_response())
     } else {

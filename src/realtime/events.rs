@@ -82,7 +82,7 @@ pub fn register(io: SocketIo, state: AppState) {
 
 async fn on_connect(socket: SocketRef, State(state): State<AppState>) {
     let headers = &socket.req_parts().headers;
-    let is_authenticated = is_authenticated(headers, &state.config.jwt_secret);
+    let is_authenticated = is_authenticated(headers, &state.config.session_token);
 
     if !is_authenticated {
         warn!("Socket connection rejected: Invalid or missing token");
