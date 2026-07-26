@@ -143,8 +143,4 @@ impl<T: Stoppable> OwnedSession<T> {
         }
         is_owner
     }
-
-    pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        self.stop_if_owner(owner_id)
-    }
 }

@@ -281,6 +281,11 @@ impl GstSession for InnerState {
         if let Some(handle) = self.input_handle {
             handle.abort();
         }
+
+        #[cfg(target_os = "linux")]
+        tokio::spawn(async move {
+            linux::portal_session().close().await;
+        });
     }
 }
 
@@ -684,19 +689,10 @@ impl ScreenManager {
 
     pub fn stop_stream(&self) {
         self.session.stop();
-
-        #[cfg(target_os = "linux")]
-        tokio::spawn(async move {
-            linux::portal_session().close().await;
-        });
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        let is_owner = self.session.ownership().owns(owner_id);
-        if is_owner {
-            self.stop_stream();
-        }
-        is_owner
+        self.session.stop_if_owner(owner_id)
     }
 
     pub fn set_remote_description(&self, sdp: String) {

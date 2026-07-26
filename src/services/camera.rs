@@ -142,7 +142,7 @@ impl CameraManager {
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        self.session.disconnect_if_owner(owner_id)
+        self.session.stop_if_owner(owner_id)
     }
 
     pub fn set_remote_description(&self, sdp: String) {
