@@ -2,20 +2,19 @@ import "../../input.css";
 import "../../css/styles.css";
 import { parseJsonResponse } from "@/shared/api";
 import { byId } from "@/shared/dom-helpers";
+import { LoadingButton } from "@/shared/feedback";
 
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = byId("loginForm")!;
     const errorBox = byId("errorBox")!;
     const errorMessage = byId("errorMessage")!;
-    const submitBtn = byId<HTMLButtonElement>("submitBtn")!;
-    const btnText = byId("btnText")!;
-    const btnSpinner = byId("btnSpinner")!;
+    const submitBtn = new LoadingButton(byId<HTMLButtonElement>("submitBtn")!, "Signing in...");
 
     loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
 
         errorBox.classList.add("hidden");
-        setLoading(true);
+        submitBtn.startLoading();
 
         const password = byId<HTMLInputElement>("password")!.value;
 
@@ -28,28 +27,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
             await parseJsonResponse(response);
 
-            btnText.textContent = "Success";
+            submitBtn.setLoadingText("Success");
             setTimeout(() => {
                 window.location.href = "/";
             }, 300);
         } catch (error) {
-            setLoading(false);
+            submitBtn.stopLoading();
             errorMessage.textContent = (error as Error).message || "Connection Error";
             errorBox.classList.remove("hidden");
         }
     });
-
-    function setLoading(isLoading: boolean): void {
-        if (isLoading) {
-            submitBtn.disabled = true;
-            submitBtn.classList.add("cursor-not-allowed", "opacity-90");
-            btnText.textContent = "Signing in...";
-            btnSpinner.classList.remove("hidden");
-        } else {
-            submitBtn.disabled = false;
-            submitBtn.classList.remove("cursor-not-allowed", "opacity-90");
-            btnText.textContent = "Sign in";
-            btnSpinner.classList.add("hidden");
-        }
-    }
 });
