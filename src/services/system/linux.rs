@@ -59,11 +59,7 @@ fn read_monitor_info() -> String {
             }
         }
     }
-    if resolutions.is_empty() {
-        "N/A".to_string()
-    } else {
-        resolutions.join(", ")
-    }
+    super::join_or_na(&resolutions)
 }
 
 fn linux_os_name() -> String {
@@ -88,11 +84,7 @@ fn get_disk_labels() -> String {
             format!("{} ({size}GB)", d.name().to_string_lossy())
         })
         .collect();
-    if labels.is_empty() {
-        "N/A".to_string()
-    } else {
-        labels.join(", ")
-    }
+    super::join_or_na(&labels)
 }
 
 fn read_battery_status() -> String {
@@ -133,11 +125,7 @@ fn read_gpu_info() -> String {
         .filter(|line| !line.is_empty())
         .collect();
 
-    if devices.is_empty() {
-        "N/A".to_string()
-    } else {
-        devices.join(", ")
-    }
+    super::join_or_na(&devices)
 }
 
 async fn get_firewall_status() -> String {

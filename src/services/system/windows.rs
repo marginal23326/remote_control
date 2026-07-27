@@ -71,11 +71,7 @@ fn get_gpu_info() -> String {
             adapter_index += 1;
         }
 
-        if gpus.is_empty() {
-            "N/A".to_string()
-        } else {
-            gpus.join(", ")
-        }
+        super::join_or_na(&gpus)
     }
 }
 
@@ -99,11 +95,7 @@ fn get_disk_info() -> String {
         }
     }
 
-    if disks.is_empty() {
-        "N/A".to_string()
-    } else {
-        disks.join(", ")
-    }
+    super::join_or_na(&disks)
 }
 
 fn get_cpu_max_speed() -> String {
@@ -128,11 +120,7 @@ fn get_antivirus_info() -> String {
         }
     }
 
-    if items.is_empty() {
-        "N/A".to_string()
-    } else {
-        items.join(", ")
-    }
+    super::join_or_na(&items)
 }
 
 struct ComGuard;

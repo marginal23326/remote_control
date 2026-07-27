@@ -10,6 +10,14 @@ fn or_na(value: Option<String>) -> String {
     value.unwrap_or_else(|| NA.to_string())
 }
 
+pub(crate) fn join_or_na(items: &[String]) -> String {
+    if items.is_empty() {
+        NA.to_string()
+    } else {
+        items.join(", ")
+    }
+}
+
 #[derive(Clone)]
 pub struct WanInfo {
     pub ip: String,
