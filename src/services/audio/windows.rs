@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::realtime::event_names::ServerEvent;
+use crate::utils::error::StrErr;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 use wasapi::*;
@@ -44,22 +45,22 @@ pub(crate) fn server_loop(
     _rate: u32,
     is_running: Arc<AtomicBool>,
 ) -> Result<(), String> {
-    let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
+    let enumerator = DeviceEnumerator::new().str_err()?;
 
     let device = match device_id.filter(|id| !id.is_empty()) {
-        Some(id) => enumerator.get_device(&id).map_err(|e| e.to_string())?,
+        Some(id) => enumerator.get_device(&id).str_err()?,
         None => {
             let direction = if source == "system" {
                 Direction::Render
             } else {
                 Direction::Capture
             };
-            enumerator.get_default_device(&direction).map_err(|e| e.to_string())?
+            enumerator.get_default_device(&direction).str_err()?
         }
     };
 
-    let mut audio_client = device.get_iaudioclient().map_err(|e| e.to_string())?;
-    let mix_format = audio_client.get_mixformat().map_err(|e| e.to_string())?;
+    let mut audio_client = device.get_iaudioclient().str_err()?;
+    let mix_format = audio_client.get_mixformat().str_err()?;
 
     let mode = StreamMode::EventsShared {
         autoconvert: false,
@@ -68,7 +69,7 @@ pub(crate) fn server_loop(
 
     audio_client
         .initialize_client(&mix_format, &Direction::Capture, &mode)
-        .map_err(|e| e.to_string())?;
+        .str_err()?;
 
     let actual_rate = mix_format.get_samplespersec();
     let channels = mix_format.get_nchannels() as usize;
@@ -87,9 +88,9 @@ pub(crate) fn server_loop(
         }),
     );
 
-    let h_event = audio_client.set_get_eventhandle().map_err(|e| e.to_string())?;
-    let render_client = audio_client.get_audiocaptureclient().map_err(|e| e.to_string())?;
-    audio_client.start_stream().map_err(|e| e.to_string())?;
+    let h_event = audio_client.set_get_eventhandle().str_err()?;
+    let render_client = audio_client.get_audiocaptureclient().str_err()?;
+    audio_client.start_stream().str_err()?;
 
     let mut sample_queue = VecDeque::new();
     let mut pcm = Vec::new();
@@ -136,13 +137,11 @@ pub(crate) fn server_loop(
 }
 
 pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<ArrayQueue<f32>>) -> Result<(), String> {
-    let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
-    let device = enumerator
-        .get_default_device(&Direction::Render)
-        .map_err(|e| e.to_string())?;
-    let mut audio_client = device.get_iaudioclient().map_err(|e| e.to_string())?;
+    let enumerator = DeviceEnumerator::new().str_err()?;
+    let device = enumerator.get_default_device(&Direction::Render).str_err()?;
+    let mut audio_client = device.get_iaudioclient().str_err()?;
 
-    let mix_format = audio_client.get_mixformat().map_err(|e| e.to_string())?;
+    let mix_format = audio_client.get_mixformat().str_err()?;
     let mode = StreamMode::EventsShared {
         autoconvert: true,
         buffer_duration_hns: 0,
@@ -150,16 +149,16 @@ pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Ar
 
     audio_client
         .initialize_client(&mix_format, &Direction::Render, &mode)
-        .map_err(|e| e.to_string())?;
+        .str_err()?;
 
     let channels = mix_format.get_nchannels() as usize;
     let sample_type = mix_format.get_subformat().unwrap_or(SampleType::Float);
     let blockalign = mix_format.get_blockalign() as usize;
     let bytes_per_sample = blockalign / channels;
 
-    let h_event = audio_client.set_get_eventhandle().map_err(|e| e.to_string())?;
-    let render_client = audio_client.get_audiorenderclient().map_err(|e| e.to_string())?;
-    audio_client.start_stream().map_err(|e| e.to_string())?;
+    let h_event = audio_client.set_get_eventhandle().str_err()?;
+    let render_client = audio_client.get_audiorenderclient().str_err()?;
+    audio_client.start_stream().str_err()?;
 
     let mut sample_queue = VecDeque::new();
 
@@ -189,7 +188,7 @@ pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Ar
 }
 
 pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
-    let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
+    let enumerator = DeviceEnumerator::new().str_err()?;
     let mut sources = Vec::new();
     let mut name_counts = std::collections::HashMap::new();
 
@@ -197,9 +196,7 @@ pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
         (Direction::Capture, super::AudioSourceKind::Mic),
         (Direction::Render, super::AudioSourceKind::System),
     ] {
-        let collection = enumerator
-            .get_device_collection(&direction)
-            .map_err(|e| e.to_string())?;
+        let collection = enumerator.get_device_collection(&direction).str_err()?;
 
         for device in &collection {
             let Ok(device) = device else { continue };
