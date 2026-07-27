@@ -205,7 +205,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
 
             let mut file = tokio::fs::File::from_std(std_file);
 
-            let mut success = false;
+            let mut chunk_write_ok = false;
             loop {
                 match field.chunk().await {
                     Ok(Some(chunk)) => {
@@ -214,7 +214,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
                         }
                     }
                     Ok(None) => {
-                        success = true;
+                        chunk_write_ok = true;
                         break;
                     }
                     Err(e) => {
@@ -224,7 +224,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
                 }
             }
 
-            if success && file.flush().await.is_ok() {
+            if chunk_write_ok && file.flush().await.is_ok() {
                 drop(file);
 
                 let dest = dest_path.clone();
