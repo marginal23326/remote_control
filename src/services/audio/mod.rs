@@ -99,12 +99,9 @@ impl AudioManager {
             }
         });
 
-        if let Err(worker) = self.server.finish_start(worker) {
-            worker.stop();
-            return Err("Client disconnected during audio startup".to_string());
-        }
-        guard.mark_started();
-        Ok(())
+        self.server.finish_or_abort(guard, worker, ThreadWorker::stop, || {
+            "Client disconnected during audio startup".to_string()
+        })
     }
 
     pub fn list_sources(&self) -> Result<Vec<AudioSourceInfo>, String> {
@@ -131,12 +128,9 @@ impl AudioManager {
             }
         });
 
-        if let Err(worker) = self.client.finish_start(worker) {
-            worker.stop();
-            return Err("Client disconnected during audio startup".to_string());
-        }
-        guard.mark_started();
-        Ok(())
+        self.client.finish_or_abort(guard, worker, ThreadWorker::stop, || {
+            "Client disconnected during audio startup".to_string()
+        })
     }
 
     pub fn process_client_audio(&self, owner_id: &str, data: Vec<u8>) {

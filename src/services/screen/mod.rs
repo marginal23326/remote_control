@@ -571,14 +571,14 @@ impl ScreenManager {
         });
 
         inner.emit_handle = Some(emit_handle);
-        if let Err(inner) = self.session.finish_start(inner) {
-            let _ = inner.pipeline.set_state(gst::State::Null);
-            return Err(anyhow::anyhow!("Client disconnected during stream startup"));
-        }
-
-        startup_guard.mark_started();
-
-        Ok(())
+        self.session.finish_or_abort(
+            startup_guard,
+            inner,
+            |inner| {
+                let _ = inner.pipeline.set_state(gst::State::Null);
+            },
+            || anyhow::anyhow!("Client disconnected during stream startup"),
+        )
     }
 
     fn setup_input_data_channels(

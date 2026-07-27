@@ -125,6 +125,25 @@ impl<T: Stoppable> OwnedSession<T> {
         Ok(())
     }
 
+    pub fn finish_or_abort<E>(
+        &self,
+        guard: StartGuard<'_>,
+        state: T,
+        on_abort: impl FnOnce(T),
+        err: impl FnOnce() -> E,
+    ) -> Result<(), E> {
+        match self.finish_start(state) {
+            Ok(()) => {
+                guard.mark_started();
+                Ok(())
+            }
+            Err(state) => {
+                on_abort(state);
+                Err(err())
+            }
+        }
+    }
+
     pub fn with_inner<R>(&self, f: impl FnOnce(&T) -> R) -> Option<R> {
         self.inner.lock().as_ref().map(f)
     }

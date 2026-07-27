@@ -128,13 +128,14 @@ impl CameraManager {
             is_running.store(false, Ordering::SeqCst);
         });
 
-        if let Err(camera_inner) = self.session.finish_start(CameraInner { pipeline, cmd_tx }) {
-            let _ = camera_inner.pipeline.set_state(gst::State::Null);
-            return Err(anyhow::anyhow!("Client disconnected during webcam startup"));
-        }
-        guard.mark_started();
-
-        Ok(())
+        self.session.finish_or_abort(
+            guard,
+            CameraInner { pipeline, cmd_tx },
+            |inner| {
+                let _ = inner.pipeline.set_state(gst::State::Null);
+            },
+            || anyhow::anyhow!("Client disconnected during webcam startup"),
+        )
     }
 
     pub fn stop_stream(&self) {
