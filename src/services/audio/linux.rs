@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use crate::realtime::event_names::ServerEvent;
-use crate::utils::error::StrErr;
+use crate::utils::error::AnyhowErr;
 use crossbeam_channel::bounded;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
@@ -13,7 +13,7 @@ use socketioxide::extract::SocketRef;
 use pipewire as pw;
 use pw::{properties::properties, spa, types::ObjectType};
 
-fn serialize_audio_format(rate: u32) -> Result<Vec<u8>, String> {
+fn serialize_audio_format(rate: u32) -> anyhow::Result<Vec<u8>> {
     let mut audio_info = spa::param::audio::AudioInfoRaw::new();
     audio_info.set_format(spa::param::audio::AudioFormat::F32LE);
     audio_info.set_rate(rate);
@@ -30,7 +30,7 @@ fn serialize_audio_format(rate: u32) -> Result<Vec<u8>, String> {
         &pw::spa::pod::Value::Object(obj),
     )
     .map(|(cursor, _)| cursor.into_inner())
-    .str_err()
+    .anyhow_err()
 }
 
 pub(crate) fn server_loop(
@@ -39,10 +39,10 @@ pub(crate) fn server_loop(
     device_id: Option<String>,
     rate: u32,
     is_running: Arc<AtomicBool>,
-) -> Result<(), String> {
-    let mainloop = pw::main_loop::MainLoopBox::new(None).str_err()?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None).str_err()?;
-    let core = context.connect(None).str_err()?;
+) -> anyhow::Result<()> {
+    let mainloop = pw::main_loop::MainLoopBox::new(None).anyhow_err()?;
+    let context = pw::context::ContextBox::new(mainloop.loop_(), None).anyhow_err()?;
+    let core = context.connect(None).anyhow_err()?;
 
     let capture_queue = Arc::new(ArrayQueue::<i16>::new(48000 * 2));
 
@@ -83,7 +83,7 @@ pub(crate) fn server_loop(
         props.insert(*pw::keys::TARGET_OBJECT, id);
     }
 
-    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props).str_err()?;
+    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props).anyhow_err()?;
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
@@ -145,7 +145,7 @@ pub(crate) fn server_loop(
             }
         })
         .register()
-        .str_err()?;
+        .anyhow_err()?;
 
     let socket_clone = socket.clone();
     let thread_running = is_running.clone();
@@ -189,16 +189,16 @@ pub(crate) fn server_loop(
                 | pw::stream::StreamFlags::RT_PROCESS,
             &mut params,
         )
-        .str_err()?;
+        .anyhow_err()?;
 
     mainloop.run();
     Ok(())
 }
 
-pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<ArrayQueue<f32>>) -> Result<(), String> {
-    let mainloop = pw::main_loop::MainLoopBox::new(None).str_err()?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None).str_err()?;
-    let core = context.connect(None).str_err()?;
+pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<ArrayQueue<f32>>) -> anyhow::Result<()> {
+    let mainloop = pw::main_loop::MainLoopBox::new(None).anyhow_err()?;
+    let context = pw::context::ContextBox::new(mainloop.loop_(), None).anyhow_err()?;
+    let core = context.connect(None).anyhow_err()?;
 
     struct PlaybackUserData {
         queue: Arc<ArrayQueue<f32>>,
@@ -218,7 +218,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
         *pw::keys::MEDIA_ROLE => "Communication",
     };
 
-    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-playback", props).str_err()?;
+    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-playback", props).anyhow_err()?;
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
@@ -263,7 +263,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
             }
         })
         .register()
-        .str_err()?;
+        .anyhow_err()?;
 
     let values = serialize_audio_format(rate)?;
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
@@ -277,17 +277,17 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
                 | pw::stream::StreamFlags::RT_PROCESS,
             &mut params,
         )
-        .str_err()?;
+        .anyhow_err()?;
 
     mainloop.run();
     Ok(())
 }
 
-pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
-    let mainloop = pw::main_loop::MainLoopBox::new(None).str_err()?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None).str_err()?;
-    let core = context.connect(None).str_err()?;
-    let registry = core.get_registry().str_err()?;
+pub(crate) fn list_sources() -> anyhow::Result<Vec<super::AudioSourceInfo>> {
+    let mainloop = pw::main_loop::MainLoopBox::new(None).anyhow_err()?;
+    let context = pw::context::ContextBox::new(mainloop.loop_(), None).anyhow_err()?;
+    let core = context.connect(None).anyhow_err()?;
+    let registry = core.get_registry().anyhow_err()?;
 
     let sources = Rc::new(RefCell::new(Vec::new()));
     let done = Rc::new(Cell::new(false));
@@ -324,7 +324,7 @@ pub(crate) fn list_sources() -> Result<Vec<super::AudioSourceInfo>, String> {
         })
         .register();
 
-    let pending = core.sync(0).str_err()?;
+    let pending = core.sync(0).anyhow_err()?;
     let done_for_core = done.clone();
     let _listener_core = core
         .add_listener_local()

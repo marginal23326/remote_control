@@ -51,13 +51,13 @@ impl IntoResponse for AppError {
 
 pub type AppResult<T> = Result<T, AppError>;
 
-pub(crate) trait StrErr<T> {
-    fn str_err(self) -> Result<T, String>;
+pub(crate) trait AnyhowErr<T> {
+    fn anyhow_err(self) -> anyhow::Result<T>;
 }
 
-impl<T, E: ToString> StrErr<T> for Result<T, E> {
-    fn str_err(self) -> Result<T, String> {
-        self.map_err(|e| e.to_string())
+impl<T, E: ToString> AnyhowErr<T> for Result<T, E> {
+    fn anyhow_err(self) -> anyhow::Result<T> {
+        self.map_err(|e| anyhow::anyhow!(e.to_string()))
     }
 }
 

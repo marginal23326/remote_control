@@ -218,8 +218,11 @@ pub async fn handle_start_server_audio(
     let device_id = data.device_id.filter(|id| !id.is_empty());
 
     if let Err(e) = audio.start_server_stream(socket.clone(), source, device_id, rate) {
-        tracing::error!("Failed to start server audio: {}", e);
-        let _ = socket.emit(ServerEvent::ServerAudioError.as_str(), &json!({ "message": e }));
+        tracing::error!("Failed to start server audio: {e:#}");
+        let _ = socket.emit(
+            ServerEvent::ServerAudioError.as_str(),
+            &json!({ "message": e.to_string() }),
+        );
     }
 }
 
@@ -232,8 +235,11 @@ pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<Ap
             let _ = socket.emit(ServerEvent::AudioSources.as_str(), &json!({ "sources": sources }));
         }
         Err(e) => {
-            tracing::error!("Failed to list audio sources: {}", e);
-            let _ = socket.emit(ServerEvent::AudioSourcesError.as_str(), &json!({ "message": e }));
+            tracing::error!("Failed to list audio sources: {e:#}");
+            let _ = socket.emit(
+                ServerEvent::AudioSourcesError.as_str(),
+                &json!({ "message": e.to_string() }),
+            );
         }
     }
 }
@@ -251,8 +257,11 @@ pub async fn handle_start_client_audio(
     let rate = data.rate.unwrap_or(48000);
 
     if let Err(e) = audio.start_client_playback(socket.id.to_string(), rate) {
-        tracing::error!("Failed to start client playback: {}", e);
-        let _ = socket.emit(ServerEvent::ClientAudioError.as_str(), &json!({ "message": e }));
+        tracing::error!("Failed to start client playback: {e:#}");
+        let _ = socket.emit(
+            ServerEvent::ClientAudioError.as_str(),
+            &json!({ "message": e.to_string() }),
+        );
     }
 }
 

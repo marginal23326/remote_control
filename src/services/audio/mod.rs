@@ -86,25 +86,25 @@ impl AudioManager {
         source: String,
         device_id: Option<String>,
         rate: u32,
-    ) -> Result<(), String> {
+    ) -> anyhow::Result<()> {
         let guard = self
             .server
             .ownership()
             .try_start(socket.id.to_string())
-            .map_err(|_| "Server audio is already active on another client".to_string())?;
+            .map_err(|_| anyhow::anyhow!("Server audio is already active on another client"))?;
 
         let worker = ThreadWorker::spawn(move |is_running| {
             if let Err(e) = backend::server_loop(socket, source, device_id, rate, is_running) {
-                tracing::error!("Server audio capture error: {}", e);
+                tracing::error!("Server audio capture error: {e:#}");
             }
         });
 
         self.server.finish_or_abort(guard, worker, ThreadWorker::stop, || {
-            "Client disconnected during audio startup".to_string()
+            anyhow::anyhow!("Client disconnected during audio startup")
         })
     }
 
-    pub fn list_sources(&self) -> Result<Vec<AudioSourceInfo>, String> {
+    pub fn list_sources(&self) -> anyhow::Result<Vec<AudioSourceInfo>> {
         backend::list_sources()
     }
 
@@ -112,24 +112,24 @@ impl AudioManager {
         self.server.stop_if_owner(owner_id);
     }
 
-    pub fn start_client_playback(&self, owner_id: String, rate: u32) -> Result<(), String> {
+    pub fn start_client_playback(&self, owner_id: String, rate: u32) -> anyhow::Result<()> {
         let guard = self
             .client
             .ownership()
             .try_start(owner_id)
-            .map_err(|_| "Client audio is already active on another client".to_string())?;
+            .map_err(|_| anyhow::anyhow!("Client audio is already active on another client"))?;
 
         while self.client_audio_buffer.pop().is_some() {}
 
         let queue = self.client_audio_buffer.clone();
         let worker = ThreadWorker::spawn(move |is_running| {
             if let Err(e) = backend::client_loop(rate, is_running, queue) {
-                tracing::error!("Client audio playback error: {}", e);
+                tracing::error!("Client audio playback error: {e:#}");
             }
         });
 
         self.client.finish_or_abort(guard, worker, ThreadWorker::stop, || {
-            "Client disconnected during audio startup".to_string()
+            anyhow::anyhow!("Client disconnected during audio startup")
         })
     }
 
