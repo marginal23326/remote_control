@@ -1,4 +1,4 @@
-import { byId } from "@/shared/dom-helpers";
+import { byId, toggleClasses } from "@/shared/dom-helpers";
 import { captureState } from "./capture-state";
 import type { AppSocket } from "@/core/socket";
 import type { KeyboardEventPayload } from "@/core/socket-events";
@@ -167,9 +167,12 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
 
                 const led = button.querySelector(".mod-led");
                 if (led) {
-                    led.classList.toggle("bg-zinc-700/50", isActive);
-                    led.classList.toggle("bg-zinc-100", !isActive);
-                    led.classList.toggle("shadow-[0_0_5px_rgba(244,244,245,0.8)]", !isActive);
+                    toggleClasses(
+                        led,
+                        !isActive,
+                        ["bg-zinc-100", "shadow-[0_0_5px_rgba(244,244,245,0.8)]"],
+                        ["bg-zinc-700/50"],
+                    );
                 }
             } else {
                 // Sticky Mode is OFF: Transmit key immediately

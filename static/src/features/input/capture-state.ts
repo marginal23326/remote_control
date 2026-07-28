@@ -1,4 +1,4 @@
-import { byId, setToggleStyle } from "@/shared/dom-helpers";
+import { byId, setToggleStyle, toggleClasses } from "@/shared/dom-helpers";
 
 export const captureState = {
     keyboard: false,
@@ -16,10 +16,7 @@ function updateCaptureUI(): void {
     const container = byId("streamContainer");
 
     if (container) {
-        container.classList.toggle("ring-2", anyActive);
-        container.classList.toggle("ring-zinc-300/80", anyActive);
-        container.classList.toggle("border-zinc-400/60", anyActive);
-        container.classList.toggle("border-zinc-800", !anyActive);
+        toggleClasses(container, anyActive, ["ring-2", "ring-zinc-300/80", "border-zinc-400/60"], ["border-zinc-800"]);
     }
 
     toggleBtn("keyboardCaptureBtn", captureState.keyboard);

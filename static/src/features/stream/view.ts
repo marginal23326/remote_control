@@ -1,4 +1,4 @@
-import { byId } from "@/shared/dom-helpers";
+import { byId, toggleClasses } from "@/shared/dom-helpers";
 import { LoadingButton } from "@/shared/feedback";
 
 const STREAM_ICON_PLAY = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5L19 12L7 19Z"></path></svg>`;
@@ -123,8 +123,7 @@ export function setStreamToggleUI(active: boolean): void {
     if (!btn) return;
     btn.innerHTML = active ? STREAM_ICON_STOP : STREAM_ICON_PLAY;
     btn.title = active ? "Stop Stream (Space)" : "Start Stream (Space)";
-    btn.classList.toggle("hover:text-red-400", active);
-    btn.classList.toggle("hover:text-zinc-100", !active);
+    toggleClasses(btn, active, ["hover:text-red-400"], ["hover:text-zinc-100"]);
 }
 
 // Lazily-created loading spinner for the toggle-stream button.

@@ -25,12 +25,23 @@ export function byId<T extends HTMLElement = HTMLElement>(id: string): T | null 
     return document.getElementById(id) as T | null;
 }
 
+export function toggleClasses(
+    el: Element,
+    active: boolean,
+    activeClasses: readonly string[],
+    inactiveClasses: readonly string[],
+): void {
+    for (const c of activeClasses) el.classList.toggle(c, active);
+    for (const c of inactiveClasses) el.classList.toggle(c, !active);
+}
+
 export function setToggleStyle(el: HTMLElement, active: boolean): void {
-    el.classList.toggle("bg-zinc-200", active);
-    el.classList.toggle("text-zinc-900", active);
-    el.classList.toggle("hover:bg-zinc-800", !active);
-    el.classList.toggle("hover:text-zinc-100", !active);
-    el.classList.toggle("text-zinc-400", !active);
+    toggleClasses(
+        el,
+        active,
+        ["bg-zinc-200", "text-zinc-900"],
+        ["hover:bg-zinc-800", "hover:text-zinc-100", "text-zinc-400"],
+    );
 }
 
 export function updateSortIndicators(headerSelector: string, activeColumn: string, ascending: boolean): void {

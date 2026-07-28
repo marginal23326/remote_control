@@ -1,4 +1,4 @@
-import { byId } from "@/shared/dom-helpers";
+import { byId, toggleClasses } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
@@ -251,12 +251,12 @@ class AudioManager {
         if (!button) return;
 
         button.textContent = active ? "Stop" : "Start";
-        button.classList.toggle("bg-zinc-100", !active);
-        button.classList.toggle("hover:bg-white", !active);
-        button.classList.toggle("text-zinc-900", !active);
-        button.classList.toggle("bg-zinc-800", active);
-        button.classList.toggle("hover:bg-zinc-700", active);
-        button.classList.toggle("text-zinc-100", active);
+        toggleClasses(
+            button,
+            active,
+            ["bg-zinc-800", "hover:bg-zinc-700", "text-zinc-100"],
+            ["bg-zinc-100", "hover:bg-white", "text-zinc-900"],
+        );
     }
 
     setupWorkletNode(bufferSize: number): void {
