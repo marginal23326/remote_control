@@ -40,9 +40,7 @@ pub(crate) fn server_loop(
     rate: u32,
     is_running: Arc<AtomicBool>,
 ) -> anyhow::Result<()> {
-    let mainloop = pw::main_loop::MainLoopBox::new(None).anyhow_err()?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None).anyhow_err()?;
-    let core = context.connect(None).anyhow_err()?;
+    let (mainloop, core) = crate::services::pipewire_core::connect(None)?;
 
     let capture_queue = Arc::new(ArrayQueue::<i16>::new(48000 * 2));
 
@@ -196,9 +194,7 @@ pub(crate) fn server_loop(
 }
 
 pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<ArrayQueue<f32>>) -> anyhow::Result<()> {
-    let mainloop = pw::main_loop::MainLoopBox::new(None).anyhow_err()?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None).anyhow_err()?;
-    let core = context.connect(None).anyhow_err()?;
+    let (mainloop, core) = crate::services::pipewire_core::connect(None)?;
 
     struct PlaybackUserData {
         queue: Arc<ArrayQueue<f32>>,
@@ -284,9 +280,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
 }
 
 pub(crate) fn list_sources() -> anyhow::Result<Vec<super::AudioSourceInfo>> {
-    let mainloop = pw::main_loop::MainLoopBox::new(None).anyhow_err()?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None).anyhow_err()?;
-    let core = context.connect(None).anyhow_err()?;
+    let (mainloop, core) = crate::services::pipewire_core::connect(None)?;
     let registry = core.get_registry().anyhow_err()?;
 
     let sources = Rc::new(RefCell::new(Vec::new()));

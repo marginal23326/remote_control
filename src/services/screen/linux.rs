@@ -65,11 +65,7 @@ pub(crate) fn run_pipewire_capture(
     is_running: Arc<AtomicBool>,
     native_size: Arc<Mutex<(i32, i32)>>,
 ) -> Result<()> {
-    pw::init();
-
-    let mainloop = pw::main_loop::MainLoopBox::new(None)?;
-    let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
-    let core = context.connect_fd(fd, None)?;
+    let (mainloop, core) = crate::services::pipewire_core::connect(Some(fd))?;
 
     struct PipeWireUserData {
         format: spa::param::video::VideoInfoRaw,

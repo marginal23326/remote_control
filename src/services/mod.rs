@@ -3,6 +3,8 @@ pub mod camera;
 pub mod files;
 pub mod input;
 pub mod owned_worker;
+#[cfg(target_os = "linux")]
+pub(crate) mod pipewire_core;
 pub mod screen;
 pub mod shell;
 pub mod system;
