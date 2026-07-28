@@ -108,15 +108,9 @@ export function initializeStream(socket: AppSocket): void {
 
     function handleFullscreen(): void {
         if (isFullscreen) {
-            if (document.exitFullscreen) {
-                void document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                void document.webkitExitFullscreen();
-            }
-        } else if (streamUI.container.requestFullscreen) {
+            void document.exitFullscreen();
+        } else {
             void streamUI.container.requestFullscreen();
-        } else if (streamUI.container.webkitRequestFullscreen) {
-            void streamUI.container.webkitRequestFullscreen();
         }
     }
 
@@ -124,9 +118,6 @@ export function initializeStream(socket: AppSocket): void {
 
     document.addEventListener("fullscreenchange", () => {
         isFullscreen = Boolean(document.fullscreenElement);
-    });
-    document.addEventListener("webkitfullscreenchange", () => {
-        isFullscreen = Boolean(document.webkitFullscreenElement);
     });
 
     socket.on("active_window", (data) => {

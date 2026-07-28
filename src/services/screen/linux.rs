@@ -319,7 +319,6 @@ fn stream_info(stream: &Stream) -> PortalStreamInfo {
 
 static ACTIVE_WINDOW_TITLE: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
 
-#[allow(dead_code)]
 pub(crate) fn get_active_window_title() -> String {
     ACTIVE_WINDOW_TITLE.lock().clone()
 }
