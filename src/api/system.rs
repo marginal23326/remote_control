@@ -27,7 +27,7 @@ pub async fn get_clipboard_handler() -> crate::utils::error::AppResult<Json<Clip
             Err(e) => Err(e.into()),
         }
     })
-    .await??;
+    .await?;
 
     Ok(Json(ClipboardResponse { text }))
 }
@@ -40,7 +40,7 @@ pub async fn set_clipboard_handler(
         ctx.set_text(payload.text)?;
         Ok(())
     })
-    .await??;
+    .await?;
 
     Ok(success!())
 }

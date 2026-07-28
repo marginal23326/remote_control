@@ -28,9 +28,13 @@ pub async fn get_process_details_handler(
     State(state): State<AppState>,
     Path(pid): Path<u32>,
 ) -> AppResult<Json<Value>> {
-    let details = run_blocking(move || state.tasks.get_process_details(pid))
-        .await?
-        .map_err(|_| AppError::NotFound(format!("Process with PID {} not found", pid)))?;
+    let details = run_blocking(move || {
+        state
+            .tasks
+            .get_process_details(pid)
+            .map_err(|_| AppError::NotFound(format!("Process with PID {pid} not found")))
+    })
+    .await?;
 
     Ok(success!("data": details))
 }

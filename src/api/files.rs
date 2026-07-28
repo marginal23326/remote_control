@@ -111,7 +111,7 @@ pub async fn check_access_handler(Json(mut paths): Json<Vec<String>>) -> AppResu
             .filter(|p| std::fs::read_dir(std::path::Path::new(p)).is_err())
             .collect())
     })
-    .await??;
+    .await?;
 
     Ok(Json(inaccessible))
 }
@@ -121,16 +121,19 @@ pub async fn list_files_handler(Query(q): Query<ListQuery>) -> AppResult<Json<Va
         return Ok(Json(json!(files::get_drives())));
     };
 
-    let entries = run_blocking(move || files::list_directory(&path)).await?.map_err(|e| {
-        let message = e.to_string();
-        if message.to_lowercase().contains("access") {
-            AppError::Forbidden(message)
-        } else if message.contains("does not exist") {
-            AppError::NotFound(message)
-        } else {
-            AppError::InternalError(e)
-        }
-    })?;
+    let entries = run_blocking(move || {
+        files::list_directory(&path).map_err(|e| {
+            let message = e.to_string();
+            if message.to_lowercase().contains("access") {
+                AppError::Forbidden(message)
+            } else if message.contains("does not exist") {
+                AppError::NotFound(message)
+            } else {
+                AppError::InternalError(e)
+            }
+        })
+    })
+    .await?;
 
     Ok(Json(json!(entries)))
 }
@@ -141,19 +144,19 @@ pub async fn get_home_handler() -> Response {
 }
 
 pub async fn create_folder_handler(Json(payload): Json<CreateFolderPayload>) -> AppResult<Json<Value>> {
-    run_blocking(move || files::create_folder(&payload.parent_path, &payload.folder_name)).await??;
+    run_blocking(move || files::create_folder(&payload.parent_path, &payload.folder_name)).await?;
 
     Ok(success!())
 }
 
 pub async fn delete_handler(Json(payload): Json<DeletePayload>) -> AppResult<Json<Value>> {
-    run_blocking(move || files::delete_items(payload.paths)).await??;
+    run_blocking(move || files::delete_items(payload.paths)).await?;
 
     Ok(success!())
 }
 
 pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Json<Value>> {
-    run_blocking(move || files::rename_item(&payload.old_path, &payload.new_name)).await??;
+    run_blocking(move || files::rename_item(&payload.old_path, &payload.new_name)).await?;
 
     Ok(success!())
 }
@@ -321,7 +324,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         }
         Ok((collected, skipped))
     })
-    .await??;
+    .await?;
 
     if files_to_zip.is_empty() {
         return Err(AppError::BadRequest(

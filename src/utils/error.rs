@@ -74,12 +74,13 @@ macro_rules! success {
 }
 pub(crate) use success;
 
-pub async fn run_blocking<T, E>(f: impl FnOnce() -> Result<T, E> + Send + 'static) -> AppResult<Result<T, E>>
+pub async fn run_blocking<T, E>(f: impl FnOnce() -> Result<T, E> + Send + 'static) -> AppResult<T>
 where
     T: Send + 'static,
-    E: Send + 'static,
+    E: Into<AppError> + Send + 'static,
 {
-    tokio::task::spawn_blocking(f)
-        .await
-        .map_err(|e| AppError::InternalError(anyhow::anyhow!("Task join error: {e}")))
+    match tokio::task::spawn_blocking(f).await {
+        Ok(result) => result.map_err(Into::into),
+        Err(e) => Err(AppError::InternalError(anyhow::anyhow!("Task join error: {e}"))),
+    }
 }
