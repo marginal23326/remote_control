@@ -6,6 +6,18 @@ const svg = (inner: string) =>
     `<svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">${inner}</svg>`;
 const path = (d: string) => `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/>`;
 
+function formatUptime(totalSeconds: number): string {
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${days}d : ${hours}h : ${minutes}m : ${seconds}s`;
+}
+
+function formatCpuMhz(mhz: number | null): string {
+    return mhz === null ? "N/A" : `${(mhz / 1000).toFixed(2)} GHz`;
+}
+
 interface InfoCard {
     title: string;
     icon: string;
@@ -22,7 +34,7 @@ async function updateSystemInfo(): Promise<void> {
                 ["PC / Host / Domain", [info.pc_name, info.hostname, info.domain].filter(Boolean).join(" / ")],
                 ["Username", info.username],
                 ["Time & Location", [info.timezone, info.country].filter(Boolean).join(" - ")],
-                ["Uptime", info.uptime],
+                ["Uptime", formatUptime(info.uptime_seconds)],
             ],
             icon: svg(path("M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14q2 0 2-2V5q0-2-2-2H5q-2 0-2 2v10q0 2 2 2z")),
             title: "Identity & OS",
@@ -31,10 +43,10 @@ async function updateSystemInfo(): Promise<void> {
             data: [
                 [
                     "Processor",
-                    `${info.processor?.replace(/\s*@\s*[\d.]+\s*GHz/u, "") ?? "?"} · ${info.cpu_base_speed ?? "?"} / ${info.cpu_max_speed ?? "?"}`,
+                    `${info.processor?.replace(/\s*@\s*[\d.]+\s*GHz/u, "") ?? "?"} · ${info.cpu_base_speed ?? "?"} / ${formatCpuMhz(info.cpu_max_speed_mhz)}`,
                 ],
-                ["Cores / Threads", `${info.cpu_cores ?? "?"} / ${info.cpu_threads ?? "?"}`],
-                ["Memory", info.memory],
+                ["Cores / Threads", `${info.cpu_cores} / ${info.cpu_threads}`],
+                ["Memory", `${info.memory_total_mb} MB`],
                 ["GPU", info.gpu],
                 ["Monitors", info.monitors],
                 ["Battery", info.battery],
@@ -62,9 +74,9 @@ async function updateSystemInfo(): Promise<void> {
                 ["Drives", info.disks],
                 [
                     "System Drive",
-                    `${info.system_drive} (${info.disk_used ?? "?"} used of ${info.disk_total ?? "?"}, ${info.disk_free ?? "?"} free)`,
+                    `${info.system_drive} (${info.disk_used_gb} GB used of ${info.disk_total_gb} GB, ${info.disk_free_gb} GB free)`,
                 ],
-                ["Active Processes", info.active_processes],
+                ["Active Processes", `${info.active_processes}`],
             ],
             icon: svg(
                 `<ellipse cx="12" cy="6" rx="8" ry="3"/>` +

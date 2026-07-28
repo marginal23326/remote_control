@@ -42,6 +42,6 @@ export type StartStreamConfig = { capture_cursor?: boolean, };
 
 export type StreamSettingsDTO = { bitrate?: number, resolution_percentage?: number, target_fps?: number, encoder_properties?: { [key in string]: string }, };
 
-export type SystemInfoDTO = { os: string, architecture: string, processor: string, cpu_cores: string, cpu_threads: string, cpu_base_speed: string, cpu_max_speed: string, memory: string, gpu: string, monitors: string, disks: string, battery: string, username: string, pc_name: string, domain: string, hostname: string, system_drive: string, uptime: string, mac_address: string, lan_ip: string, wan_ip: string, asn: string, isp: string, antivirus: string, firewall: string, timezone: string, country: string, disk_total: string, disk_used: string, disk_free: string, active_processes: string, };
+export type SystemInfoDTO = { os: string, architecture: string, processor: string, cpu_cores: number, cpu_threads: number, cpu_base_speed: string, cpu_max_speed_mhz: number | null, memory_total_mb: number, gpu: string, monitors: string, disks: string, battery: string, username: string, pc_name: string, domain: string, hostname: string, system_drive: string, uptime_seconds: number, mac_address: string, lan_ip: string, wan_ip: string, asn: string, isp: string, antivirus: string, firewall: string, timezone: string, country: string, disk_total_gb: number, disk_used_gb: number, disk_free_gb: number, active_processes: number, };
 
 export type TaskPayload = { processes: Array<ProcessDTO>, total_cpu_usage: number, total_memory_percentage: number, };

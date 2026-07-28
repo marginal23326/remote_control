@@ -21,7 +21,7 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
         let gpu_info = get_gpu_info();
         let disk_info = get_disk_info();
         let antivirus_info = get_antivirus_info();
-        let cpu_max_speed = get_cpu_max_speed();
+        let cpu_max_speed_mhz = get_cpu_max_speed();
         let os_edition = get_windows_product_name().unwrap_or_else(|| "Windows".to_string());
         let (screen_w, screen_h) = unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) };
         let battery_status = get_battery_status();
@@ -39,7 +39,7 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
             system_drive: "C:".to_string(),
             antivirus: antivirus_info,
             firewall: get_firewall_status(),
-            cpu_max_speed,
+            cpu_max_speed_mhz,
         }
     })
     .await
@@ -98,11 +98,8 @@ fn get_disk_info() -> String {
     super::join_or_na(&disks)
 }
 
-fn get_cpu_max_speed() -> String {
-    if let Some(mhz) = read_reg_dword(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0", "~MHz") {
-        return format!("{:.2} GHz", mhz as f64 / 1000.0);
-    }
-    "N/A".to_string()
+fn get_cpu_max_speed() -> Option<u32> {
+    read_reg_dword(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0", "~MHz")
 }
 
 fn get_antivirus_info() -> String {

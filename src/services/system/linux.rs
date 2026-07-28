@@ -4,16 +4,9 @@ use tokio::process::Command;
 use super::OsSpecificInfo;
 
 pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
-    let (disks, cpu_max_speed, os, gpu, monitors, battery) = tokio::task::spawn_blocking(move || {
-        let disks = get_disk_labels();
-        let cpu_max_speed = if cpu_frequency > 0 {
-            format!("{:.2} GHz", cpu_frequency as f64 / 1000.0)
-        } else {
-            "N/A".to_string()
-        };
+    let (disks, os, gpu, monitors, battery) = tokio::task::spawn_blocking(move || {
         (
-            disks,
-            cpu_max_speed,
+            get_disk_labels(),
             linux_os_name(),
             read_gpu_info(),
             read_monitor_info(),
@@ -35,7 +28,7 @@ pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
         system_drive: "/".to_string(),
         antivirus: "N/A".to_string(),
         firewall,
-        cpu_max_speed,
+        cpu_max_speed_mhz: (cpu_frequency > 0).then_some(cpu_frequency as u32),
     }
 }
 

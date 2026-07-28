@@ -55,11 +55,11 @@ pub struct SystemInfoDTO {
     pub os: String,
     pub architecture: String,
     pub processor: String,
-    pub cpu_cores: String,
-    pub cpu_threads: String,
+    pub cpu_cores: usize,
+    pub cpu_threads: usize,
     pub cpu_base_speed: String,
-    pub cpu_max_speed: String,
-    pub memory: String,
+    pub cpu_max_speed_mhz: Option<u32>,
+    pub memory_total_mb: u64,
     pub gpu: String,
     pub monitors: String,
     pub disks: String,
@@ -69,7 +69,7 @@ pub struct SystemInfoDTO {
     pub domain: String,
     pub hostname: String,
     pub system_drive: String,
-    pub uptime: String,
+    pub uptime_seconds: u64,
     pub mac_address: String,
     pub lan_ip: String,
     pub wan_ip: String,
@@ -79,10 +79,10 @@ pub struct SystemInfoDTO {
     pub firewall: String,
     pub timezone: String,
     pub country: String,
-    pub disk_total: String,
-    pub disk_used: String,
-    pub disk_free: String,
-    pub active_processes: String,
+    pub disk_total_gb: u64,
+    pub disk_used_gb: u64,
+    pub disk_free_gb: u64,
+    pub active_processes: usize,
 }
 
 #[derive(Deserialize)]
@@ -151,14 +151,6 @@ fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> String {
     NA.to_string()
 }
 
-fn format_uptime(seconds: u64) -> String {
-    let days = seconds / 86400;
-    let hours = (seconds % 86400) / 3600;
-    let minutes = (seconds % 3600) / 60;
-    let secs = seconds % 60;
-    format!("{}d : {}h : {}m : {}s", days, hours, minutes, secs)
-}
-
 fn get_disk_usage() -> (u64, u64, u64) {
     let disks = sysinfo::Disks::new_with_refreshed_list();
     for disk in disks.list() {
@@ -191,7 +183,7 @@ pub(crate) struct OsSpecificInfo {
     pub system_drive: String,
     pub antivirus: String,
     pub firewall: String,
-    pub cpu_max_speed: String,
+    pub cpu_max_speed_mhz: Option<u32>,
 }
 
 pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemBaseInfo {
@@ -258,14 +250,14 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
 
     SystemInfoDTO {
         processor: base.cpu_brand.clone(),
-        cpu_cores: base.cpu_cores.to_string(),
-        cpu_threads: base.cpu_threads.to_string(),
+        cpu_cores: base.cpu_cores,
+        cpu_threads: base.cpu_threads,
         cpu_base_speed: get_cpu_base_speed(&base.cpu_brand),
-        memory: format!("{} MB", base.memory_total_mb),
+        memory_total_mb: base.memory_total_mb,
         username,
         pc_name,
         hostname,
-        uptime: format_uptime(System::uptime()),
+        uptime_seconds: System::uptime(),
         mac_address: mac,
         lan_ip,
         wan_ip: wan_info.ip.clone(),
@@ -273,7 +265,7 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         isp: wan_info.isp.clone(),
         country: wan_info.country.clone(),
         timezone: wan_info.timezone.clone(),
-        active_processes: base.active_processes.to_string(),
+        active_processes: base.active_processes,
         os: os_info.os,
         architecture: std::env::consts::ARCH.to_string(),
         gpu: os_info.gpu,
@@ -284,10 +276,10 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         system_drive: os_info.system_drive,
         antivirus: os_info.antivirus,
         firewall: os_info.firewall,
-        cpu_max_speed: os_info.cpu_max_speed,
-        disk_total: format!("{} GB", disk_total),
-        disk_used: format!("{} GB", disk_used),
-        disk_free: format!("{} GB", disk_free),
+        cpu_max_speed_mhz: os_info.cpu_max_speed_mhz,
+        disk_total_gb: disk_total,
+        disk_used_gb: disk_used,
+        disk_free_gb: disk_free,
     }
 }
 
