@@ -380,8 +380,8 @@ class AudioManager {
     }
 
     initializeEventListeners(): void {
-        byId("toggleServerAudio")!.addEventListener("click", async (e) => {
-            if ((e.currentTarget as HTMLElement).textContent?.trim() === "Stop") {
+        byId("toggleServerAudio")!.addEventListener("click", async () => {
+            if (this.streamActive.server) {
                 await this.stopAudioStream("server");
                 return;
             }
@@ -396,8 +396,8 @@ class AudioManager {
             this.updateAudioToggleButton("server", matchesRunning);
         });
 
-        byId("toggleClientAudio")!.addEventListener("click", async (e) => {
-            if ((e.currentTarget as HTMLElement).textContent?.trim() === "Stop") {
+        byId("toggleClientAudio")!.addEventListener("click", async () => {
+            if (this.streamActive.client) {
                 await this.stopAudioStream("client");
                 return;
             }
