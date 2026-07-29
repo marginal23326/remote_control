@@ -77,29 +77,24 @@ impl super::OsInput for OsInputManager {
     }
 
     async fn type_text(&self, text: &str) -> Result<()> {
+        let session = portal_session();
         for ch in text.chars() {
             let keysym = Keysym::from_char(ch).raw() as i32;
-            portal_session()
-                .notify_keyboard_keysym(keysym, KeyState::Pressed)
-                .await?;
-            portal_session()
-                .notify_keyboard_keysym(keysym, KeyState::Released)
-                .await?;
+            session.notify_keyboard_keysym(keysym, KeyState::Pressed).await?;
+            session.notify_keyboard_keysym(keysym, KeyState::Released).await?;
         }
 
         Ok(())
     }
 
     async fn send_shortcut(&self, key: &str, modifiers: Vec<String>) -> Result<()> {
+        let session = portal_session();
         let mut pressed_modifiers = Vec::new();
         let mut result: Result<()> = Ok(());
 
         for modifier in modifiers {
             if let Some(keysym) = shortcut_keysym(&modifier) {
-                match portal_session()
-                    .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
-                    .await
-                {
+                match session.notify_keyboard_keysym(keysym as i32, KeyState::Pressed).await {
                     Ok(_) => pressed_modifiers.push(keysym),
                     Err(e) => {
                         result = Err(e);
@@ -112,23 +107,15 @@ impl super::OsInput for OsInputManager {
         if result.is_ok()
             && let Some(keysym) = shortcut_keysym(key)
         {
-            if let Err(e) = portal_session()
-                .notify_keyboard_keysym(keysym as i32, KeyState::Pressed)
-                .await
-            {
+            if let Err(e) = session.notify_keyboard_keysym(keysym as i32, KeyState::Pressed).await {
                 result = Err(e);
-            } else if let Err(e) = portal_session()
-                .notify_keyboard_keysym(keysym as i32, KeyState::Released)
-                .await
-            {
+            } else if let Err(e) = session.notify_keyboard_keysym(keysym as i32, KeyState::Released).await {
                 result = Err(e);
             }
         }
 
         for keysym in pressed_modifiers.into_iter().rev() {
-            if let Err(e) = portal_session()
-                .notify_keyboard_keysym(keysym as i32, KeyState::Released)
-                .await
+            if let Err(e) = session.notify_keyboard_keysym(keysym as i32, KeyState::Released).await
                 && result.is_ok()
             {
                 result = Err(e);
