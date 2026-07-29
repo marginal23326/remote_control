@@ -5,7 +5,7 @@ use async_zip::{Compression, ZipEntryBuilder};
 use axum::{
     Json,
     body::Body,
-    extract::{Multipart, Query},
+    extract::{Multipart, Query, multipart::Field},
     http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
@@ -161,6 +161,23 @@ pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Jso
     Ok(success!())
 }
 
+async fn stream_field_to_file(field: &mut Field<'_>, file: &mut File) -> bool {
+    loop {
+        match field.chunk().await {
+            Ok(Some(chunk)) => {
+                if file.write_all(&chunk).await.is_err() {
+                    return false;
+                }
+            }
+            Ok(None) => return true,
+            Err(e) => {
+                tracing::error!("Upload stream interrupted: {}", e);
+                return false;
+            }
+        }
+    }
+}
+
 pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Multipart) -> AppResult<Json<Value>> {
     let dir_path = std::path::Path::new(&query.path);
     let mut uploaded_count = 0;
@@ -208,24 +225,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
 
             let mut file = tokio::fs::File::from_std(std_file);
 
-            let mut chunk_write_ok = false;
-            loop {
-                match field.chunk().await {
-                    Ok(Some(chunk)) => {
-                        if file.write_all(&chunk).await.is_err() {
-                            break;
-                        }
-                    }
-                    Ok(None) => {
-                        chunk_write_ok = true;
-                        break;
-                    }
-                    Err(e) => {
-                        tracing::error!("Upload stream interrupted: {}", e);
-                        break;
-                    }
-                }
-            }
+            let chunk_write_ok = stream_field_to_file(&mut field, &mut file).await;
 
             if chunk_write_ok && file.flush().await.is_ok() {
                 drop(file);
