@@ -1,4 +1,4 @@
-import { byId, toggleClasses } from "@/shared/dom-helpers";
+import { byId, onAsync, toggleClasses } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
@@ -361,7 +361,7 @@ function handleAudioStartError(socket: AppSocket, type: AudioKind, message: stri
 }
 
 function initializeEventListeners(socket: AppSocket): void {
-    byId("toggleServerAudio")!.addEventListener("click", async () => {
+    onAsync(byId("toggleServerAudio"), "click", async () => {
         if (streamActive.server) {
             await stopAudioStream(socket, "server");
             return;
@@ -376,7 +376,7 @@ function initializeEventListeners(socket: AppSocket): void {
         updateAudioToggleButton("server", matchesRunning);
     });
 
-    byId("toggleClientAudio")!.addEventListener("click", async () => {
+    onAsync(byId("toggleClientAudio"), "click", async () => {
         if (streamActive.client) {
             await stopAudioStream(socket, "client");
             return;

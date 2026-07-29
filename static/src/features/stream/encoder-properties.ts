@@ -1,4 +1,4 @@
-import { byId, escapeHtml } from "@/shared/dom-helpers";
+import { byId, escapeHtml, onAsync } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { showPromptModal } from "@/shared/modal";
 import type { EncoderPropertyConstraint } from "@/shared/types";
@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const addBtn = byId("addEncoderProp");
     if (addBtn) {
-        addBtn.addEventListener("click", async () => {
+        onAsync(addBtn, "click", async () => {
             const knownKeys = Object.keys(encoderPropertyConstraints);
             const addedKeys = Object.keys(encoderProperties);
             const available = knownKeys.filter((k) => !addedKeys.includes(k));

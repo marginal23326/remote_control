@@ -1,7 +1,7 @@
 import "../../input.css";
 import "../../css/styles.css";
 import { parseJsonResponse } from "@/shared/api";
-import { byId } from "@/shared/dom-helpers";
+import { byId, onAsync } from "@/shared/dom-helpers";
 import { LoadingButton } from "@/shared/feedback";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const errorMessage = byId("errorMessage")!;
     const submitBtn = new LoadingButton(byId<HTMLButtonElement>("submitBtn")!, "Signing in...");
 
-    loginForm.addEventListener("submit", async (e) => {
+    onAsync(loginForm, "submit", async (e) => {
         e.preventDefault();
 
         errorBox.classList.add("hidden");

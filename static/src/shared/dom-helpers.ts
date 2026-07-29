@@ -25,6 +25,23 @@ export function byId<T extends HTMLElement = HTMLElement>(id: string): T | null 
     return document.getElementById(id) as T | null;
 }
 
+export function onAsync<E extends Event = Event>(
+    target: EventTarget | null | undefined,
+    type: string,
+    handler: (event: E) => Promise<void>,
+    options?: AddEventListenerOptions,
+): void {
+    target?.addEventListener(
+        type,
+        (event) => {
+            handler(event as E).catch((error: unknown) => {
+                console.error(`Unhandled error in "${type}" handler:`, error);
+            });
+        },
+        options,
+    );
+}
+
 export function toggleClasses(
     el: Element,
     active: boolean,

@@ -3,7 +3,7 @@ import "../css/styles.css";
 import { initializeSocketIO } from "@/core/socket";
 import { initializeNavigation } from "@/core/navigation";
 import { initializeShortcuts } from "@/core/shortcuts";
-import { byId } from "@/shared/dom-helpers";
+import { byId, onAsync } from "@/shared/dom-helpers";
 import { initializeAudioManager } from "@/features/audio/audio-manager";
 import { initializeStream } from "@/features/stream/stream";
 import { initializeCamera } from "@/features/camera/camera";
@@ -66,7 +66,7 @@ document.addEventListener("click", (e) => {
     void updateSystemInfo();
 
     // Handle logout
-    byId("logoutButton")!.addEventListener("click", async (e) => {
+    onAsync(byId("logoutButton"), "click", async (e) => {
         e.preventDefault();
         const response = await fetch("/logout");
         if (response.ok) {

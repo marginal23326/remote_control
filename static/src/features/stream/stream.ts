@@ -1,5 +1,5 @@
 import { apiCall } from "@/shared/api";
-import { byId } from "@/shared/dom-helpers";
+import { byId, onAsync } from "@/shared/dom-helpers";
 import { LoadingButton, showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { registerShortcuts } from "@/core/shortcuts";
@@ -53,7 +53,7 @@ export function initializeStream(socket: AppSocket): void {
             console.log("Stream settings not yet available");
         });
 
-    byId("toggleStream")!.addEventListener("click", async () => {
+    onAsync(byId("toggleStream"), "click", async () => {
         if (streamState.active) {
             hideStreamUI();
             hideScreenshotView();
@@ -74,7 +74,7 @@ export function initializeStream(socket: AppSocket): void {
 
     let currentScreenshotUrl: string | null = null;
 
-    byId("screenshot")!.addEventListener("click", async () => {
+    onAsync(byId("screenshot"), "click", async () => {
         const loader = new LoadingButton(byId<HTMLButtonElement>("screenshot")!, "");
         loader.startLoading();
 
@@ -140,7 +140,7 @@ export function initializeStream(socket: AppSocket): void {
     });
 
     (["pull", "push"] as const).forEach((action) => {
-        byId(`${action}ClipboardBtn`)?.addEventListener("click", async (e) => {
+        onAsync(byId(`${action}ClipboardBtn`), "click", async (e) => {
             if (!navigator.clipboard) {
                 showNotification(
                     "Clipboard sync requires a Secure Context (HTTPS or localhost). See the README for the Chrome flag workaround.",

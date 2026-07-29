@@ -6,6 +6,7 @@ import {
     bindDebouncedInput,
     byId,
     escapeHtml,
+    onAsync,
     updateSortIndicators as renderSortIndicators,
 } from "@/shared/dom-helpers";
 import { showConfirmModal, showPromptModal } from "@/shared/modal";
@@ -79,7 +80,7 @@ class FileManager extends ListManager {
                     });
                 }
 
-                items.push({ label: "Delete (Del)", action: () => this.handleDelete(selectedItems) });
+                items.push({ label: "Delete (Del)", action: () => void this.handleDelete(selectedItems) });
                 return items;
             },
             getItemId: (element) => element.dataset.path,
@@ -255,7 +256,7 @@ class FileManager extends ListManager {
     }
 
     updateBreadcrumbs(): void {
-        renderBreadcrumbs(this.elements.currentPath, this.currentPath, (path) => this.listFiles(path));
+        renderBreadcrumbs(this.elements.currentPath, this.currentPath, (path) => void this.listFiles(path));
     }
 
     updateFileList(items: FileListItem[], scrollToPath: string | null = null): void {
@@ -506,13 +507,15 @@ class FileManager extends ListManager {
             () => void handleButtonClick("refresh", () => this.listFiles(this.currentPath)),
         );
 
-        byId("downloadFile")?.addEventListener("click", () =>
-            handleButtonClick("downloadFile", () => {
-                this.handleDownload(this.getSelectedItems());
-            }),
+        byId("downloadFile")?.addEventListener(
+            "click",
+            () =>
+                void handleButtonClick("downloadFile", () => {
+                    this.handleDownload(this.getSelectedItems());
+                }),
         );
 
-        byId("fileUpload")?.addEventListener("change", async (e) => {
+        onAsync(byId("fileUpload"), "change", async (e) => {
             const { files } = e.target as HTMLInputElement;
             if (!files || files.length === 0) return;
             await this.handleFileUpload(files);
@@ -530,31 +533,29 @@ class FileManager extends ListManager {
                 }),
         );
 
-        byId("createFolder")?.addEventListener("click", () => {
-            void (async () => {
-                const folderName = await showPromptModal({
-                    confirmLabel: "Create",
-                    label: "Please enter the folder name",
-                    sanitize: (value) => value.replaceAll(/[/\\]/gu, ""),
-                    title: "Create folder",
-                });
-                if (!folderName) return;
+        onAsync(byId("createFolder"), "click", async () => {
+            const folderName = await showPromptModal({
+                confirmLabel: "Create",
+                label: "Please enter the folder name",
+                sanitize: (value) => value.replaceAll(/[/\\]/gu, ""),
+                title: "Create folder",
+            });
+            if (!folderName) return;
 
-                await this.handleApiCall(
-                    "/api/create_folder",
-                    "POST",
-                    { folderName, parentPath: this.currentPath },
-                    async () => {
-                        await this.listFiles(this.currentPath, joinPath(this.currentPath, folderName));
-                    },
-                );
-            })();
+            await this.handleApiCall(
+                "/api/create_folder",
+                "POST",
+                { folderName, parentPath: this.currentPath },
+                async () => {
+                    await this.listFiles(this.currentPath, joinPath(this.currentPath, folderName));
+                },
+            );
         });
 
         // --- Navigation: Back / Up / Home ---
-        byId("navBackBtn")?.addEventListener("click", () => this.goBack());
-        byId("navUpBtn")?.addEventListener("click", () => this.goUp());
-        byId("homeButton")?.addEventListener("click", () => this.goHome());
+        onAsync(byId("navBackBtn"), "click", () => this.goBack());
+        onAsync(byId("navUpBtn"), "click", () => this.goUp());
+        onAsync(byId("homeButton"), "click", () => this.goHome());
 
         // --- Search mode helpers ---
         const searchToggleBtn = byId("searchToggleBtn");
