@@ -26,15 +26,7 @@
         "no-underscore-dangle": [
             "warn",
             {
-                "allow": [
-                    "_safePath",
-                    "_safeName",
-                    "_nameLower",
-                    "_formattedSize",
-                    "_formattedDate",
-                    "_audioManager",
-                    "_shell"
-                ]
+                "allow": ["_safePath", "_safeName", "_nameLower", "_formattedSize", "_formattedDate"]
             }
         ]
     }

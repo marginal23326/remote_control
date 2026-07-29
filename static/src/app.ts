@@ -4,10 +4,10 @@ import { initializeSocketIO } from "@/core/socket";
 import { initializeNavigation } from "@/core/navigation";
 import { initializeShortcuts } from "@/core/shortcuts";
 import { byId } from "@/shared/dom-helpers";
-import { AudioManager } from "@/features/audio/audio-manager";
+import { initializeAudioManager } from "@/features/audio/audio-manager";
 import { initializeStream } from "@/features/stream/stream";
 import { initializeCamera } from "@/features/camera/camera";
-import { InteractiveShell } from "@/features/shell/shell";
+import { initializeShell } from "@/features/shell/shell";
 import { initializeFileManagement } from "@/features/files/file-manager";
 import { renderInputGrids } from "@/features/input/input-grid";
 import { initializeInputHandlers } from "@/features/input/input-controller";
@@ -50,11 +50,9 @@ document.addEventListener("click", (e) => {
 (function () {
     const socket = initializeSocketIO(updateUIBasedOnAuthentication);
 
-    const _audioManager = new AudioManager(socket);
-
-    const _shell = new InteractiveShell("shellSection", socket);
-
     // Initialize different parts of the application
+    initializeAudioManager(socket);
+    initializeShell(socket);
     initializeStream(socket);
     initializeCamera(socket);
     initializeFileManagement();

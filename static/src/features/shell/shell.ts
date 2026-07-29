@@ -20,374 +20,362 @@ const SHELL_LABELS: Record<string, string> = {
     zsh: "Zsh",
 };
 
-export class InteractiveShell {
-    container: HTMLElement | null;
-    sessionId: string | null;
-    socket: AppSocket;
-    isStarted: boolean;
-    terminal: Terminal;
-    fitAddon: FitAddon;
-    shellTypeSelect!: HTMLSelectElement | null;
-    startButton!: HTMLElement;
-    restartButton!: HTMLElement;
-    stopButton!: HTMLElement;
+let sessionId: string | null = null;
+let isStarted = false;
+let terminal: Terminal;
+let fitAddon: FitAddon;
+let shellTypeSelect: HTMLSelectElement | null = null;
+let startButton: HTMLElement;
+let restartButton: HTMLElement;
+let stopButton: HTMLElement;
 
-    constructor(containerId: string, socket: AppSocket) {
-        this.container = byId(containerId);
-        this.sessionId = null;
-        this.socket = socket;
-        this.isStarted = false;
+function toggleTextMode(): void {
+    const overlay = byId("shellTextOverlay");
+    const content = byId("shellTextContent");
 
-        this.terminal = new Terminal({
-            cursorBlink: true,
-            cursorInactiveStyle: "none",
-            cursorStyle: "bar",
-            fontFamily: "'MesloLGM Nerd Font', Consolas, monospace",
-            scrollback: 10000,
-            theme: {
-                // zinc-950
-                background: "#09090b",
-                // zinc-100
-                foreground: "#f4f4f5",
-                cursor: "#f4f4f5",
-                // zinc-800
-                selectionBackground: "#27272a",
-                black: "#09090b",
-                red: "#ef4444",
-                green: "#10b981",
-                yellow: "#eab308",
-                blue: "#3b82f6",
-                magenta: "#d946ef",
-                cyan: "#06b6d4",
-                white: "#f4f4f5",
-            },
-            windowsPty: {
-                backend: "conpty",
-            },
-        });
-
-        this.fitAddon = new FitAddon();
-        this.terminal.loadAddon(this.fitAddon);
-        this.terminal.loadAddon(new WebLinksAddon());
-
-        this.initializeTerminal();
-        this.setupEventHandlers();
+    if (overlay && content) {
+        overlay.classList.remove("hidden");
+        content.textContent = getAllTerminalContent();
     }
+}
 
-    toggleTextMode(): void {
-        const overlay = byId("shellTextOverlay");
-        const content = byId("shellTextContent");
+function closeTextMode(): void {
+    const overlay = byId("shellTextOverlay");
+    if (overlay) {
+        overlay.classList.add("hidden");
+    }
+}
 
-        if (overlay && content) {
-            overlay.classList.remove("hidden");
-            content.textContent = this.getAllTerminalContent();
+function getAllTerminalContent(): string {
+    let content = "";
+    for (let i = 0; i < terminal.buffer.active.length; i++) {
+        const line = terminal.buffer.active.getLine(i);
+        if (line) {
+            content += `${line.translateToString()}\n`;
         }
     }
+    return content;
+}
 
-    closeTextMode(): void {
-        const overlay = byId("shellTextOverlay");
-        if (overlay) {
-            overlay.classList.add("hidden");
+function initializeTerminal(socket: AppSocket): void {
+    const terminalElement = byId("terminalContainer")!;
+
+    // Open terminal
+    terminal.open(terminalElement);
+
+    // Initial fit
+    setTimeout(() => {
+        fitAddon.fit();
+        updateTerminalSize(socket);
+    }, 100);
+
+    // Resize handling (debounced)
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    const handleResize = () => {
+        if (isStarted) {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                fitAddon.fit();
+                updateTerminalSize(socket);
+            }, 150);
         }
-    }
+    };
 
-    getAllTerminalContent(): string {
-        let content = "";
-        for (let i = 0; i < this.terminal.buffer.active.length; i++) {
-            const line = this.terminal.buffer.active.getLine(i);
-            if (line) {
-                content += `${line.translateToString()}\n`;
-            }
-        }
-        return content;
-    }
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(terminalElement);
+    window.addEventListener("resize", handleResize);
 
-    initializeTerminal(): void {
-        const terminalElement = byId("terminalContainer")!;
-
-        // Open terminal
-        this.terminal.open(terminalElement);
-
-        // Initial fit
-        setTimeout(() => {
-            this.fitAddon.fit();
-            this.updateTerminalSize();
-        }, 100);
-
-        // Resize handling (debounced)
-        let resizeTimeout: ReturnType<typeof setTimeout>;
-        const handleResize = () => {
-            if (this.isStarted) {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(() => {
-                    this.fitAddon.fit();
-                    this.updateTerminalSize();
-                }, 150);
-            }
-        };
-
-        const resizeObserver = new ResizeObserver(handleResize);
-        resizeObserver.observe(terminalElement);
-        window.addEventListener("resize", handleResize);
-
-        // Font size adjustment with Ctrl+Wheel
-        terminalElement.addEventListener("wheel", (e) => {
-            if (this.isStarted && e.ctrlKey) {
-                e.preventDefault();
-                this.adjustFontSize(e.deltaY < 0 ? 1 : -1);
-            }
-        });
-
-        // Style adjustments
-        const xtermElement = terminalElement.querySelector<HTMLElement>(".xterm");
-        if (xtermElement) {
-            xtermElement.style.padding = "12px";
-            xtermElement.style.height = "100%";
-        }
-    }
-
-    adjustFontSize(delta: number): void {
-        if (!this.isStarted) return;
-
-        const currentFontSize = this.terminal.options.fontSize!;
-        const minFontSize = 8;
-        const maxFontSize = 32;
-        const newSize = Math.max(minFontSize, Math.min(maxFontSize, currentFontSize + delta));
-
-        if (newSize !== currentFontSize) {
-            this.terminal.options.fontSize = newSize;
-            this.fitAddon.fit();
-            this.updateTerminalSize();
-        }
-    }
-
-    setupEventHandlers(): void {
-        const startButton = byId("startShellBtn")!;
-        const restartButton = byId("restartShellBtn")!;
-        const stopButton = byId("stopShellBtn")!;
-        const terminalContainer = byId("terminalContainer")!;
-        const textModeBtn = byId("shellTextModeBtn");
-        const closeTextBtn = byId("shellCloseTextBtn");
-        this.shellTypeSelect = byId<HTMLSelectElement>("shellTypeSelect");
-        this.startButton = startButton;
-        this.restartButton = restartButton;
-        this.stopButton = stopButton;
-
-        if (textModeBtn) {
-            textModeBtn.addEventListener("click", () => {
-                this.toggleTextMode();
-            });
-        }
-
-        if (closeTextBtn) {
-            closeTextBtn.innerHTML = SVG_TEMPLATES.cross();
-            closeTextBtn.addEventListener("click", () => {
-                this.closeTextMode();
-            });
-        }
-
-        // --- Start Shell ---
-        startButton.addEventListener("click", () => {
-            if (!this.isStarted) {
-                this.createShellSession();
-                // UI updates happen after we receive 'shell_created' event
-                terminalContainer.style.opacity = "1";
-            }
-        });
-
-        restartButton.addEventListener("click", (e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.disabled = true;
-            btn.classList.add("opacity-50", "cursor-not-allowed");
-
-            this.restartShell();
-
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.classList.remove("opacity-50", "cursor-not-allowed");
-            }, 1500);
-        });
-
-        stopButton.addEventListener("click", () => {
-            this.stopShell();
-        });
-
-        // --- Socket Events ---
-
-        this.socket.on("available_shells", (data) => {
-            this.populateShellOptions(data.shells || [], data.default);
-        });
-
-        // 1. Success: Shell Created
-        this.socket.on("shell_created", (data) => {
-            if (data.status === "success") {
-                this.isStarted = true;
-                this.sessionId = data.session_id;
-
-                startButton.classList.add("hidden");
-                restartButton.classList.remove("hidden");
-                stopButton.classList.remove("hidden");
-                if (this.shellTypeSelect) this.shellTypeSelect.disabled = true;
-
-                this.fitAddon.fit();
-                this.updateTerminalSize();
-                this.terminal.focus();
-            }
-        });
-
-        // 2. Error: Shell Creation Failed
-        this.socket.on("shell_error", (data) => {
-            this.terminal.writeln(`\r\n\u001B[31mError: ${data.message}\u001B[0m`);
-            this.resetToIdle();
-        });
-
-        // 2b. Session Ended
-        this.socket.on("shell_closed", (data) => {
-            if (this.sessionId && data.session_id === this.sessionId) {
-                this.resetToIdle();
-            }
-        });
-
-        // --- Handle Network Drops ---
-        this.socket.on("connect", () => {
-            this.requestAvailableShells();
-        });
-
-        bindMediaSessionReconnect(this.socket, {
-            isActive: () => this.isStarted,
-            onDisconnect: () => {
-                this.isStarted = false;
-                this.sessionId = null;
-
-                this.terminal.writeln("\r\n\u001B[33m[Connection lost]\u001B[0m\r\n");
-                if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
-            },
-            onReconnect: () => {
-                this.terminal.writeln("\r\n\u001B[32m[Reconnected]\u001B[0m\r\n");
-                this.createShellSession();
-            },
-        });
-
-        // 3. Data: Output from Server (Pushed instantly)
-        this.socket.on("shell_output", (data) => {
-            // Check if this output belongs to our current session
-            if (this.sessionId && data.session_id === this.sessionId) {
-                this.terminal.write(data.output);
-            }
-        });
-
-        // --- Terminal Input ---
-        this.terminal.onData((data) => {
-            if (this.sessionId && this.isStarted) {
-                this.socket.emit("shell_input", {
-                    command: data,
-                });
-            }
-        });
-
-        this.terminal.attachCustomKeyEventHandler((event) => {
-            if (event.type !== "keydown") return true;
-
-            // Clipboard handled natively by xterm via DOM events on the hidden textarea.
-            if (event.ctrlKey && ((event.key === "c" && this.terminal.hasSelection()) || event.key === "v")) {
-                if (event.key === "c") {
-                    setTimeout(() => {
-                        this.terminal.clearSelection();
-                    }, 0);
-                }
-                return false;
-            }
-
-            if (event.ctrlKey && (event.key === "+" || event.key === "=")) {
-                event.preventDefault();
-                this.adjustFontSize(1);
-                return false;
-            } else if (event.ctrlKey && event.key === "-") {
-                event.preventDefault();
-                this.adjustFontSize(-1);
-                return false;
-            }
-
-            return true;
-        });
-
-        terminalContainer.addEventListener("contextmenu", (e) => {
-            if (!this.isStarted) return;
+    // Font size adjustment with Ctrl+Wheel
+    terminalElement.addEventListener("wheel", (e) => {
+        if (isStarted && e.ctrlKey) {
             e.preventDefault();
-
-            if (this.terminal.hasSelection()) {
-                void navigator.clipboard.writeText(this.terminal.getSelection());
-                this.terminal.clearSelection();
-            } else {
-                void navigator.clipboard.readText().then((text) => {
-                    if (text && this.isStarted) {
-                        this.terminal.paste(text);
-                    }
-                });
-            }
-        });
-    }
-
-    restartShell(): void {
-        if (!this.isStarted) return;
-        this.sessionId = null;
-        this.terminal.reset();
-        if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
-        this.createShellSession();
-    }
-
-    stopShell(): void {
-        if (!this.isStarted) return;
-        this.socket.emit("shell_close");
-    }
-
-    resetToIdle(): void {
-        this.isStarted = false;
-        this.sessionId = null;
-        this.startButton.classList.remove("hidden");
-        this.restartButton.classList.add("hidden");
-        this.stopButton.classList.add("hidden");
-        if (this.shellTypeSelect) this.shellTypeSelect.disabled = false;
-    }
-
-    requestAvailableShells(): void {
-        this.socket.emit("list_shells");
-    }
-
-    populateShellOptions(shells: string[], defaultShell?: string): void {
-        if (!this.shellTypeSelect) return;
-
-        const previous = this.shellTypeSelect.value;
-        this.shellTypeSelect.replaceChildren();
-
-        shells.forEach((shell) => {
-            const option = document.createElement("option");
-            option.value = shell;
-            option.textContent = SHELL_LABELS[shell] ?? shell;
-            this.shellTypeSelect!.append(option);
-        });
-
-        if (shells.includes(previous)) {
-            this.shellTypeSelect.value = previous;
-        } else if (defaultShell) {
-            this.shellTypeSelect.value = defaultShell;
+            adjustFontSize(socket, e.deltaY < 0 ? 1 : -1);
         }
+    });
+
+    // Style adjustments
+    const xtermElement = terminalElement.querySelector<HTMLElement>(".xterm");
+    if (xtermElement) {
+        xtermElement.style.padding = "12px";
+        xtermElement.style.height = "100%";
+    }
+}
+
+function adjustFontSize(socket: AppSocket, delta: number): void {
+    if (!isStarted) return;
+
+    const currentFontSize = terminal.options.fontSize!;
+    const minFontSize = 8;
+    const maxFontSize = 32;
+    const newSize = Math.max(minFontSize, Math.min(maxFontSize, currentFontSize + delta));
+
+    if (newSize !== currentFontSize) {
+        terminal.options.fontSize = newSize;
+        fitAddon.fit();
+        updateTerminalSize(socket);
+    }
+}
+
+function setupEventHandlers(socket: AppSocket): void {
+    startButton = byId("startShellBtn")!;
+    restartButton = byId("restartShellBtn")!;
+    stopButton = byId("stopShellBtn")!;
+    const terminalContainer = byId("terminalContainer")!;
+    const textModeBtn = byId("shellTextModeBtn");
+    const closeTextBtn = byId("shellCloseTextBtn");
+    shellTypeSelect = byId<HTMLSelectElement>("shellTypeSelect");
+
+    if (textModeBtn) {
+        textModeBtn.addEventListener("click", () => {
+            toggleTextMode();
+        });
     }
 
-    createShellSession(): void {
-        const { cols, rows } = this.terminal;
-        this.sessionId = Math.random().toString(36).slice(2);
-        const shell = this.shellTypeSelect && this.shellTypeSelect.value ? this.shellTypeSelect.value : undefined;
-        this.socket.emit("shell_create", { cols, rows, session_id: this.sessionId, shell });
+    if (closeTextBtn) {
+        closeTextBtn.innerHTML = SVG_TEMPLATES.cross();
+        closeTextBtn.addEventListener("click", () => {
+            closeTextMode();
+        });
     }
 
-    updateTerminalSize(): void {
-        if (this.sessionId && this.isStarted) {
-            const { cols, rows } = this.terminal;
-            this.socket.emit("shell_resize", {
-                cols,
-                rows,
+    // --- Start Shell ---
+    startButton.addEventListener("click", () => {
+        if (!isStarted) {
+            createShellSession(socket);
+            // UI updates happen after we receive 'shell_created' event
+            terminalContainer.style.opacity = "1";
+        }
+    });
+
+    restartButton.addEventListener("click", (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        btn.disabled = true;
+        btn.classList.add("opacity-50", "cursor-not-allowed");
+
+        restartShell(socket);
+
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.classList.remove("opacity-50", "cursor-not-allowed");
+        }, 1500);
+    });
+
+    stopButton.addEventListener("click", () => {
+        stopShell(socket);
+    });
+
+    // --- Socket Events ---
+
+    socket.on("available_shells", (data) => {
+        populateShellOptions(data.shells || [], data.default);
+    });
+
+    // 1. Success: Shell Created
+    socket.on("shell_created", (data) => {
+        if (data.status === "success") {
+            isStarted = true;
+            sessionId = data.session_id;
+
+            startButton.classList.add("hidden");
+            restartButton.classList.remove("hidden");
+            stopButton.classList.remove("hidden");
+            if (shellTypeSelect) shellTypeSelect.disabled = true;
+
+            fitAddon.fit();
+            updateTerminalSize(socket);
+            terminal.focus();
+        }
+    });
+
+    // 2. Error: Shell Creation Failed
+    socket.on("shell_error", (data) => {
+        terminal.writeln(`\r\n\u001B[31mError: ${data.message}\u001B[0m`);
+        resetToIdle();
+    });
+
+    // 2b. Session Ended
+    socket.on("shell_closed", (data) => {
+        if (sessionId && data.session_id === sessionId) {
+            resetToIdle();
+        }
+    });
+
+    // --- Handle Network Drops ---
+    socket.on("connect", () => {
+        requestAvailableShells(socket);
+    });
+
+    bindMediaSessionReconnect(socket, {
+        isActive: () => isStarted,
+        onDisconnect: () => {
+            isStarted = false;
+            sessionId = null;
+
+            terminal.writeln("\r\n\u001B[33m[Connection lost]\u001B[0m\r\n");
+            if (shellTypeSelect) shellTypeSelect.disabled = false;
+        },
+        onReconnect: () => {
+            terminal.writeln("\r\n\u001B[32m[Reconnected]\u001B[0m\r\n");
+            createShellSession(socket);
+        },
+    });
+
+    // 3. Data: Output from Server (Pushed instantly)
+    socket.on("shell_output", (data) => {
+        // Check if this output belongs to our current session
+        if (sessionId && data.session_id === sessionId) {
+            terminal.write(data.output);
+        }
+    });
+
+    // --- Terminal Input ---
+    terminal.onData((data) => {
+        if (sessionId && isStarted) {
+            socket.emit("shell_input", {
+                command: data,
             });
         }
+    });
+
+    terminal.attachCustomKeyEventHandler((event) => {
+        if (event.type !== "keydown") return true;
+
+        // Clipboard handled natively by xterm via DOM events on the hidden textarea.
+        if (event.ctrlKey && ((event.key === "c" && terminal.hasSelection()) || event.key === "v")) {
+            if (event.key === "c") {
+                setTimeout(() => {
+                    terminal.clearSelection();
+                }, 0);
+            }
+            return false;
+        }
+
+        if (event.ctrlKey && (event.key === "+" || event.key === "=")) {
+            event.preventDefault();
+            adjustFontSize(socket, 1);
+            return false;
+        } else if (event.ctrlKey && event.key === "-") {
+            event.preventDefault();
+            adjustFontSize(socket, -1);
+            return false;
+        }
+
+        return true;
+    });
+
+    terminalContainer.addEventListener("contextmenu", (e) => {
+        if (!isStarted) return;
+        e.preventDefault();
+
+        if (terminal.hasSelection()) {
+            void navigator.clipboard.writeText(terminal.getSelection());
+            terminal.clearSelection();
+        } else {
+            void navigator.clipboard.readText().then((text) => {
+                if (text && isStarted) {
+                    terminal.paste(text);
+                }
+            });
+        }
+    });
+}
+
+function restartShell(socket: AppSocket): void {
+    if (!isStarted) return;
+    sessionId = null;
+    terminal.reset();
+    if (shellTypeSelect) shellTypeSelect.disabled = false;
+    createShellSession(socket);
+}
+
+function stopShell(socket: AppSocket): void {
+    if (!isStarted) return;
+    socket.emit("shell_close");
+}
+
+function resetToIdle(): void {
+    isStarted = false;
+    sessionId = null;
+    startButton.classList.remove("hidden");
+    restartButton.classList.add("hidden");
+    stopButton.classList.add("hidden");
+    if (shellTypeSelect) shellTypeSelect.disabled = false;
+}
+
+function requestAvailableShells(socket: AppSocket): void {
+    socket.emit("list_shells");
+}
+
+function populateShellOptions(shells: string[], defaultShell?: string): void {
+    if (!shellTypeSelect) return;
+
+    const previous = shellTypeSelect.value;
+    shellTypeSelect.replaceChildren();
+
+    shells.forEach((shell) => {
+        const option = document.createElement("option");
+        option.value = shell;
+        option.textContent = SHELL_LABELS[shell] ?? shell;
+        shellTypeSelect!.append(option);
+    });
+
+    if (shells.includes(previous)) {
+        shellTypeSelect.value = previous;
+    } else if (defaultShell) {
+        shellTypeSelect.value = defaultShell;
     }
+}
+
+function createShellSession(socket: AppSocket): void {
+    const { cols, rows } = terminal;
+    sessionId = Math.random().toString(36).slice(2);
+    const shell = shellTypeSelect && shellTypeSelect.value ? shellTypeSelect.value : undefined;
+    socket.emit("shell_create", { cols, rows, session_id: sessionId, shell });
+}
+
+function updateTerminalSize(socket: AppSocket): void {
+    if (sessionId && isStarted) {
+        const { cols, rows } = terminal;
+        socket.emit("shell_resize", {
+            cols,
+            rows,
+        });
+    }
+}
+
+export function initializeShell(socket: AppSocket): void {
+    terminal = new Terminal({
+        cursorBlink: true,
+        cursorInactiveStyle: "none",
+        cursorStyle: "bar",
+        fontFamily: "'MesloLGM Nerd Font', Consolas, monospace",
+        scrollback: 10000,
+        theme: {
+            // zinc-950
+            background: "#09090b",
+            // zinc-100
+            foreground: "#f4f4f5",
+            cursor: "#f4f4f5",
+            // zinc-800
+            selectionBackground: "#27272a",
+            black: "#09090b",
+            red: "#ef4444",
+            green: "#10b981",
+            yellow: "#eab308",
+            blue: "#3b82f6",
+            magenta: "#d946ef",
+            cyan: "#06b6d4",
+            white: "#f4f4f5",
+        },
+        windowsPty: {
+            backend: "conpty",
+        },
+    });
+
+    fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.loadAddon(new WebLinksAddon());
+
+    initializeTerminal(socket);
+    setupEventHandlers(socket);
 }
