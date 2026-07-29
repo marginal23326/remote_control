@@ -23,7 +23,7 @@ use windows::Win32::Graphics::Gdi::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW}
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-use super::{FrameRateLimiter, RawFrame, StreamSettings};
+use super::{FrameRateLimiter, RawFrame, StreamSettings, send_or_cache, take_or_recycle};
 
 pub(crate) fn get_max_fps() -> u64 {
     unsafe {
@@ -177,12 +177,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
             *self.ctx.native_size.lock() = (width as i32, height as i32);
         }
 
-        let mut buffer = self
-            .ctx
-            .cached_buffer
-            .take()
-            .or_else(|| self.ctx.recycle_rx.try_recv().ok())
-            .unwrap_or_default();
+        let mut buffer = take_or_recycle(&mut self.ctx.cached_buffer, &self.ctx.recycle_rx);
 
         let mut frame_buffer = match frame.buffer() {
             Ok(fb) => fb,
@@ -206,9 +201,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
 
         let raw = RawFrame { buffer, width, height };
 
-        if let Err(err) = self.ctx.work_tx.try_send(raw) {
-            self.ctx.cached_buffer = Some(err.into_inner().buffer);
-        }
+        send_or_cache(&self.ctx.work_tx, &mut self.ctx.cached_buffer, raw);
 
         Ok(())
     }

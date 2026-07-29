@@ -8,7 +8,7 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use bytes::Bytes;
-use crossbeam_channel::{Sender, bounded};
+use crossbeam_channel::{Receiver, Sender, bounded};
 
 use gst::prelude::*;
 use gstreamer as gst;
@@ -47,6 +47,16 @@ pub(crate) struct RawFrame {
     pub buffer: Vec<u8>,
     pub width: u32,
     pub height: u32,
+}
+
+pub(crate) fn take_or_recycle(cached: &mut Option<Vec<u8>>, recycle_rx: &Receiver<Vec<u8>>) -> Vec<u8> {
+    cached.take().or_else(|| recycle_rx.try_recv().ok()).unwrap_or_default()
+}
+
+pub(crate) fn send_or_cache(work_tx: &Sender<RawFrame>, cached: &mut Option<Vec<u8>>, raw: RawFrame) {
+    if let Err(err) = work_tx.try_send(raw) {
+        *cached = Some(err.into_inner().buffer);
+    }
 }
 
 struct RecycleBin {

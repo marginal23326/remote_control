@@ -28,7 +28,7 @@ use std::sync::LazyLock;
 use tokio::sync::Mutex as AsyncMutex;
 use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
-use super::{FrameRateLimiter, RawFrame, StreamSettings};
+use super::{FrameRateLimiter, RawFrame, StreamSettings, send_or_cache, take_or_recycle};
 
 static PORTAL_SESSION: LazyLock<Arc<PortalSessionManager>> = LazyLock::new(|| Arc::new(PortalSessionManager::new()));
 
@@ -185,11 +185,7 @@ pub(crate) fn run_pipewire_capture(
             let available = bytes.len().saturating_sub(offset).min(frame_size);
             let source = &bytes[offset..offset + available];
 
-            let mut output = user_data
-                .cached_buffer
-                .take()
-                .or_else(|| user_data.recycle_rx.try_recv().ok())
-                .unwrap_or_default();
+            let mut output = take_or_recycle(&mut user_data.cached_buffer, &user_data.recycle_rx);
 
             if normalize_to_bgra(source, width, height, stride, format, &mut output).is_err() {
                 user_data.cached_buffer = Some(output);
@@ -202,9 +198,7 @@ pub(crate) fn run_pipewire_capture(
                 height,
             };
 
-            if let Err(err) = user_data.work_tx.try_send(raw) {
-                user_data.cached_buffer = Some(err.into_inner().buffer);
-            }
+            send_or_cache(&user_data.work_tx, &mut user_data.cached_buffer, raw);
         })
         .register()?;
 
