@@ -21,7 +21,6 @@ pub struct DriveEntry {
     pub name: String,
     pub path: String,
     pub is_dir: bool,
-    pub drive_type: u8,
 }
 
 pub fn get_drives() -> Vec<DriveEntry> {
@@ -35,7 +34,6 @@ pub fn get_drives() -> Vec<DriveEntry> {
                 name: format!("{} ({:?})", path, disk.kind()),
                 path: path.clone(),
                 is_dir: true,
-                drive_type: 3,
             }
         })
         .collect()

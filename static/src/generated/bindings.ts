@@ -14,7 +14,7 @@ export type ClientEvent = "mouse_event" | "keyboard_event" | "shell_create" | "s
 
 export type CurrentSettingsResponse = { bitrate: number, resolution_percentage: number, target_fps: number, max_fps: number, native_width: number, native_height: number, encoder_type: string, encoder_properties: { [key in string]: string }, encoder_property_constraints: { [key in string]: EncoderPropertyConstraint }, rejected_properties: Array<string>, stun_server: string | null, };
 
-export type DriveEntry = { name: string, path: string, is_dir: boolean, drive_type: number, };
+export type DriveEntry = { name: string, path: string, is_dir: boolean, };
 
 export type EncoderPropertyConstraint = { value_type: EncoderValueType, min?: number, max?: number, enum_values?: Array<string>, };
 

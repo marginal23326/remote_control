@@ -4,7 +4,6 @@ import type {
     CameraDeviceInfo,
     CameraStartConfig as StartCameraStreamPayload,
     CurrentSettingsResponse,
-    DriveEntry,
     EncoderPropertyConstraint,
     FileEntry,
     KeyboardEvent as KeyboardEventPayload,
@@ -21,8 +20,7 @@ import type {
 } from "@/generated/bindings";
 
 export type FileListItem = Pick<FileEntry, "name" | "path" | "is_dir"> &
-    Partial<Pick<FileEntry, "size" | "last_modified">> &
-    Partial<Pick<DriveEntry, "drive_type">>;
+    Partial<Pick<FileEntry, "size" | "last_modified">>;
 
 export interface RenderableFileItem extends FileListItem {
     _safePath: string;
