@@ -242,47 +242,29 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
     // 4. Global key capture forwarding
     const heldKeys = new Set<string>();
 
-    document.addEventListener(
-        "keydown",
-        (event) => {
-            if (captureState.keyboard) {
-                const target = event.target as HTMLElement;
-                if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+    function forwardKeyEvent(type: "keyDown" | "keyUp", event: KeyboardEvent): void {
+        if (!captureState.keyboard) return;
 
-                event.preventDefault();
-                event.stopPropagation();
+        const target = event.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
-                if (event.repeat) return;
+        event.preventDefault();
+        event.stopPropagation();
 
-                const rawKey = event.key;
-                const key = KEY_MAP[rawKey] ?? rawKey.toLowerCase();
+        if (type === "keyDown" && event.repeat) return;
 
-                heldKeys.add(key);
-                emitKeyboardEvent({ key, type: "keyDown" });
-            }
-        },
-        { capture: true },
-    );
+        const key = KEY_MAP[event.key] ?? event.key.toLowerCase();
+        if (type === "keyDown") {
+            heldKeys.add(key);
+        } else {
+            heldKeys.delete(key);
+        }
 
-    document.addEventListener(
-        "keyup",
-        (event) => {
-            if (captureState.keyboard) {
-                const target = event.target as HTMLElement;
-                if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+        emitKeyboardEvent({ key, type });
+    }
 
-                event.preventDefault();
-                event.stopPropagation();
-
-                const rawKey = event.key;
-                const key = KEY_MAP[rawKey] ?? rawKey.toLowerCase();
-
-                heldKeys.delete(key);
-                emitKeyboardEvent({ key, type: "keyUp" });
-            }
-        },
-        { capture: true },
-    );
+    document.addEventListener("keydown", (event) => forwardKeyEvent("keyDown", event), { capture: true });
+    document.addEventListener("keyup", (event) => forwardKeyEvent("keyUp", event), { capture: true });
 
     window.addEventListener("blur", () => {
         heldKeys.forEach((key) => {
