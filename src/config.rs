@@ -15,18 +15,6 @@ pub struct AppConfig {
     pub stun_server: Option<String>,
 }
 
-// Default used only for internal fallback
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            password_hash: String::new(),
-            session_token: String::new(),
-            port: 5000,
-            stun_server: None,
-        }
-    }
-}
-
 pub async fn load() -> Result<AppConfig> {
     let mut config = if Path::new(CONFIG_FILE).exists() {
         let content = fs::read_to_string(CONFIG_FILE).await?;
