@@ -245,6 +245,13 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         Ok(info) => info.clone(),
         Err(_) => WanInfo::na(),
     };
+    let WanInfo {
+        ip: wan_ip,
+        asn,
+        isp,
+        country,
+        timezone,
+    } = wan_info;
 
     let os_info = backend::get_os_specific_info(base.cpu_frequency).await;
 
@@ -260,11 +267,11 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         uptime_seconds: System::uptime(),
         mac_address: mac,
         lan_ip,
-        wan_ip: wan_info.ip.clone(),
-        asn: wan_info.asn.clone(),
-        isp: wan_info.isp.clone(),
-        country: wan_info.country.clone(),
-        timezone: wan_info.timezone.clone(),
+        wan_ip,
+        asn,
+        isp,
+        country,
+        timezone,
         active_processes: base.active_processes,
         os: os_info.os,
         architecture: std::env::consts::ARCH.to_string(),
