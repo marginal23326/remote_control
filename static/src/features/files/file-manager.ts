@@ -31,125 +31,186 @@ interface FileManagerElements {
     scrollContainer: HTMLElement | null;
 }
 
-class FileManager extends ListManager {
-    currentPath = "";
-    navigationHistory: string[] = [];
-    currentFileList: RenderableFileItem[] = [];
-    filteredList: RenderableFileItem[] = [];
-    collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-    sortColumn: SortColumn = "name";
-    sortDirection: SortDirection = "asc";
-    buttons: Record<string, LoadingButton> = {};
-    dropZone: DropZone | null = null;
-    elements: FileManagerElements = {
+async function handleApiCall(
+    apiEndpoint: string,
+    method: string,
+    data: unknown,
+    successCallback?: (response: ApiMessageResponse) => void | Promise<void>,
+): Promise<void> {
+    try {
+        const response = await apiCall<ApiMessageResponse>(apiEndpoint, method, data);
+        if (response.message) showNotification(response.message, "info");
+        void successCallback?.(response);
+    } catch (error) {
+        console.error(`Error in ${apiEndpoint}:`, error);
+        showNotification(`Error: ${(error as Error).message}`, "error");
+    }
+}
+
+function handleDownload(paths: string[]): void {
+    if (!paths || paths.length === 0) {
+        showNotification("No files selected for download.", "warning");
+        return;
+    }
+
+    let iframe = byId<HTMLIFrameElement>("global-download-iframe");
+    if (!iframe) {
+        iframe = document.createElement("iframe");
+        iframe.id = "global-download-iframe";
+        iframe.name = "global-download-iframe";
+        iframe.style.display = "none";
+        document.body.append(iframe);
+    }
+
+    iframe.addEventListener("load", () => {
+        try {
+            const text = iframe.contentDocument?.body?.textContent;
+            if (text) {
+                const data = JSON.parse(text) as { status: string; message?: string };
+                if (data.status === "error") {
+                    showNotification(data.message ?? "Download failed.", "error");
+                }
+            }
+        } catch {
+            /* Ignore */
+        }
+    });
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/download";
+    form.target = "global-download-iframe";
+    form.style.display = "none";
+
+    paths.forEach((path) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "paths[]";
+        input.value = path;
+        form.append(input);
+    });
+
+    document.body.append(form);
+    form.submit();
+    form.remove();
+}
+
+export function initializeFileManagement(): void {
+    let currentPath = "";
+    let navigationHistory: string[] = [];
+    let currentFileList: RenderableFileItem[] = [];
+    let filteredList: RenderableFileItem[] = [];
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    let sortColumn: SortColumn = "name";
+    let sortDirection: SortDirection = "asc";
+    let buttons: Record<string, LoadingButton> = {};
+    let dropZone: DropZone | null = null;
+    const elements: FileManagerElements = {
         currentPath: null,
         fileList: null,
         scrollContainer: null,
         searchInput: null,
     };
-    virtualList: VirtualList<RenderableFileItem> | null = null;
-    isLoading = false;
-    scrollToPath: string | null = null;
-    currentUploadXhr: XMLHttpRequest | null = null;
-    accessChecker!: AccessChecker;
-    private navToken = 0;
-    private hasError = false;
+    let virtualList: VirtualList<RenderableFileItem> | null = null;
+    let isLoading = false;
+    let pendingScrollPath: string | null = null;
+    let currentUploadXhr: XMLHttpRequest | null = null;
+    let navToken = 0;
+    let hasError = false;
 
-    constructor() {
-        super({
-            containerSelector: "#fileList",
-            getContextMenuItems: (context?: ContextMenuContext) => {
-                const selectedItems = context?.selectedItems ?? this.getSelectedItems();
-                if (selectedItems.length === 0) return [];
+    const listManager = new ListManager({
+        containerSelector: "#fileList",
+        getContextMenuItems: (context?: ContextMenuContext) => {
+            const selectedItems = context?.selectedItems ?? listManager.getSelectedItems();
+            if (selectedItems.length === 0) return [];
 
-                const items: ContextMenuItem[] = [
-                    {
-                        label: "Download",
-                        action: () => {
-                            this.handleDownload(selectedItems);
-                        },
+            const items: ContextMenuItem[] = [
+                {
+                    label: "Download",
+                    action: () => {
+                        handleDownload(selectedItems);
                     },
-                ];
+                },
+            ];
 
-                if (selectedItems.length === 1) {
-                    items.push({
-                        label: "Rename (F2)",
-                        action: () => {
-                            this.renameSelectedItem();
-                        },
-                    });
-                }
+            if (selectedItems.length === 1) {
+                items.push({
+                    label: "Rename (F2)",
+                    action: () => {
+                        renameSelectedItem();
+                    },
+                });
+            }
 
-                items.push({ label: "Delete (Del)", action: () => void this.handleDelete(selectedItems) });
-                return items;
-            },
-            getItemId: (element) => element.dataset.path,
-            itemDataAttribute: "path",
-            onSelectionChange: () => {
-                this.updateFileOperationsUI();
-            },
-        });
+            items.push({ label: "Delete (Del)", action: () => void handleDelete(selectedItems) });
+            return items;
+        },
+        getItemId: (element) => element.dataset.path,
+        itemDataAttribute: "path",
+        onSelectionChange: () => {
+            updateFileOperationsUI();
+        },
+    });
 
-        this.accessChecker = new AccessChecker({
-            checkAccess: (batch) => apiCall<string[]>(`/api/files/check-access`, "POST", batch),
-            getVisiblePaths: () => {
-                const { start, end } = this.virtualList?.visibleRange ?? { end: -1, start: -1 };
-                return new Set(
-                    this.filteredList
-                        .slice(Math.max(0, start), end)
-                        .filter((i) => i.is_dir)
-                        .map((i) => i.path),
-                );
-            },
-            onResolved: (path, accessible) => {
-                if (!accessible) {
-                    const row = this.elements.fileList!.querySelector(`tr[data-path=${CSS.escape(path)}]`);
-                    if (row) row.classList.add(CLASSES.noAccess);
-                }
-            },
-        });
-    }
+    const accessChecker = new AccessChecker({
+        checkAccess: (batch) => apiCall<string[]>(`/api/files/check-access`, "POST", batch),
+        getVisiblePaths: () => {
+            const { start, end } = virtualList?.visibleRange ?? { end: -1, start: -1 };
+            return new Set(
+                filteredList
+                    .slice(Math.max(0, start), end)
+                    .filter((i) => i.is_dir)
+                    .map((i) => i.path),
+            );
+        },
+        onResolved: (path, accessible) => {
+            if (!accessible) {
+                const row = elements.fileList!.querySelector(`tr[data-path=${CSS.escape(path)}]`);
+                if (row) row.classList.add(CLASSES.noAccess);
+            }
+        },
+    });
 
-    initializeElements(): void {
-        this.elements.fileList = byId("fileList");
-        this.elements.currentPath = byId("currentPath");
-        this.elements.searchInput = byId<HTMLInputElement>("searchInput");
-        this.elements.scrollContainer = this.elements.fileList!.closest<HTMLElement>(".overflow-auto");
+    function initializeElements(): void {
+        elements.fileList = byId("fileList");
+        elements.currentPath = byId("currentPath");
+        elements.searchInput = byId<HTMLInputElement>("searchInput");
+        elements.scrollContainer = elements.fileList!.closest<HTMLElement>(".overflow-auto");
 
-        if (this.elements.scrollContainer) {
-            this.virtualList = new VirtualList<RenderableFileItem>({
-                container: this.elements.scrollContainer,
-                getItems: () => this.filteredList,
-                isPaused: () => this.isLoading,
-                list: this.elements.fileList!,
+        if (elements.scrollContainer) {
+            virtualList = new VirtualList<RenderableFileItem>({
+                container: elements.scrollContainer,
+                getItems: () => filteredList,
+                isPaused: () => isLoading,
+                list: elements.fileList!,
                 renderEmpty: renderEmptyRow,
                 renderRow: (item) => {
-                    const cachedAccess = this.accessChecker.get(item.path);
+                    const cachedAccess = accessChecker.get(item.path);
                     const accessCls = item.is_dir && cachedAccess === false ? CLASSES.noAccess : "";
 
                     if (item.is_dir && cachedAccess === undefined) {
-                        this.accessChecker.queuePath(item.path);
+                        accessChecker.queuePath(item.path);
                     }
 
-                    const selectedCls = this.selectionManager
-                        ? this.selectionManager.getItemClasses(item.path)
+                    const selectedCls = listManager.selectionManager
+                        ? listManager.selectionManager.getItemClasses(item.path)
                         : CLASSES.defaultHover;
 
-                    return renderFileRow(item, { accessCls, rowHeight: this.virtualList!.rowHeight, selectedCls });
+                    return renderFileRow(item, { accessCls, rowHeight: virtualList!.rowHeight, selectedCls });
                 },
             });
-            this.virtualList.attach();
+            virtualList.attach();
         }
     }
 
-    initializeButtons(): void {
+    function initializeButtons(): void {
         const buttonConfigs: Record<string, string> = {
             deleteItem: "Deleting...",
             downloadFile: "Downloading...",
             refresh: "",
         };
 
-        this.buttons = Object.fromEntries(
+        buttons = Object.fromEntries(
             Object.entries(buttonConfigs)
                 .map(([id, loadingText]): [string, LoadingButton] | null => {
                     const button = byId<HTMLButtonElement>(id);
@@ -169,15 +230,15 @@ class FileManager extends ListManager {
         );
     }
 
-    async handleFileUpload(files: FileList, isDropZone = false): Promise<void> {
+    async function handleFileUpload(files: FileList, isDropZone = false): Promise<void> {
         if (files.length === 0) return;
 
-        if (!this.currentPath) {
+        if (!currentPath) {
             showNotification("Please navigate to a directory before uploading files.", "error");
             return;
         }
 
-        if (isDropZone) this.dropZone!.setLoading();
+        if (isDropZone) dropZone!.setLoading();
 
         const uploadLabel = document.querySelector('label[for="fileUpload"] span');
         const cancelBtn = byId("cancelUpload");
@@ -185,12 +246,12 @@ class FileManager extends ListManager {
         if (cancelBtn) cancelBtn.classList.remove("hidden");
 
         try {
-            const { promise, xhr } = uploadFiles(this.currentPath, files, {
+            const { promise, xhr } = uploadFiles(currentPath, files, {
                 onProgress: (pct) => {
                     if (uploadLabel) uploadLabel.textContent = `Uploading... ${pct}%`;
                 },
             });
-            this.currentUploadXhr = xhr;
+            currentUploadXhr = xhr;
             const response = await promise;
 
             if (response.message) showNotification(response.message, "info");
@@ -203,19 +264,19 @@ class FileManager extends ListManager {
             }
 
             const lastFile = files[files.length - 1]!.name;
-            const scrollToPath = joinPath(this.currentPath, lastFile);
-            await this.listFiles(this.currentPath, scrollToPath);
+            const scrollToPath = joinPath(currentPath, lastFile);
+            await listFiles(currentPath, scrollToPath);
         } catch (error) {
             if ((error as Error).name === "AbortError") {
                 showNotification("Upload cancelled", "info");
-                await this.listFiles(this.currentPath);
+                await listFiles(currentPath);
             } else {
                 console.error(`Error in upload:`, error);
                 showNotification(`Error: ${(error as Error).message}`, "error");
             }
         } finally {
-            this.currentUploadXhr = null;
-            if (isDropZone) this.dropZone!.reset();
+            currentUploadXhr = null;
+            if (isDropZone) dropZone!.reset();
             if (uploadLabel) uploadLabel.textContent = "Upload";
             if (cancelBtn) cancelBtn.classList.add("hidden");
 
@@ -224,24 +285,8 @@ class FileManager extends ListManager {
         }
     }
 
-    async handleApiCall(
-        apiEndpoint: string,
-        method: string,
-        data: unknown,
-        successCallback?: (response: ApiMessageResponse) => void | Promise<void>,
-    ): Promise<void> {
-        try {
-            const response = await apiCall<ApiMessageResponse>(apiEndpoint, method, data);
-            if (response.message) showNotification(response.message, "info");
-            void successCallback?.(response);
-        } catch (error) {
-            console.error(`Error in ${apiEndpoint}:`, error);
-            showNotification(`Error: ${(error as Error).message}`, "error");
-        }
-    }
-
-    updateFileOperationsUI(): void {
-        const selectedCount = this.selectionManager?.selectedIds?.size ?? 0;
+    function updateFileOperationsUI(): void {
+        const selectedCount = listManager.selectionManager?.selectedIds?.size ?? 0;
         const hasSelection = selectedCount > 0;
         const downloadBtn = byId("downloadFile");
         const deleteBtn = byId("deleteItem");
@@ -255,12 +300,12 @@ class FileManager extends ListManager {
         }
     }
 
-    updateBreadcrumbs(): void {
-        renderBreadcrumbs(this.elements.currentPath, this.currentPath, (path) => void this.listFiles(path));
+    function updateBreadcrumbs(): void {
+        renderBreadcrumbs(elements.currentPath, currentPath, (path) => void listFiles(path));
     }
 
-    updateFileList(items: FileListItem[], scrollToPath: string | null = null): void {
-        this.currentFileList = items.map((item) => ({
+    function updateFileList(items: FileListItem[], scrollToPath: string | null = null): void {
+        currentFileList = items.map((item) => ({
             ...item,
             _formattedDate: item.last_modified ? formatDate(item.last_modified) : "-",
             _formattedSize: item.is_dir ? "-" : formatFileSize(item.size ?? 0),
@@ -269,203 +314,155 @@ class FileManager extends ListManager {
             _safePath: escapeHtml(item.path),
         }));
 
-        this.scrollToPath = scrollToPath;
-        this.applySortAndFilter();
+        pendingScrollPath = scrollToPath;
+        applySortAndFilter();
     }
 
-    selectPath(path: string): void {
-        if (!this.selectionManager) return;
-        this.selectionManager.clearSelection(false);
-        this.selectionManager.selectedIds.add(path);
-        this.selectionManager.lastSelectedId = path;
-        this.selectionManager.selectionAnchorId = path;
-        this.selectionManager.config.onSelectionChange(this.selectionManager.getSelectedItems());
+    function selectPath(path: string): void {
+        if (!listManager.selectionManager) return;
+        listManager.selectionManager.clearSelection(false);
+        listManager.selectionManager.selectedIds.add(path);
+        listManager.selectionManager.lastSelectedId = path;
+        listManager.selectionManager.selectionAnchorId = path;
+        listManager.selectionManager.config.onSelectionChange(listManager.selectionManager.getSelectedItems());
     }
 
-    applySortAndFilter(resetScroll = false): void {
-        const term = (this.elements.searchInput?.value ?? "").toLowerCase();
-        const list = this.currentFileList.filter((item) => !term || item._nameLower.includes(term));
+    function applySortAndFilter(resetScroll = false): void {
+        const term = (elements.searchInput?.value ?? "").toLowerCase();
+        const list = currentFileList.filter((item) => !term || item._nameLower.includes(term));
 
-        const dirMul = this.sortDirection === "asc" ? 1 : -1;
+        const dirMul = sortDirection === "asc" ? 1 : -1;
         list.sort((a, b) => {
             if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
 
-            if (this.sortColumn === "name") {
-                return dirMul * this.collator.compare(a.name, b.name);
+            if (sortColumn === "name") {
+                return dirMul * collator.compare(a.name, b.name);
             }
 
-            const key: "size" | "last_modified" = this.sortColumn === "modified" ? "last_modified" : "size";
+            const key: "size" | "last_modified" = sortColumn === "modified" ? "last_modified" : "size";
             return dirMul * ((a[key] ?? 0) - (b[key] ?? 0));
         });
 
-        this.filteredList = list;
+        filteredList = list;
 
-        this.virtualList?.render(true);
+        virtualList?.render(true);
 
-        if (this.elements.scrollContainer) {
-            const rowHeight = this.virtualList!.rowHeight;
-            if (this.scrollToPath && rowHeight > 0) {
-                const index = this.filteredList.findIndex((i) => i.path === this.scrollToPath);
+        if (elements.scrollContainer) {
+            const rowHeight = virtualList!.rowHeight;
+            if (pendingScrollPath && rowHeight > 0) {
+                const index = filteredList.findIndex((i) => i.path === pendingScrollPath);
                 if (index !== -1) {
                     const targetScroll = index * rowHeight;
-                    const containerHeight = this.elements.scrollContainer.clientHeight;
-                    const currentScroll = this.elements.scrollContainer.scrollTop;
+                    const containerHeight = elements.scrollContainer.clientHeight;
+                    const currentScroll = elements.scrollContainer.scrollTop;
 
                     if (targetScroll < currentScroll || targetScroll > currentScroll + containerHeight - rowHeight) {
-                        this.elements.scrollContainer.scrollTop = Math.max(0, targetScroll - containerHeight / 2);
+                        elements.scrollContainer.scrollTop = Math.max(0, targetScroll - containerHeight / 2);
                     }
                 }
-                this.scrollToPath = null;
+                pendingScrollPath = null;
             } else if (resetScroll) {
-                this.elements.scrollContainer.scrollTop = 0;
+                elements.scrollContainer.scrollTop = 0;
             }
         }
     }
 
-    async listFiles(
+    async function listFiles(
         path: string,
         scrollToPath: string | null = null,
         { skipHistory = false }: { skipHistory?: boolean } = {},
     ): Promise<void> {
-        this.hasError = false;
-        this.clearSelection();
-        this.accessChecker.reset();
-        this.scrollToPath = null;
-        this.virtualList?.resetRange();
-        this.updateFileOperationsUI();
+        hasError = false;
+        listManager.clearSelection();
+        accessChecker.reset();
+        pendingScrollPath = null;
+        virtualList?.resetRange();
+        updateFileOperationsUI();
         const fileList = byId("fileList")!;
 
-        this.isLoading = true;
-        const token = ++this.navToken;
+        isLoading = true;
+        const token = ++navToken;
 
-        const isSamePath = path === this.currentPath;
-        const previousPath = this.currentPath;
+        const isSamePath = path === currentPath;
+        const previousPath = currentPath;
 
         if (!isSamePath) {
-            this.currentFileList = [];
-            this.filteredList = [];
+            currentFileList = [];
+            filteredList = [];
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-zinc-400">Loading...</td></tr>`;
-            this.setSearchMode(false);
+            setSearchMode(false);
         }
 
         try {
             const response = await apiCall<FileListItem[]>(`/api/files?path=${encodeURIComponent(path)}`);
-            if (token !== this.navToken) return;
-            this.isLoading = false;
+            if (token !== navToken) return;
+            isLoading = false;
 
             if (!isSamePath && !skipHistory) {
-                this.navigationHistory.push(previousPath);
+                navigationHistory.push(previousPath);
             }
 
-            this.currentPath = path;
-            this.updateBreadcrumbs();
-            this.updateNavButtons();
+            currentPath = path;
+            updateBreadcrumbs();
+            updateNavButtons();
 
             if (!isSamePath) {
-                const sep = getSeparator(this.currentPath);
+                const sep = getSeparator(currentPath);
                 const parent = path.endsWith(sep) ? path : path + sep;
                 if (previousPath.startsWith(parent)) {
                     scrollToPath = previousPath;
-                    this.selectPath(previousPath);
+                    selectPath(previousPath);
                 }
             }
 
-            this.updateFileList(response, scrollToPath);
+            updateFileList(response, scrollToPath);
         } catch (error) {
-            if (token !== this.navToken) return;
-            this.isLoading = false;
-            this.hasError = true;
+            if (token !== navToken) return;
+            isLoading = false;
+            hasError = true;
             console.error("Error listing files:", error);
             fileList.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400"></td></tr>`;
             fileList.querySelector("td")!.textContent = (error as Error).message;
         }
     }
 
-    private async recoverFromError(): Promise<boolean> {
-        if (!this.hasError) return false;
-        this.hasError = false;
-        await this.listFiles(this.currentPath, null, { skipHistory: true });
+    async function recoverFromError(): Promise<boolean> {
+        if (!hasError) return false;
+        hasError = false;
+        await listFiles(currentPath, null, { skipHistory: true });
         return true;
     }
 
-    async goBack(): Promise<void> {
-        if (await this.recoverFromError()) return;
-        if (this.navigationHistory.length === 0) return;
-        const previous = this.navigationHistory.pop()!;
-        await this.listFiles(previous, null, { skipHistory: true });
+    async function goBack(): Promise<void> {
+        if (await recoverFromError()) return;
+        if (navigationHistory.length === 0) return;
+        const previous = navigationHistory.pop()!;
+        await listFiles(previous, null, { skipHistory: true });
     }
 
-    async goUp(): Promise<void> {
-        if (this.currentPath === "") return;
-        if (await this.recoverFromError()) return;
-        await this.listFiles(getParentPath(this.currentPath));
+    async function goUp(): Promise<void> {
+        if (currentPath === "") return;
+        if (await recoverFromError()) return;
+        await listFiles(getParentPath(currentPath));
     }
 
-    async goHome(): Promise<void> {
+    async function goHome(): Promise<void> {
         try {
             const { path } = await apiCall<{ path: string }>("/api/files/home");
-            await this.listFiles(path);
+            await listFiles(path);
         } catch (error) {
             showNotification(`Could not open home directory: ${(error as Error).message}`, "error");
         }
     }
 
-    updateNavButtons(): void {
+    function updateNavButtons(): void {
         const backBtn = byId<HTMLButtonElement>("navBackBtn");
         const upBtn = byId<HTMLButtonElement>("navUpBtn");
-        if (backBtn) backBtn.disabled = this.navigationHistory.length === 0;
-        if (upBtn) upBtn.disabled = this.currentPath === "";
+        if (backBtn) backBtn.disabled = navigationHistory.length === 0;
+        if (upBtn) upBtn.disabled = currentPath === "";
     }
 
-    handleDownload(paths: string[]): void {
-        if (!paths || paths.length === 0) {
-            showNotification("No files selected for download.", "warning");
-            return;
-        }
-
-        let iframe = byId<HTMLIFrameElement>("global-download-iframe");
-        if (!iframe) {
-            iframe = document.createElement("iframe");
-            iframe.id = "global-download-iframe";
-            iframe.name = "global-download-iframe";
-            iframe.style.display = "none";
-            document.body.append(iframe);
-        }
-
-        iframe.addEventListener("load", () => {
-            try {
-                const text = iframe.contentDocument?.body?.textContent;
-                if (text) {
-                    const data = JSON.parse(text) as { status: string; message?: string };
-                    if (data.status === "error") {
-                        showNotification(data.message ?? "Download failed.", "error");
-                    }
-                }
-            } catch {
-                /* Ignore */
-            }
-        });
-
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = "/api/download";
-        form.target = "global-download-iframe";
-        form.style.display = "none";
-
-        paths.forEach((path) => {
-            const input = document.createElement("input");
-            input.type = "hidden";
-            input.name = "paths[]";
-            input.value = path;
-            form.append(input);
-        });
-
-        document.body.append(form);
-        form.submit();
-        form.remove();
-    }
-
-    async handleDelete(paths: string[]): Promise<void> {
+    async function handleDelete(paths: string[]): Promise<void> {
         if (!paths || paths.length === 0) return;
         const itemName = paths[0]!.split(/[/\\]/u).pop();
         const confirmMessage =
@@ -481,20 +478,20 @@ class FileManager extends ListManager {
         });
         if (!confirmed) return;
 
-        await this.handleApiCall("/api/delete", "POST", { paths }, async (_response) => {
-            await this.listFiles(this.currentPath);
-            this.clearSelection();
+        await handleApiCall("/api/delete", "POST", { paths }, async (_response) => {
+            await listFiles(currentPath);
+            listManager.clearSelection();
         });
     }
 
-    initializeEventListeners(): void {
-        this.elements.fileList!.addEventListener("dblclick", (e) => {
+    function initializeEventListeners(): void {
+        elements.fileList!.addEventListener("dblclick", (e) => {
             const row = (e.target as HTMLElement).closest<HTMLElement>("tr");
-            if (row && row.dataset.isDir === "true") void this.listFiles(row.dataset.path!);
+            if (row && row.dataset.isDir === "true") void listFiles(row.dataset.path!);
         });
 
         const handleButtonClick = async (buttonId: string, action: () => Promise<void> | void) => {
-            const button = this.buttons[buttonId];
+            const button = buttons[buttonId];
             if (button) {
                 await button.withLoading(action);
             } else {
@@ -504,32 +501,32 @@ class FileManager extends ListManager {
 
         byId("refresh")?.addEventListener(
             "click",
-            () => void handleButtonClick("refresh", () => this.listFiles(this.currentPath)),
+            () => void handleButtonClick("refresh", () => listFiles(currentPath)),
         );
 
         byId("downloadFile")?.addEventListener(
             "click",
             () =>
                 void handleButtonClick("downloadFile", () => {
-                    this.handleDownload(this.getSelectedItems());
+                    handleDownload(listManager.getSelectedItems());
                 }),
         );
 
         onAsync(byId("fileUpload"), "change", async (e) => {
             const { files } = e.target as HTMLInputElement;
             if (!files || files.length === 0) return;
-            await this.handleFileUpload(files);
+            await handleFileUpload(files);
         });
 
         byId("cancelUpload")?.addEventListener("click", () => {
-            this.currentUploadXhr?.abort();
+            currentUploadXhr?.abort();
         });
 
         byId("deleteItem")?.addEventListener(
             "click",
             () =>
                 void handleButtonClick("deleteItem", async () => {
-                    await this.handleDelete(this.getSelectedItems());
+                    await handleDelete(listManager.getSelectedItems());
                 }),
         );
 
@@ -542,29 +539,24 @@ class FileManager extends ListManager {
             });
             if (!folderName) return;
 
-            await this.handleApiCall(
-                "/api/create_folder",
-                "POST",
-                { folderName, parentPath: this.currentPath },
-                async () => {
-                    await this.listFiles(this.currentPath, joinPath(this.currentPath, folderName));
-                },
-            );
+            await handleApiCall("/api/create_folder", "POST", { folderName, parentPath: currentPath }, async () => {
+                await listFiles(currentPath, joinPath(currentPath, folderName));
+            });
         });
 
         // --- Navigation: Back / Up / Home ---
-        onAsync(byId("navBackBtn"), "click", () => this.goBack());
-        onAsync(byId("navUpBtn"), "click", () => this.goUp());
-        onAsync(byId("homeButton"), "click", () => this.goHome());
+        onAsync(byId("navBackBtn"), "click", () => goBack());
+        onAsync(byId("navUpBtn"), "click", () => goUp());
+        onAsync(byId("homeButton"), "click", () => goHome());
 
         // --- Search mode helpers ---
         const searchToggleBtn = byId("searchToggleBtn");
         searchToggleBtn?.addEventListener("click", () => {
             const searchWrapper = byId("searchWrapper");
             if (searchWrapper?.classList.contains("is-swapped-out")) {
-                this.setSearchMode(true);
+                setSearchMode(true);
             } else {
-                this.setSearchMode(false, true);
+                setSearchMode(false, true);
             }
         });
 
@@ -576,7 +568,7 @@ class FileManager extends ListManager {
             pathContainer.addEventListener("click", () => {
                 if (pathContainer.classList.contains("editing")) return;
                 pathContainer.classList.add("editing");
-                pathInput.value = this.currentPath;
+                pathInput.value = currentPath;
                 pathInput.focus();
                 pathInput.select();
             });
@@ -589,8 +581,8 @@ class FileManager extends ListManager {
                 if (e.key === "Enter") {
                     const newPath = pathInput.value.trim();
                     pathInput.blur();
-                    if (newPath !== this.currentPath) {
-                        void this.listFiles(newPath);
+                    if (newPath !== currentPath) {
+                        void listFiles(newPath);
                     }
                 } else if (e.key === "Escape") {
                     pathInput.blur();
@@ -601,45 +593,45 @@ class FileManager extends ListManager {
         const searchInput = byId<HTMLInputElement>("searchInput");
         if (searchInput) {
             bindDebouncedInput(searchInput, () => {
-                this.applySortAndFilter(true);
+                applySortAndFilter(true);
             });
             searchInput.addEventListener("click", (e) => {
                 e.stopPropagation();
             });
             searchInput.addEventListener("keydown", (e) => {
-                if (e.key === "Escape") this.setSearchMode(false, true);
+                if (e.key === "Escape") setSearchMode(false, true);
             });
         }
 
         registerShortcuts("fileSection", {
             delete: () => byId("deleteItem")?.click(),
             f2: () => {
-                this.renameSelectedItem();
+                renameSelectedItem();
             },
         });
     }
 
-    setSearchMode(active: boolean, refilter = false): void {
+    function setSearchMode(active: boolean, refilter = false): void {
         byId("pathContainer")?.classList.toggle("is-swapped-out", active);
         byId("searchWrapper")?.classList.toggle("is-swapped-out", !active);
         byId("searchIcon")?.classList.toggle("hidden", active);
         byId("searchCloseIcon")?.classList.toggle("hidden", !active);
 
         if (active) {
-            this.elements.searchInput?.focus();
+            elements.searchInput?.focus();
         } else {
-            if (this.elements.searchInput) this.elements.searchInput.value = "";
-            if (refilter) this.applySortAndFilter(true);
+            if (elements.searchInput) elements.searchInput.value = "";
+            if (refilter) applySortAndFilter(true);
         }
     }
 
-    renameSelectedItem(): void {
-        const selected = this.getSelectedItems();
-        if (selected.length === 1) void this.openRenameModal(selected[0]!);
+    function renameSelectedItem(): void {
+        const selected = listManager.getSelectedItems();
+        if (selected.length === 1) void openRenameModal(selected[0]!);
     }
 
-    async openRenameModal(oldPath: string): Promise<void> {
-        const fileItem = this.currentFileList.find((f) => f.path === oldPath);
+    async function openRenameModal(oldPath: string): Promise<void> {
+        const fileItem = currentFileList.find((f) => f.path === oldPath);
         const currentName = fileItem ? fileItem.name : oldPath.split(/[/\\]/u).pop();
 
         const newName = await showPromptModal({
@@ -651,12 +643,12 @@ class FileManager extends ListManager {
         });
         if (!newName || newName === currentName) return;
 
-        await this.handleApiCall("/api/rename", "POST", { newName, oldPath }, async () => {
-            await this.listFiles(this.currentPath, joinPath(this.currentPath, newName));
+        await handleApiCall("/api/rename", "POST", { newName, oldPath }, async () => {
+            await listFiles(currentPath, joinPath(currentPath, newName));
         });
     }
 
-    initializeSortListeners(): void {
+    function initializeSortListeners(): void {
         document.querySelectorAll<HTMLElement>("#fileTable th[data-sort]").forEach((th) => {
             th.classList.add("whitespace-nowrap");
             th.addEventListener("mousedown", (e) => {
@@ -665,40 +657,37 @@ class FileManager extends ListManager {
 
             th.addEventListener("click", () => {
                 const sortField = th.dataset.sort as SortColumn;
-                if (this.sortColumn === sortField) {
-                    this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
+                if (sortColumn === sortField) {
+                    sortDirection = sortDirection === "asc" ? "desc" : "asc";
                 } else {
-                    this.sortColumn = sortField;
-                    this.sortDirection = "asc";
+                    sortColumn = sortField;
+                    sortDirection = "asc";
                 }
-                this.updateSortIndicators();
-                this.applySortAndFilter(true);
+                updateSortIndicators();
+                applySortAndFilter(true);
             });
         });
-        this.updateSortIndicators();
+        updateSortIndicators();
     }
 
-    updateSortIndicators(): void {
-        renderSortIndicators("#fileTable th[data-sort]", this.sortColumn, this.sortDirection === "asc");
+    function updateSortIndicators(): void {
+        renderSortIndicators("#fileTable th[data-sort]", sortColumn, sortDirection === "asc");
     }
 
-    override initialize(): void {
-        this.initializeElements();
-        this.initializeButtons();
-        this.dropZone = new DropZone("dropZone", (files, isDrop) => void this.handleFileUpload(files, isDrop));
-        this.initializeEventListeners();
-        this.initializeSortListeners();
-        super.initialize();
+    function initialize(): void {
+        initializeElements();
+        initializeButtons();
+        dropZone = new DropZone("dropZone", (files, isDrop) => void handleFileUpload(files, isDrop));
+        initializeEventListeners();
+        initializeSortListeners();
+        listManager.initialize();
 
-        if (this.selectionManager) {
-            this.selectionManager.config.getAllIds = () => this.filteredList.map((i) => i.path);
+        if (listManager.selectionManager) {
+            listManager.selectionManager.config.getAllIds = () => filteredList.map((i) => i.path);
         }
 
-        void this.listFiles(this.currentPath);
+        void listFiles(currentPath);
     }
-}
 
-export function initializeFileManagement(): void {
-    const fileManager = new FileManager();
-    fileManager.initialize();
+    initialize();
 }
