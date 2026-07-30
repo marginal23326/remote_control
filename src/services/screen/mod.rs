@@ -310,6 +310,14 @@ impl GstSession for InnerState {
     }
 }
 
+struct PipelineHandles {
+    pipeline: gst::Pipeline,
+    appsrc: gst_app::AppSrc,
+    webrtcbin: gst::Element,
+    encoder: gst::Element,
+    min_dim: u32,
+}
+
 impl ScreenManager {
     pub fn new() -> Self {
         let max_fps = backend::get_max_fps();
@@ -326,23 +334,8 @@ impl ScreenManager {
         }
     }
 
-    pub async fn start_stream(
-        &self,
-        socket: socketioxide::extract::SocketRef,
-        state: crate::state::AppState,
-        capture_cursor: bool,
-    ) -> anyhow::Result<()> {
-        let startup_guard = self
-            .session
-            .ownership()
-            .try_start(socket.id.to_string())
-            .map_err(|_| anyhow::anyhow!("Stream is already active on another client"))?;
-
-        gst::init().map_err(|e| anyhow::anyhow!("GStreamer init failed: {e}"))?;
-
+    fn build_pipeline(&self) -> anyhow::Result<PipelineHandles> {
         let encoder_info = detect_encoder();
-        let encoder_str = encoder_info.pipeline_str;
-        let min_dim = encoder_info.min_dim;
         *self.encoder_type.lock() = encoder_info.name.to_string();
 
         {
@@ -367,7 +360,7 @@ impl ScreenManager {
                 max-bytes=0 ! \
              {LEAKY_QUEUE} ! \
              {}",
-            encode_and_webrtc_tail(encoder_str)
+            encode_and_webrtc_tail(encoder_info.pipeline_str)
         );
 
         let pipeline = gst::parse::launch(&pipeline_str)
@@ -401,6 +394,37 @@ impl ScreenManager {
         pipeline
             .set_state(gst::State::Ready)
             .map_err(|e| anyhow::anyhow!("Failed to set pipeline to Ready: {e}"))?;
+
+        Ok(PipelineHandles {
+            pipeline,
+            appsrc,
+            webrtcbin,
+            encoder,
+            min_dim: encoder_info.min_dim,
+        })
+    }
+
+    pub async fn start_stream(
+        &self,
+        socket: socketioxide::extract::SocketRef,
+        state: crate::state::AppState,
+        capture_cursor: bool,
+    ) -> anyhow::Result<()> {
+        let startup_guard = self
+            .session
+            .ownership()
+            .try_start(socket.id.to_string())
+            .map_err(|_| anyhow::anyhow!("Stream is already active on another client"))?;
+
+        gst::init().map_err(|e| anyhow::anyhow!("GStreamer init failed: {e}"))?;
+
+        let PipelineHandles {
+            pipeline,
+            appsrc,
+            webrtcbin,
+            encoder,
+            min_dim,
+        } = self.build_pipeline()?;
 
         let (cmd_tx, cmd_rx) = bounded::<GstCommand>(32);
 
