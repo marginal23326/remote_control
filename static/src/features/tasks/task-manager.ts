@@ -132,8 +132,7 @@ export function initializeTaskManager(socket: AppSocket): void {
 
         updateSortIndicators("#processSection thead th", currentSort.column, currentSort.order === "asc");
 
-        taskManager.selectionManager!.notifyItemsUpdate();
-        taskManager.config.onSelectionChange(taskManager.getSelectedItems());
+        taskManager.refreshSelectionUI();
     }
 
     // Handle sorting
@@ -177,7 +176,7 @@ export function initializeTaskManager(socket: AppSocket): void {
             totalMemoryUsage.textContent = `(${data.total_memory_percentage.toFixed(1)}%)`;
         }
 
-        if (taskManager.selectionManager!.isDragging) return;
+        if (taskManager.isDragging()) return;
         renderTaskList(data.processes);
     });
 

@@ -130,4 +130,13 @@ export class ListManager {
     clearSelection(): void {
         this.selectionManager?.clearSelection();
     }
+
+    refreshSelectionUI(): void {
+        this.selectionManager?.notifyItemsUpdate();
+        this.config.onSelectionChange(this.getSelectedItems());
+    }
+
+    isDragging(): boolean {
+        return this.selectionManager?.isDragging ?? false;
+    }
 }
