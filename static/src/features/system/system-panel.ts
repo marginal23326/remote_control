@@ -100,7 +100,7 @@ async function updateSystemInfo(): Promise<void> {
                         ([k, v]) => `
                     <div>
                         <div class="text-[10px] uppercase tracking-wider font-semibold text-zinc-500 mb-0.5">${k}</div>
-                        <div class="text-sm text-zinc-300 break-words leading-tight">${escapeHtml(String(v ?? "N/A"))}</div>
+                        <div class="text-sm text-zinc-300 break-words leading-tight">${escapeHtml(v ?? "N/A")}</div>
                     </div>
                 `,
                     )
