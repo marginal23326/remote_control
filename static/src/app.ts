@@ -15,23 +15,14 @@ import { updateSystemInfo } from "@/features/system/system-panel";
 import { initializeTaskManager } from "@/features/tasks/task-manager";
 
 function updateUIBasedOnAuthentication(isAuthenticated: boolean): void {
-    const sections = [
-        "streamSection",
-        "audioSection",
-        "shellSection",
-        "fileSection",
-        "systemSection",
-        "processSection",
-    ];
-
     const logoutButton = byId("logoutButton")!;
     logoutButton.classList.toggle("hidden", !isAuthenticated);
 
     if (isAuthenticated) {
         initializeNavigation(isAuthenticated);
     } else {
-        sections.forEach((sectionId) => {
-            byId(sectionId)!.classList.add("hidden");
+        document.querySelectorAll<HTMLElement>(".section").forEach((section) => {
+            section.classList.add("hidden");
         });
         if (window.location.pathname !== "/login") {
             window.location.href = "/login";
