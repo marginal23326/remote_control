@@ -104,7 +104,7 @@ impl AudioManager {
         })
     }
 
-    pub fn list_sources(&self) -> anyhow::Result<Vec<AudioSourceInfo>> {
+    pub fn list_sources() -> anyhow::Result<Vec<AudioSourceInfo>> {
         backend::list_sources()
     }
 

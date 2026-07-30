@@ -1,4 +1,5 @@
 use crate::realtime::event_names::ServerEvent;
+use crate::services::audio::AudioManager;
 use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
 use crate::state::AppState;
@@ -226,9 +227,8 @@ pub async fn handle_start_server_audio(
     }
 }
 
-pub async fn handle_list_audio_sources(socket: SocketRef, State(state): State<AppState>) {
-    let audio = state.audio.clone();
-    let sources = tokio::task::spawn_blocking(move || audio.list_sources()).await.unwrap();
+pub async fn handle_list_audio_sources(socket: SocketRef) {
+    let sources = tokio::task::spawn_blocking(AudioManager::list_sources).await.unwrap();
 
     match sources {
         Ok(sources) => {
