@@ -1,6 +1,6 @@
 use crate::realtime::event_names::ServerEvent;
 use crate::services::owned_worker::OwnedSession;
-use crate::services::screen::{LEAKY_QUEUE, detect_encoder};
+use crate::services::screen::{detect_encoder, encode_and_webrtc_tail};
 use crate::services::webrtc_session::{
     GstCommand, GstSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
@@ -82,15 +82,7 @@ impl CameraManager {
 
         let encoder_info = detect_encoder();
 
-        let rest_desc = format!(
-            "videoconvert ! \
-             video/x-raw,format=NV12 ! \
-             {LEAKY_QUEUE} ! \
-             {} ! \
-             rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
-             webrtcbin name=webrtc bundle-policy=max-bundle latency=0",
-            encoder_info.pipeline_str
-        );
+        let rest_desc = encode_and_webrtc_tail(encoder_info.pipeline_str);
 
         let rest = gst::parse::bin_from_description(&rest_desc, true)?;
 

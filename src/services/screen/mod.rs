@@ -43,6 +43,17 @@ impl Default for StreamSettings {
 
 pub(crate) const LEAKY_QUEUE: &str = "queue leaky=downstream max-size-buffers=2 max-size-time=0 max-size-bytes=0";
 
+pub(crate) fn encode_and_webrtc_tail(encoder_pipeline_str: &str) -> String {
+    format!(
+        "videoconvert ! \
+         video/x-raw,format=NV12 ! \
+         {LEAKY_QUEUE} ! \
+         {encoder_pipeline_str} ! \
+         rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
+         webrtcbin name=webrtc bundle-policy=max-bundle latency=0"
+    )
+}
+
 pub(crate) struct RawFrame {
     pub buffer: Vec<u8>,
     pub width: u32,
@@ -355,15 +366,8 @@ impl ScreenManager {
                 leaky-type=downstream \
                 max-bytes=0 ! \
              {LEAKY_QUEUE} ! \
-             videoconvert ! \
-             video/x-raw,format=NV12 ! \
-             {LEAKY_QUEUE} ! \
-             {} ! \
-             rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
-             webrtcbin name=webrtc \
-                bundle-policy=max-bundle \
-                latency=0",
-            encoder_str
+             {}",
+            encode_and_webrtc_tail(encoder_str)
         );
 
         let pipeline = gst::parse::launch(&pipeline_str)
