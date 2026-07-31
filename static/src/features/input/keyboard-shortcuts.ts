@@ -55,6 +55,8 @@ function flashActive(el: HTMLElement, activeClasses: string[], restClasses: stri
     }, ms);
 }
 
+const FLASH_ACTIVE_CLASSES = ["bg-zinc-100", "text-zinc-900"];
+
 const KEY_BUTTON_REST_CLASSES = [
     "bg-zinc-950",
     "text-zinc-300",
@@ -62,7 +64,7 @@ const KEY_BUTTON_REST_CLASSES = [
     "hover:bg-zinc-800",
     "hover:text-white",
 ];
-const KEY_BUTTON_ACTIVE_CLASSES = ["bg-zinc-100", "text-zinc-900", "border-zinc-100"];
+const KEY_BUTTON_ACTIVE_CLASSES = [...FLASH_ACTIVE_CLASSES, "border-zinc-100"];
 
 // Helper to collect currently active modifiers if sticky mode is enabled
 function getActiveModifiers(): string[] {
@@ -230,11 +232,11 @@ export function initializeKeyboardShortcuts(socket: AppSocket): void {
                 customKeyInput.value = "";
 
                 // Visual feedback
-                flashActive(
-                    sendCustomButton,
-                    ["bg-zinc-100", "text-zinc-900"],
-                    ["bg-zinc-800", "text-zinc-100", "hover:bg-zinc-700"],
-                );
+                flashActive(sendCustomButton, FLASH_ACTIVE_CLASSES, [
+                    "bg-zinc-800",
+                    "text-zinc-100",
+                    "hover:bg-zinc-700",
+                ]);
             }
         });
     }
