@@ -41,7 +41,7 @@ export type MouseEventPayload = Omit<MouseEventDTO, "type" | "button"> & {
     button?: "left" | "right" | "middle";
 };
 
-export type AudioStartPayload = AudioConfig & { chunk?: number };
+export type AudioStartPayload = AudioConfig;
 
 export type StreamSettings = Omit<CurrentSettingsResponse, "encoder_properties" | "encoder_property_constraints"> & {
     encoder_properties: Record<string, string>;

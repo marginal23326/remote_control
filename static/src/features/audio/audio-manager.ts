@@ -169,7 +169,11 @@ async function startAudioStream(
             socket.on("server_audio_data", handleServerAudioData);
         }
 
-        const payload: AudioStartPayload = targetSettings;
+        const payload: AudioStartPayload = {
+            device_id: targetSettings.device_id,
+            rate: targetSettings.rate,
+            source: targetSettings.source,
+        };
         socket.emit(AUDIO_KIND_CONFIG[type].startEvent, payload);
         streamActive[type] = true;
         updateAudioToggleButton(type);
