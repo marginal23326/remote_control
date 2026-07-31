@@ -27,8 +27,16 @@ async fn main() -> Result<()> {
 
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("remote_control=debug,tower_http=debug")),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                #[cfg(debug_assertions)]
+                {
+                    tracing_subscriber::EnvFilter::new("remote_control=debug,tower_http=debug")
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    tracing_subscriber::EnvFilter::new("remote_control=info,tower_http=info")
+                }
+            }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
