@@ -24,15 +24,15 @@ pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
         monitors,
         disks,
         battery,
-        domain: "N/A".to_string(),
+        domain: None,
         system_drive: "/".to_string(),
-        antivirus: "N/A".to_string(),
+        antivirus: Vec::new(),
         firewall,
         cpu_max_speed_mhz: (cpu_frequency > 0).then_some(cpu_frequency as u32),
     }
 }
 
-fn read_monitor_info() -> String {
+fn read_monitor_info() -> Vec<String> {
     let mut resolutions = Vec::new();
     if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
         for entry in entries.flatten() {
@@ -52,7 +52,7 @@ fn read_monitor_info() -> String {
             }
         }
     }
-    super::join_or_na(&resolutions)
+    resolutions
 }
 
 fn linux_os_name() -> String {
@@ -67,17 +67,16 @@ fn linux_os_name() -> String {
     }
 }
 
-fn get_disk_labels() -> String {
+fn get_disk_labels() -> Vec<String> {
     let disks = sysinfo::Disks::new_with_refreshed_list();
-    let labels: Vec<String> = disks
+    disks
         .list()
         .iter()
         .map(|d| {
             let size = d.total_space() / 1024 / 1024 / 1024;
             format!("{} ({size}GB)", d.name().to_string_lossy())
         })
-        .collect();
-    super::join_or_na(&labels)
+        .collect()
 }
 
 fn read_battery_status() -> String {
@@ -102,23 +101,20 @@ fn read_battery_status() -> String {
     "No battery detected".to_string()
 }
 
-fn read_gpu_info() -> String {
+fn read_gpu_info() -> Vec<String> {
     let Ok(output) = std::process::Command::new("sh")
         .arg("-c")
         .arg("command -v lspci >/dev/null 2>&1 && lspci | grep -Ei 'vga|3d|display' || true")
         .output()
     else {
-        return "N/A".to_string();
+        return Vec::new();
     };
 
     let text = String::from_utf8_lossy(&output.stdout);
-    let devices: Vec<String> = text
-        .lines()
+    text.lines()
         .filter_map(|line| line.split_once(':').map(|(_, rest)| rest.trim().to_string()))
         .filter(|line| !line.is_empty())
-        .collect();
-
-    super::join_or_na(&devices)
+        .collect()
 }
 
 async fn get_firewall_status() -> String {

@@ -32,10 +32,10 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
         OsSpecificInfo {
             os: os_edition,
             gpu: gpu_info,
-            monitors: format!("Display ({}x{})", screen_w, screen_h),
+            monitors: vec![format!("Display ({}x{})", screen_w, screen_h)],
             disks: disk_info,
             battery: battery_status,
-            domain,
+            domain: Some(domain),
             system_drive: "C:".to_string(),
             antivirus: antivirus_info,
             firewall: get_firewall_status(),
@@ -46,11 +46,11 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
     .unwrap()
 }
 
-fn get_gpu_info() -> String {
+fn get_gpu_info() -> Vec<String> {
     unsafe {
         let factory: IDXGIFactory = match CreateDXGIFactory() {
             Ok(f) => f,
-            Err(_) => return "N/A".to_string(),
+            Err(_) => return Vec::new(),
         };
 
         let mut gpus = Vec::new();
@@ -71,11 +71,11 @@ fn get_gpu_info() -> String {
             adapter_index += 1;
         }
 
-        super::join_or_na(&gpus)
+        gpus
     }
 }
 
-fn get_disk_info() -> String {
+fn get_disk_info() -> Vec<String> {
     let rows = wmi_query(
         "root\\cimv2",
         "SELECT Model, Size FROM Win32_DiskDrive",
@@ -95,14 +95,14 @@ fn get_disk_info() -> String {
         }
     }
 
-    super::join_or_na(&disks)
+    disks
 }
 
 fn get_cpu_max_speed() -> Option<u32> {
     read_reg_dword(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0", "~MHz")
 }
 
-fn get_antivirus_info() -> String {
+fn get_antivirus_info() -> Vec<String> {
     let rows = wmi_query(
         "root\\SecurityCenter2",
         "SELECT displayName FROM AntiVirusProduct",
@@ -117,7 +117,7 @@ fn get_antivirus_info() -> String {
         }
     }
 
-    super::join_or_na(&items)
+    items
 }
 
 struct ComGuard;

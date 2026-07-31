@@ -4,39 +4,13 @@ use std::sync::Arc;
 use sysinfo::{Networks, System};
 use ts_rs::TS;
 
-const NA: &str = "N/A";
-
-fn or_na(value: Option<String>) -> String {
-    value.unwrap_or_else(|| NA.to_string())
-}
-
-pub(crate) fn join_or_na(items: &[String]) -> String {
-    if items.is_empty() {
-        NA.to_string()
-    } else {
-        items.join(", ")
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct WanInfo {
-    pub ip: String,
-    pub asn: String,
-    pub isp: String,
-    pub country: String,
-    pub timezone: String,
-}
-
-impl WanInfo {
-    pub fn na() -> Self {
-        Self {
-            ip: or_na(None),
-            asn: or_na(None),
-            isp: or_na(None),
-            country: or_na(None),
-            timezone: or_na(None),
-        }
-    }
+    pub ip: Option<String>,
+    pub asn: Option<String>,
+    pub isp: Option<String>,
+    pub country: Option<String>,
+    pub timezone: Option<String>,
 }
 
 fn get_local_ip() -> String {
@@ -57,28 +31,28 @@ pub struct SystemInfoDTO {
     pub processor: String,
     pub cpu_cores: usize,
     pub cpu_threads: usize,
-    pub cpu_base_speed: String,
+    pub cpu_base_speed: Option<String>,
     pub cpu_max_speed_mhz: Option<u32>,
     pub memory_total_mb: u64,
-    pub gpu: String,
-    pub monitors: String,
-    pub disks: String,
+    pub gpu: Vec<String>,
+    pub monitors: Vec<String>,
+    pub disks: Vec<String>,
     pub battery: String,
     pub username: String,
     pub pc_name: String,
-    pub domain: String,
+    pub domain: Option<String>,
     pub hostname: String,
     pub system_drive: String,
     pub uptime_seconds: u64,
-    pub mac_address: String,
+    pub mac_address: Option<String>,
     pub lan_ip: String,
-    pub wan_ip: String,
-    pub asn: String,
-    pub isp: String,
-    pub antivirus: String,
+    pub wan_ip: Option<String>,
+    pub asn: Option<String>,
+    pub isp: Option<String>,
+    pub antivirus: Vec<String>,
     pub firewall: String,
-    pub timezone: String,
-    pub country: String,
+    pub timezone: Option<String>,
+    pub country: Option<String>,
     pub disk_total_gb: u64,
     pub disk_used_gb: u64,
     pub disk_free_gb: u64,
@@ -104,11 +78,9 @@ struct LocationData {
     timezone: Option<String>,
 }
 
-fn get_cpu_base_speed(brand: &str) -> String {
-    if let Some(idx) = brand.find('@') {
-        return brand[idx + 1..].trim().to_string();
-    }
-    NA.to_string()
+fn get_cpu_base_speed(brand: &str) -> Option<String> {
+    let idx = brand.find('@')?;
+    Some(brand[idx + 1..].trim().to_string())
 }
 
 async fn fetch_wan_info() -> Result<WanInfo, ()> {
@@ -121,34 +93,26 @@ async fn fetch_wan_info() -> Result<WanInfo, ()> {
     .await;
 
     match result {
-        Ok(Ok(data)) => {
-            let ip = or_na(data.ip);
-            let asn = or_na(data.asn.as_ref().map(|a| a.asn.unwrap_or(0).to_string()));
-            let isp = or_na(data.asn.as_ref().and_then(|a| a.org.clone()));
-            let country = or_na(data.location.as_ref().and_then(|l| l.country.clone()));
-            let timezone = or_na(data.location.as_ref().and_then(|l| l.timezone.clone()));
-
-            Ok(WanInfo {
-                ip,
-                asn,
-                isp,
-                country,
-                timezone,
-            })
-        }
+        Ok(Ok(data)) => Ok(WanInfo {
+            ip: data.ip,
+            asn: data.asn.as_ref().map(|a| a.asn.unwrap_or(0).to_string()),
+            isp: data.asn.as_ref().and_then(|a| a.org.clone()),
+            country: data.location.as_ref().and_then(|l| l.country.clone()),
+            timezone: data.location.as_ref().and_then(|l| l.timezone.clone()),
+        }),
         _ => Err(()),
     }
 }
 
-fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> String {
+fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> Option<String> {
     let networks = net_lock.read();
     for data in networks.values() {
         let mac = data.mac_address().to_string();
         if mac != "00:00:00:00:00:00" && mac != "00:00:00:00:00:00:00:00" {
-            return mac.to_uppercase().replace(":", "-");
+            return Some(mac.to_uppercase().replace(":", "-"));
         }
     }
-    NA.to_string()
+    None
 }
 
 fn get_disk_usage() -> (u64, u64, u64) {
@@ -175,13 +139,13 @@ pub(crate) struct SystemBaseInfo {
 
 pub(crate) struct OsSpecificInfo {
     pub os: String,
-    pub gpu: String,
-    pub monitors: String,
-    pub disks: String,
+    pub gpu: Vec<String>,
+    pub monitors: Vec<String>,
+    pub disks: Vec<String>,
     pub battery: String,
-    pub domain: String,
+    pub domain: Option<String>,
     pub system_drive: String,
-    pub antivirus: String,
+    pub antivirus: Vec<String>,
     pub firewall: String,
     pub cpu_max_speed_mhz: Option<u32>,
 }
@@ -243,7 +207,7 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
 
     let wan_info = match state.wan_info.get_or_try_init(fetch_wan_info).await {
         Ok(info) => info.clone(),
-        Err(_) => WanInfo::na(),
+        Err(_) => WanInfo::default(),
     };
     let WanInfo {
         ip: wan_ip,

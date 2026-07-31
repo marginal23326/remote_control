@@ -18,6 +18,10 @@ function formatCpuMhz(mhz: number | null): string {
     return mhz === null ? "N/A" : `${(mhz / 1000).toFixed(2)} GHz`;
 }
 
+function formatList(items: string[]): string | null {
+    return items.length > 0 ? items.join(", ") : null;
+}
+
 interface InfoCard {
     title: string;
     icon: string;
@@ -47,8 +51,8 @@ async function updateSystemInfo(): Promise<void> {
                 ],
                 ["Cores / Threads", `${info.cpu_cores} / ${info.cpu_threads}`],
                 ["Memory", `${info.memory_total_mb} MB`],
-                ["GPU", info.gpu],
-                ["Monitors", info.monitors],
+                ["GPU", formatList(info.gpu)],
+                ["Monitors", formatList(info.monitors)],
                 ["Battery", info.battery],
             ],
             icon: svg(
@@ -63,7 +67,7 @@ async function updateSystemInfo(): Promise<void> {
                 ["LAN / WAN IP", [info.lan_ip, info.wan_ip].filter(Boolean).join(" / ")],
                 ["MAC Address", info.mac_address],
                 ["ISP", info.isp ? `${info.isp} ${info.asn ? `(${info.asn})` : ""}` : null],
-                ["Antivirus", info.antivirus],
+                ["Antivirus", formatList(info.antivirus)],
                 ["Firewall", info.firewall],
             ],
             icon: svg(`<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="3" ry="9"/>` + path("M3 12h18")),
@@ -71,7 +75,7 @@ async function updateSystemInfo(): Promise<void> {
         },
         {
             data: [
-                ["Drives", info.disks],
+                ["Drives", formatList(info.disks)],
                 [
                     "System Drive",
                     `${info.system_drive} (${info.disk_used_gb} GB used of ${info.disk_total_gb} GB, ${info.disk_free_gb} GB free)`,
