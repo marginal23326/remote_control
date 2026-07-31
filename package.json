@@ -5,9 +5,9 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "pnpm typecheck && vite build",
+        "build": "pnpm check && vite build",
         "preview": "vite preview",
-        "typecheck": "tsc -b --noEmit",
+        "check": "tsc -b --noEmit",
         "lint": "oxlint",
         "lint:fix": "oxlint --fix",
         "tlint": "oxlint --type-aware",
