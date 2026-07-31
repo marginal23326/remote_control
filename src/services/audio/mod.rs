@@ -18,6 +18,14 @@ use linux as backend;
 #[cfg(windows)]
 use windows as backend;
 
+pub(crate) fn i16_to_f32(sample: i16) -> f32 {
+    sample as f32 / i16::MAX as f32
+}
+
+pub(crate) fn f32_to_i16(sample: f32) -> i16 {
+    (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16
+}
+
 #[derive(Debug, Clone, Copy, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "bindings.ts")]
@@ -139,8 +147,7 @@ impl AudioManager {
         }
 
         for chunk in data.chunks_exact(2) {
-            let i16_sample = i16::from_le_bytes([chunk[0], chunk[1]]);
-            let f32_sample = i16_sample as f32 / i16::MAX as f32;
+            let f32_sample = i16_to_f32(i16::from_le_bytes([chunk[0], chunk[1]]));
             if self.client_audio_buffer.push(f32_sample).is_err() {
                 let _ = self.client_audio_buffer.pop();
                 let _ = self.client_audio_buffer.push(f32_sample);

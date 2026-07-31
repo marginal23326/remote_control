@@ -11,7 +11,7 @@ use wasapi::*;
 fn decode_sample(sample: &[u8], sample_type: SampleType, bytes_per_sample: usize) -> f32 {
     match (sample_type, bytes_per_sample) {
         (SampleType::Float, 4) => f32::from_le_bytes(sample.try_into().unwrap()),
-        (SampleType::Int, 2) => i16::from_le_bytes(sample.try_into().unwrap()) as f32 / i16::MAX as f32,
+        (SampleType::Int, 2) => super::i16_to_f32(i16::from_le_bytes(sample.try_into().unwrap())),
         (SampleType::Int, 4) => i32::from_le_bytes(sample.try_into().unwrap()) as f32 / i32::MAX as f32,
         (SampleType::Int, 3) => {
             let b = [0, sample[0], sample[1], sample[2]];
@@ -24,7 +24,7 @@ fn decode_sample(sample: &[u8], sample_type: SampleType, bytes_per_sample: usize
 fn encode_sample(f: f32, sample_type: SampleType, bytes_per_sample: usize, out: &mut VecDeque<u8>) {
     match (sample_type, bytes_per_sample) {
         (SampleType::Float, 4) => out.extend(&f.to_le_bytes()),
-        (SampleType::Int, 2) => out.extend(&((f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16).to_le_bytes()),
+        (SampleType::Int, 2) => out.extend(&super::f32_to_i16(f).to_le_bytes()),
         (SampleType::Int, 4) => out.extend(&((f.clamp(-1.0, 1.0) * i32::MAX as f32) as i32).to_le_bytes()),
         (SampleType::Int, 3) => {
             let i = (f.clamp(-1.0, 1.0) * 8388607.0) as i32;
@@ -122,7 +122,7 @@ pub(crate) fn server_loop(
                 }
 
                 let avg = sum / channels as f32;
-                let s = (avg.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                let s = super::f32_to_i16(avg);
                 pcm.extend_from_slice(&s.to_le_bytes());
             }
 

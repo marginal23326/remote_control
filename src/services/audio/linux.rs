@@ -131,7 +131,7 @@ pub(crate) fn server_loop(
 
                 for chunk in valid_data.chunks_exact(4) {
                     let f = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                    let s = (f.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                    let s = super::f32_to_i16(f);
 
                     if user_data.capture_queue.push(s).is_err() {
                         let _ = user_data.capture_queue.pop();
