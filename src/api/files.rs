@@ -259,29 +259,29 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         let path_str = &paths[0];
         let path = Path::new(path_str);
 
-        if path.exists() {
-            if path.is_file() {
-                let file = File::open(path).await?;
-                let stream = ReaderStream::new(file);
-                let body = Body::from_stream(stream);
-                let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                let mime = from_path(path).first_or_octet_stream();
-
-                let mut headers = HeaderMap::new();
-                headers.insert(header::CONTENT_TYPE, mime.as_ref().parse().unwrap());
-
-                let encoded = utf8_percent_encode(&filename, FILENAME_SAFE).to_string();
-                headers.insert(
-                    header::CONTENT_DISPOSITION,
-                    format!("attachment; filename*=UTF-8''{}", encoded)
-                        .parse()
-                        .unwrap_or_else(|_| "attachment".parse().unwrap()),
-                );
-
-                return Ok((headers, body).into_response());
-            }
-        } else {
+        if !path.exists() {
             return Err(AppError::NotFound("File not found".to_string()));
+        }
+
+        if path.is_file() {
+            let file = File::open(path).await?;
+            let stream = ReaderStream::new(file);
+            let body = Body::from_stream(stream);
+            let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let mime = from_path(path).first_or_octet_stream();
+
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, mime.as_ref().parse().unwrap());
+
+            let encoded = utf8_percent_encode(&filename, FILENAME_SAFE).to_string();
+            headers.insert(
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename*=UTF-8''{}", encoded)
+                    .parse()
+                    .unwrap_or_else(|_| "attachment".parse().unwrap()),
+            );
+
+            return Ok((headers, body).into_response());
         }
     }
 
