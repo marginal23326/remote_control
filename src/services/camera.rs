@@ -2,7 +2,7 @@ use crate::realtime::event_names::ServerEvent;
 use crate::services::owned_worker::OwnedSession;
 use crate::services::screen::{detect_encoder, encode_and_webrtc_tail};
 use crate::services::webrtc_session::{
-    GstCommand, GstSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
+    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
 use crate::state::AppState;
 use serde::Serialize;
@@ -20,7 +20,7 @@ pub struct CameraDeviceInfo {
     pub name: String,
 }
 
-struct CameraInner {
+pub(crate) struct CameraInner {
     pipeline: gst::Pipeline,
     cmd_tx: crossbeam_channel::Sender<GstCommand>,
 }
@@ -129,21 +129,13 @@ impl CameraManager {
             || anyhow::anyhow!("Client disconnected during webcam startup"),
         )
     }
+}
 
-    pub fn stop_stream(&self) {
-        self.session.stop();
-    }
+impl WebRtcManager for CameraManager {
+    type Session = CameraInner;
 
-    pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        self.session.stop_if_owner(owner_id)
-    }
-
-    pub fn set_remote_description(&self, sdp: String) {
-        self.session.set_remote_description(sdp);
-    }
-
-    pub fn add_ice_candidate(&self, sdp_mline_index: u32, candidate: String) {
-        self.session.add_ice_candidate(sdp_mline_index, candidate);
+    fn session(&self) -> &OwnedSession<CameraInner> {
+        &self.session
     }
 }
 

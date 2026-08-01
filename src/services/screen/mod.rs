@@ -12,7 +12,9 @@ use gstreamer as gst;
 use gstreamer_webrtc as gst_webrtc;
 
 use super::owned_worker::OwnedSession;
-use super::webrtc_session::{GstCommand, GstSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling};
+use super::webrtc_session::{
+    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
+};
 use crate::realtime::event_names::ServerEvent;
 
 mod frame;
@@ -51,7 +53,7 @@ pub struct ScreenManager {
     session: OwnedSession<InnerState>,
 }
 
-struct InnerState {
+pub(crate) struct InnerState {
     pipeline: gst::Pipeline,
     encoder: gst::Element,
     cmd_tx: Sender<GstCommand>,
@@ -422,22 +424,6 @@ impl ScreenManager {
         });
     }
 
-    pub fn stop_stream(&self) {
-        self.session.stop();
-    }
-
-    pub fn disconnect_if_owner(&self, owner_id: &str) -> bool {
-        self.session.stop_if_owner(owner_id)
-    }
-
-    pub fn set_remote_description(&self, sdp: String) {
-        self.session.set_remote_description(sdp);
-    }
-
-    pub fn add_ice_candidate(&self, sdp_mline_index: u32, candidate: String) {
-        self.session.add_ice_candidate(sdp_mline_index, candidate);
-    }
-
     pub fn update_settings(&self, bitrate: u32, resolution: u8) {
         let bitrate = bitrate.clamp(100, 20000);
         let resolution = resolution.clamp(5, 100);
@@ -471,6 +457,14 @@ impl ScreenManager {
             }
         }
         rejected
+    }
+}
+
+impl WebRtcManager for ScreenManager {
+    type Session = InnerState;
+
+    fn session(&self) -> &OwnedSession<InnerState> {
+        &self.session
     }
 }
 

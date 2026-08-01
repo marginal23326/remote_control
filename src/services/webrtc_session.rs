@@ -164,3 +164,25 @@ impl<T: GstSession> OwnedSession<T> {
         });
     }
 }
+
+pub(crate) trait WebRtcManager {
+    type Session: GstSession;
+
+    fn session(&self) -> &OwnedSession<Self::Session>;
+
+    fn stop_stream(&self) {
+        self.session().stop();
+    }
+
+    fn disconnect_if_owner(&self, owner_id: &str) -> bool {
+        self.session().stop_if_owner(owner_id)
+    }
+
+    fn set_remote_description(&self, sdp: String) {
+        self.session().set_remote_description(sdp);
+    }
+
+    fn add_ice_candidate(&self, sdp_mline_index: u32, candidate: String) {
+        self.session().add_ice_candidate(sdp_mline_index, candidate);
+    }
+}

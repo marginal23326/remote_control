@@ -2,6 +2,7 @@ use crate::realtime::event_names::ServerEvent;
 use crate::services::audio::AudioManager;
 use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
+use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
 use serde::Deserialize;
 use serde_json::json;
