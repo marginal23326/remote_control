@@ -28,7 +28,8 @@ use std::sync::LazyLock;
 use tokio::sync::Mutex as AsyncMutex;
 use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
-use super::{FrameRateLimiter, RawFrame, StreamSettings, send_or_cache, take_or_recycle};
+use super::StreamSettings;
+use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
 static PORTAL_SESSION: LazyLock<Arc<PortalSessionManager>> = LazyLock::new(|| Arc::new(PortalSessionManager::new()));
 

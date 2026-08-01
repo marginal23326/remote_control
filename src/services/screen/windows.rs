@@ -23,7 +23,8 @@ use windows::Win32::Graphics::Gdi::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW}
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-use super::{FrameRateLimiter, RawFrame, StreamSettings, send_or_cache, take_or_recycle};
+use super::StreamSettings;
+use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
 pub(crate) fn get_max_fps() -> u64 {
     unsafe {

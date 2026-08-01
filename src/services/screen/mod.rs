@@ -2,23 +2,25 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::{Arc, atomic::Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
-
-use serde::Serialize;
-use ts_rs::TS;
+use std::time::Duration;
 
 use bytes::Bytes;
-use crossbeam_channel::{Receiver, Sender, bounded};
+use crossbeam_channel::{Sender, bounded};
 
 use gst::prelude::*;
 use gstreamer as gst;
-use gstreamer::glib;
-use gstreamer_app as gst_app;
 use gstreamer_webrtc as gst_webrtc;
 
 use super::owned_worker::OwnedSession;
 use super::webrtc_session::{GstCommand, GstSession, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling};
 use crate::realtime::event_names::ServerEvent;
+
+mod frame;
+mod pipeline;
+
+use frame::{RawFrame, RecycleBin};
+pub(crate) use pipeline::{EncoderPropertyConstraint, detect_encoder, encode_and_webrtc_tail};
+use pipeline::{PipelineHandles, apply_encoder_properties};
 
 #[derive(Clone, Debug)]
 pub struct StreamSettings {
@@ -38,233 +40,6 @@ impl Default for StreamSettings {
             max_fps: backend::get_max_fps(),
             encoder_properties: HashMap::new(),
         }
-    }
-}
-
-pub(crate) const LEAKY_QUEUE: &str = "queue leaky=downstream max-size-buffers=2 max-size-time=0 max-size-bytes=0";
-
-pub(crate) fn encode_and_webrtc_tail(encoder_pipeline_str: &str) -> String {
-    format!(
-        "videoconvert ! \
-         video/x-raw,format=NV12 ! \
-         {LEAKY_QUEUE} ! \
-         {encoder_pipeline_str} ! \
-         rtph264pay config-interval=-1 aggregate-mode=zero-latency ! \
-         webrtcbin name=webrtc bundle-policy=max-bundle latency=0"
-    )
-}
-
-pub(crate) struct RawFrame {
-    pub buffer: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
-}
-
-pub(crate) fn take_or_recycle(cached: &mut Option<Vec<u8>>, recycle_rx: &Receiver<Vec<u8>>) -> Vec<u8> {
-    cached.take().or_else(|| recycle_rx.try_recv().ok()).unwrap_or_default()
-}
-
-pub(crate) fn send_or_cache(work_tx: &Sender<RawFrame>, cached: &mut Option<Vec<u8>>, raw: RawFrame) {
-    if let Err(err) = work_tx.try_send(raw) {
-        *cached = Some(err.into_inner().buffer);
-    }
-}
-
-struct RecycleBin {
-    buffer: Option<Vec<u8>>,
-    tx: crossbeam_channel::Sender<Vec<u8>>,
-}
-
-impl AsRef<[u8]> for RecycleBin {
-    fn as_ref(&self) -> &[u8] {
-        self.buffer.as_ref().unwrap()
-    }
-}
-
-impl AsMut<[u8]> for RecycleBin {
-    fn as_mut(&mut self) -> &mut [u8] {
-        self.buffer.as_mut().unwrap()
-    }
-}
-
-impl Drop for RecycleBin {
-    fn drop(&mut self) {
-        if let Some(buf) = self.buffer.take() {
-            let _ = self.tx.try_send(buf);
-        }
-    }
-}
-
-pub(crate) struct FrameRateLimiter {
-    last_arrival: Instant,
-    accumulated: Duration,
-}
-
-impl FrameRateLimiter {
-    pub(crate) fn new() -> Self {
-        Self {
-            last_arrival: Instant::now(),
-            accumulated: Duration::ZERO,
-        }
-    }
-
-    pub(crate) fn should_process(&mut self, target_fps: u64, max_fps: u64) -> bool {
-        if target_fps >= max_fps {
-            return true;
-        }
-
-        let now = Instant::now();
-        let interval = Duration::from_secs_f64(1.0 / target_fps as f64);
-        let elapsed = now.saturating_duration_since(self.last_arrival);
-
-        self.last_arrival = now;
-        self.accumulated += elapsed;
-
-        if self.accumulated >= interval {
-            self.accumulated -= interval;
-
-            if self.accumulated >= interval {
-                self.accumulated = Duration::ZERO;
-            }
-
-            true
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Serialize, Clone, Copy, Debug, TS)]
-#[serde(rename_all = "lowercase")]
-#[ts(export, export_to = "bindings.ts")]
-pub enum EncoderValueType {
-    Bool,
-    Int,
-    Enum,
-    String,
-}
-
-#[derive(Serialize, Clone, Debug, TS)]
-#[ts(export, export_to = "bindings.ts", optional_fields)]
-pub struct EncoderPropertyConstraint {
-    pub value_type: EncoderValueType,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enum_values: Option<Vec<String>>,
-}
-
-fn constraint_from_pspec(pspec: &glib::ParamSpec) -> EncoderPropertyConstraint {
-    let plain = |value_type, min: Option<i64>, max: Option<i64>| EncoderPropertyConstraint {
-        value_type,
-        min,
-        max,
-        enum_values: None,
-    };
-
-    if pspec.downcast_ref::<glib::ParamSpecBoolean>().is_some() {
-        return plain(EncoderValueType::Bool, None, None);
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt>() {
-        return plain(
-            EncoderValueType::Int,
-            Some(p.minimum().into()),
-            Some(p.maximum().into()),
-        );
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt>() {
-        return plain(
-            EncoderValueType::Int,
-            Some(p.minimum().into()),
-            Some(p.maximum().into()),
-        );
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt64>() {
-        return plain(EncoderValueType::Int, Some(p.minimum()), Some(p.maximum()));
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt64>() {
-        return plain(
-            EncoderValueType::Int,
-            Some(p.minimum() as i64),
-            Some(p.maximum() as i64),
-        );
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecEnum>() {
-        let values = p.enum_class().values().iter().map(|v| v.nick().to_string()).collect();
-        return EncoderPropertyConstraint {
-            value_type: EncoderValueType::Enum,
-            min: None,
-            max: None,
-            enum_values: Some(values),
-        };
-    }
-    plain(EncoderValueType::String, None, None)
-}
-
-fn encoder_constraints(encoder: &gst::Element, names: &[&str]) -> HashMap<String, EncoderPropertyConstraint> {
-    names
-        .iter()
-        .filter_map(|&name| Some((name.to_string(), constraint_from_pspec(&encoder.find_property(name)?))))
-        .collect()
-}
-
-pub(crate) struct EncoderInfo {
-    pub(crate) name: &'static str,
-    pub(crate) pipeline_str: &'static str,
-    pub(crate) default_properties: &'static [(&'static str, &'static str)],
-    pub(crate) min_dim: u32,
-}
-
-pub(crate) fn detect_encoder() -> EncoderInfo {
-    #[cfg(windows)]
-    {
-        if gst::Registry::get()
-            .find_feature("mfh264enc", gst::PluginFeature::static_type())
-            .is_some()
-        {
-            return EncoderInfo {
-                name: "mfh264enc",
-                pipeline_str: "mfh264enc name=enc low-latency=true rc-mode=0 gop-size=30 ref=1",
-                default_properties: &[
-                    ("low-latency", "true"),
-                    ("rc-mode", "0"),
-                    ("gop-size", "30"),
-                    ("ref", "1"),
-                ],
-                min_dim: 64,
-            };
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        if gst::Registry::get()
-            .find_feature("vah264enc", gst::PluginFeature::static_type())
-            .is_some()
-        {
-            return EncoderInfo {
-                name: "vah264enc",
-                pipeline_str: "vah264enc name=enc target-usage=7 rate-control=cbr key-int-max=30 ref-frames=1 cpb-size=100",
-                default_properties: &[
-                    ("target-usage", "7"),
-                    ("rate-control", "cbr"),
-                    ("key-int-max", "30"),
-                    ("ref-frames", "1"),
-                    ("cpb-size", "100"),
-                ],
-                min_dim: 128,
-            };
-        }
-    }
-
-    tracing::warn!("No hardware encoder found. Falling back to CPU (x264enc)");
-    EncoderInfo {
-        name: "x264enc",
-        pipeline_str: "x264enc name=enc tune=zerolatency speed-preset=ultrafast",
-        default_properties: &[("tune", "zerolatency"), ("speed-preset", "ultrafast")],
-        min_dim: 2,
     }
 }
 
@@ -310,14 +85,6 @@ impl GstSession for InnerState {
     }
 }
 
-struct PipelineHandles {
-    pipeline: gst::Pipeline,
-    appsrc: gst_app::AppSrc,
-    webrtcbin: gst::Element,
-    encoder: gst::Element,
-    min_dim: u32,
-}
-
 impl ScreenManager {
     pub fn new() -> Self {
         let max_fps = backend::get_max_fps();
@@ -332,76 +99,6 @@ impl ScreenManager {
             encoder_property_constraints: Arc::new(Mutex::new(HashMap::new())),
             session: OwnedSession::new(),
         }
-    }
-
-    fn build_pipeline(&self) -> anyhow::Result<PipelineHandles> {
-        let encoder_info = detect_encoder();
-        *self.encoder_type.lock() = encoder_info.name.to_string();
-
-        {
-            let mut s = self.settings.lock();
-            if s.encoder_properties.is_empty() {
-                s.encoder_properties = encoder_info
-                    .default_properties
-                    .iter()
-                    .map(|(k, v)| (k.to_string(), v.to_string()))
-                    .collect();
-            }
-        }
-
-        let pipeline_str = format!(
-            "appsrc name=src \
-                is-live=true \
-                block=false \
-                format=time \
-                do-timestamp=true \
-                max-buffers=2 \
-                leaky-type=downstream \
-                max-bytes=0 ! \
-             {LEAKY_QUEUE} ! \
-             {}",
-            encode_and_webrtc_tail(encoder_info.pipeline_str)
-        );
-
-        let pipeline = gst::parse::launch(&pipeline_str)
-            .map_err(|e| anyhow::anyhow!("Failed to create pipeline: {e}"))?
-            .downcast::<gst::Pipeline>()
-            .map_err(|_| anyhow::anyhow!("Failed to downcast to Pipeline"))?;
-
-        let appsrc = pipeline
-            .by_name("src")
-            .ok_or_else(|| anyhow::anyhow!("appsrc not found"))?
-            .dynamic_cast::<gst_app::AppSrc>()
-            .map_err(|_| anyhow::anyhow!("Failed to cast to AppSrc"))?;
-
-        let webrtcbin = pipeline
-            .by_name("webrtc")
-            .ok_or_else(|| anyhow::anyhow!("webrtcbin not found"))?;
-
-        let encoder = pipeline
-            .by_name("enc")
-            .ok_or_else(|| anyhow::anyhow!("Encoder not found"))?;
-
-        let property_names: Vec<&str> = encoder_info.default_properties.iter().map(|(k, _)| *k).collect();
-        *self.encoder_property_constraints.lock() = encoder_constraints(&encoder, &property_names);
-
-        let default_bitrate = self.settings.lock().bitrate;
-        encoder.set_property_from_str("bitrate", &default_bitrate.to_string());
-
-        let encoder_properties = self.settings.lock().encoder_properties.clone();
-        apply_encoder_properties(&encoder, &encoder_properties);
-
-        pipeline
-            .set_state(gst::State::Ready)
-            .map_err(|e| anyhow::anyhow!("Failed to set pipeline to Ready: {e}"))?;
-
-        Ok(PipelineHandles {
-            pipeline,
-            appsrc,
-            webrtcbin,
-            encoder,
-            min_dim: encoder_info.min_dim,
-        })
     }
 
     pub async fn start_stream(
@@ -789,31 +486,6 @@ use windows as backend;
 
 pub async fn take_screenshot() -> anyhow::Result<(Bytes, &'static str)> {
     backend::take_screenshot().await
-}
-
-fn apply_encoder_properties(encoder: &gst::Element, properties: &HashMap<String, String>) -> Vec<String> {
-    let mut rejected = Vec::new();
-    for (key, value) in properties {
-        tracing::trace!("Setting encoder property {key}={value}");
-        let pspec = match encoder.find_property(key) {
-            Some(pspec) => pspec,
-            None => {
-                tracing::warn!("Unknown encoder property: {key}");
-                rejected.push(key.clone());
-                continue;
-            }
-        };
-        match glib::Value::deserialize_with_pspec(value, &pspec) {
-            Ok(v) => {
-                encoder.set_property(key, v);
-            }
-            Err(_) => {
-                tracing::warn!("Invalid value for encoder property {key}: {value}");
-                rejected.push(key.clone());
-            }
-        }
-    }
-    rejected
 }
 
 fn detect_native_size() -> (i32, i32) {
