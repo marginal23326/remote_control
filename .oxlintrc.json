@@ -11,7 +11,6 @@
         "func-style": "off",
         "no-ternary": "off",
         "curly": "off",
-        "prefer-number-coercion": "off",
         "prefer-at": "off",
         "max-lines": "off",
         "max-lines-per-function": "off",

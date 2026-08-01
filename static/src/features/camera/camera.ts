@@ -112,8 +112,8 @@ function initializeCameraDrag(): void {
         dragging = true;
         startX = e.clientX;
         startY = e.clientY;
-        startLeft = parseFloat(el.style.left) || 0;
-        startTop = parseFloat(el.style.top) || 0;
+        startLeft = Number(el.style.left) || 0;
+        startTop = Number(el.style.top) || 0;
         el.setPointerCapture(e.pointerId);
     });
 
@@ -139,7 +139,7 @@ function initializeCameraDrag(): void {
 
     window.addEventListener("resize", () => {
         if (!el.style.left || el.classList.contains("hidden")) return;
-        const { left, top } = clamp(parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
+        const { left, top } = clamp(Number(el.style.left) || 0, Number(el.style.top) || 0);
         el.style.left = `${left}px`;
         el.style.top = `${top}px`;
     });

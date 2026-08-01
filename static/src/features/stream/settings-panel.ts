@@ -57,18 +57,18 @@ function formatResolutionLabel(pct: number): string {
 }
 
 function updateSliderLabels(): void {
-    const bitrate = parseInt(byId<HTMLInputElement>("streamBitrate")!.value, 10);
-    const resolution = parseInt(byId<HTMLInputElement>("streamResolution")!.value, 10);
-    const fps = parseInt(byId<HTMLInputElement>("streamFPS")!.value, 10);
+    const bitrate = Math.trunc(Number(byId<HTMLInputElement>("streamBitrate")!.value));
+    const resolution = Math.trunc(Number(byId<HTMLInputElement>("streamResolution")!.value));
+    const fps = Math.trunc(Number(byId<HTMLInputElement>("streamFPS")!.value));
     byId("bitrateValue")!.textContent = formatBitrateLabel(bitrate);
     byId("resolutionValue")!.textContent = formatResolutionLabel(resolution);
     byId("fpsValue")!.textContent = `(Target: ${fps} FPS)`;
 }
 
 async function updateStreamSettings(includeEncoderProps = false): Promise<void> {
-    const bitrate = parseInt(byId<HTMLInputElement>("streamBitrate")!.value, 10);
-    const resolutionPercentage = parseInt(byId<HTMLInputElement>("streamResolution")!.value, 10);
-    const fps = parseInt(byId<HTMLInputElement>("streamFPS")!.value, 10);
+    const bitrate = Math.trunc(Number(byId<HTMLInputElement>("streamBitrate")!.value));
+    const resolutionPercentage = Math.trunc(Number(byId<HTMLInputElement>("streamResolution")!.value));
+    const fps = Math.trunc(Number(byId<HTMLInputElement>("streamFPS")!.value));
 
     const payload: UpdateStreamSettingsPayload = {
         bitrate,

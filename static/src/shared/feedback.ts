@@ -112,7 +112,7 @@ export function showNotification(message: string, type: NotificationType = "erro
     ) as NotificationWrapper | undefined;
 
     if (existingWrapper) {
-        const count = parseInt(existingWrapper.dataset.count ?? "1", 10) + 1;
+        const count = Math.trunc(Number(existingWrapper.dataset.count ?? "1")) + 1;
         existingWrapper.dataset.count = String(count);
 
         const badge = existingWrapper.querySelector(".notification-badge")!;

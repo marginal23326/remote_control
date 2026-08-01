@@ -12,7 +12,7 @@ type SortOrder = "asc" | "desc";
 
 async function killProcesses(items: string[]): Promise<void> {
     if (items.length === 0) return;
-    const pids = items.map((pid) => parseInt(pid, 10));
+    const pids = items.map((pid) => Math.trunc(Number(pid)));
 
     const confirmed = await showConfirmModal({
         confirmLabel: "End Task",

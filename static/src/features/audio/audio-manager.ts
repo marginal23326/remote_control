@@ -354,7 +354,7 @@ function getServerAudioSettingsFromForm(): AudioKindSettings {
 
     return {
         device_id: isDefault ? null : selected.value,
-        rate: parseInt(byId<HTMLInputElement>("serverAudioRate")!.value, 10),
+        rate: Math.trunc(Number(byId<HTMLInputElement>("serverAudioRate")!.value)),
         source: selected.dataset.kind ?? "mic",
     };
 }
@@ -387,8 +387,8 @@ function initializeEventListeners(socket: AppSocket): void {
         }
 
         const settings: AudioKindSettings = {
-            chunk: parseInt(byId<HTMLInputElement>("clientAudioChunk")!.value, 10),
-            rate: parseInt(byId<HTMLInputElement>("clientAudioRate")!.value, 10),
+            chunk: Math.trunc(Number(byId<HTMLInputElement>("clientAudioChunk")!.value)),
+            rate: Math.trunc(Number(byId<HTMLInputElement>("clientAudioRate")!.value)),
         };
         await startAudioStream(socket, "client", settings);
     });

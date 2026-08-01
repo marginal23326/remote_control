@@ -111,7 +111,7 @@ export function readEncoderPropsFromDOM(): Record<string, string> | null {
         const constraint = encoderPropertyConstraints[key];
         if (constraint) {
             if (constraint.value_type === "int") {
-                const num = parseInt(val, 10);
+                const num = Math.trunc(Number(val));
                 if (isNaN(num)) {
                     warnings.push(`"${key}": not a valid integer`);
                     return;
