@@ -135,10 +135,7 @@ pub(crate) fn run_pipewire_capture(
             }
         })
         .process(|stream, user_data| {
-            if !user_data.is_running.load(Ordering::SeqCst) {
-                unsafe {
-                    pw::sys::pw_main_loop_quit(user_data.main_loop);
-                }
+            if crate::services::pipewire_core::should_stop(&user_data.is_running, user_data.main_loop) {
                 return;
             }
 

@@ -105,10 +105,7 @@ pub(crate) fn server_loop(
             }
         })
         .process(|stream, user_data| {
-            if !user_data.is_running.load(Ordering::SeqCst) {
-                unsafe {
-                    pw::sys::pw_main_loop_quit(user_data.main_loop);
-                }
+            if crate::services::pipewire_core::should_stop(&user_data.is_running, user_data.main_loop) {
                 return;
             }
 
@@ -219,10 +216,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
     let _listener = stream
         .add_local_listener_with_user_data(data)
         .process(|stream, user_data| {
-            if !user_data.is_running.load(Ordering::SeqCst) {
-                unsafe {
-                    pw::sys::pw_main_loop_quit(user_data.main_loop);
-                }
+            if crate::services::pipewire_core::should_stop(&user_data.is_running, user_data.main_loop) {
                 return;
             }
 
