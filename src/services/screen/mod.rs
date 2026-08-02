@@ -148,7 +148,11 @@ impl ScreenManager {
         let is_running = self.session.ownership().running_flag();
         let settings = self.settings.clone();
 
-        spawn_bus_watch(pipeline.clone(), "screen", || {});
+        let screen = state.screen.clone();
+        let owner_id = socket.id.to_string();
+        spawn_bus_watch(pipeline.clone(), "screen", move || {
+            screen.session.stop_if_owner(&owner_id);
+        });
 
         #[cfg(target_os = "linux")]
         let (pw_handle, title_handle): (Option<thread::JoinHandle<()>>, Option<thread::JoinHandle<()>>) = {
