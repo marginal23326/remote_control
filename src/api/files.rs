@@ -10,16 +10,17 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::Form;
+use futures_util::TryStreamExt;
 use mime_guess::from_path;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::io;
 use std::path::Path;
 use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 use tokio::io::duplex;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
-use tokio_util::io::ReaderStream;
+use tokio_util::io::{ReaderStream, StreamReader};
 
 const FILENAME_SAFE: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'_').remove(b'.').remove(b'~');
 
@@ -161,19 +162,14 @@ pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Jso
     Ok(success!())
 }
 
-async fn stream_field_to_file(field: &mut Field<'_>, file: &mut File) -> bool {
-    loop {
-        match field.chunk().await {
-            Ok(Some(chunk)) => {
-                if file.write_all(&chunk).await.is_err() {
-                    return false;
-                }
-            }
-            Ok(None) => return true,
-            Err(e) => {
-                tracing::error!("Upload stream interrupted: {}", e);
-                return false;
-            }
+async fn stream_field_to_file(field: Field<'_>, file: &mut File) -> bool {
+    let mut reader = StreamReader::new(field.map_err(io::Error::other));
+
+    match tokio::io::copy(&mut reader, file).await {
+        Ok(_) => true,
+        Err(e) => {
+            tracing::error!("Upload stream interrupted: {}", e);
+            false
         }
     }
 }
@@ -183,7 +179,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
     let mut uploaded_count = 0;
     let mut dir_created = false;
 
-    while let Ok(Some(mut field)) = multipart.next_field().await {
+    while let Ok(Some(field)) = multipart.next_field().await {
         let name = field.name().unwrap_or("").to_string();
 
         if name == "files" {
@@ -225,9 +221,7 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
 
             let mut file = tokio::fs::File::from_std(std_file);
 
-            let chunk_write_ok = stream_field_to_file(&mut field, &mut file).await;
-
-            if chunk_write_ok && file.flush().await.is_ok() {
+            if stream_field_to_file(field, &mut file).await {
                 drop(file);
 
                 let dest = dest_path.clone();
