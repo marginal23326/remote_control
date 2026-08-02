@@ -188,6 +188,8 @@ impl ScreenManager {
 
         #[cfg(windows)]
         let (pw_handle, title_handle): (Option<thread::JoinHandle<()>>, Option<thread::JoinHandle<()>>) = {
+            let screen = state.screen.clone();
+            let owner_id = socket.id.to_string();
             windows::start_os_capture(
                 frame_tx,
                 recycle_rx,
@@ -195,6 +197,9 @@ impl ScreenManager {
                 is_running.clone(),
                 self.native_size.clone(),
                 capture_cursor,
+                move || {
+                    screen.session.stop_if_owner(&owner_id);
+                },
             )
             .await?;
 

@@ -7,7 +7,6 @@ use crate::services::webrtc_session::{
 use crate::state::AppState;
 use serde::Serialize;
 use socketioxide::extract::SocketRef;
-use std::sync::atomic::Ordering;
 use ts_rs::TS;
 
 use gst::prelude::*;
@@ -115,9 +114,10 @@ impl CameraManager {
             },
         );
 
-        let is_running = self.session.ownership().running_flag();
+        let camera = state.camera.clone();
+        let owner_id = socket.id.to_string();
         spawn_bus_watch(pipeline.clone(), "camera", move || {
-            is_running.store(false, Ordering::SeqCst);
+            camera.session.stop_if_owner(&owner_id);
         });
 
         self.session.finish_or_abort(

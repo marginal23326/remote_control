@@ -8,14 +8,6 @@ use std::sync::{
 struct Owner(Mutex<Option<String>>);
 
 impl Owner {
-    fn set(&self, owner_id: String) {
-        *self.0.lock() = Some(owner_id);
-    }
-
-    fn clear(&self) {
-        *self.0.lock() = None;
-    }
-
     fn owns(&self, owner_id: &str) -> bool {
         self.0.lock().as_deref() == Some(owner_id)
     }
@@ -45,10 +37,12 @@ impl StreamOwnership {
     }
 
     pub fn try_start(&self, owner_id: String) -> Result<StartGuard<'_>, ()> {
-        self.is_running
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .map_err(|_| ())?;
-        self.owner_id.set(owner_id);
+        let mut guard = self.owner_id.0.lock();
+        if guard.is_some() {
+            return Err(());
+        }
+        *guard = Some(owner_id);
+        self.is_running.store(true, Ordering::SeqCst);
         Ok(StartGuard {
             ownership: self,
             started: false,
@@ -68,8 +62,9 @@ impl StreamOwnership {
     }
 
     pub fn clear(&self) {
+        let mut guard = self.owner_id.0.lock();
         self.is_running.store(false, Ordering::SeqCst);
-        self.owner_id.clear();
+        *guard = None;
     }
 }
 
@@ -87,8 +82,8 @@ impl StartGuard<'_> {
 impl Drop for StartGuard<'_> {
     fn drop(&mut self) {
         if !self.started {
-            tracing::warn!("Stream startup failed or was interrupted. Resetting is_running flag.");
-            self.ownership.is_running.store(false, Ordering::SeqCst);
+            tracing::warn!("Stream startup failed or was interrupted. Resetting ownership state.");
+            self.ownership.clear();
         }
     }
 }

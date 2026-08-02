@@ -45,6 +45,7 @@ pub(crate) async fn start_os_capture(
     is_running: Arc<AtomicBool>,
     native_size: Arc<Mutex<(i32, i32)>>,
     capture_cursor: bool,
+    on_exit: impl FnOnce() + Send + 'static,
 ) -> anyhow::Result<()> {
     unsafe {
         *native_size.lock() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
@@ -76,7 +77,7 @@ pub(crate) async fn start_os_capture(
             tracing::error!("Capture ended: {}", e);
         }
 
-        is_running.store(false, Ordering::SeqCst);
+        on_exit();
     });
 
     Ok(())
