@@ -51,16 +51,6 @@ impl IntoResponse for AppError {
 
 pub type AppResult<T> = Result<T, AppError>;
 
-pub(crate) trait AnyhowErr<T> {
-    fn anyhow_err(self) -> anyhow::Result<T>;
-}
-
-impl<T, E: ToString> AnyhowErr<T> for Result<T, E> {
-    fn anyhow_err(self) -> anyhow::Result<T> {
-        self.map_err(|e| anyhow::anyhow!(e.to_string()))
-    }
-}
-
 macro_rules! success {
     () => {
         axum::Json(serde_json::json!({"status": "success"}))

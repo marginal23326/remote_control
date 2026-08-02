@@ -6,7 +6,6 @@ use std::thread;
 
 use crate::realtime::event_names::ServerEvent;
 use crate::realtime::payloads::AudioFormatPayload;
-use crate::utils::error::AnyhowErr;
 use crossbeam_channel::bounded;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
@@ -26,12 +25,12 @@ fn serialize_audio_format(rate: u32) -> anyhow::Result<Vec<u8>> {
         properties: audio_info.into(),
     };
 
-    pw::spa::pod::serialize::PodSerializer::serialize(
+    let (cursor, _) = pw::spa::pod::serialize::PodSerializer::serialize(
         std::io::Cursor::new(Vec::new()),
         &pw::spa::pod::Value::Object(obj),
-    )
-    .map(|(cursor, _)| cursor.into_inner())
-    .anyhow_err()
+    )?;
+
+    Ok(cursor.into_inner())
 }
 
 pub(crate) fn server_loop(
@@ -82,7 +81,7 @@ pub(crate) fn server_loop(
         props.insert(*pw::keys::TARGET_OBJECT, id);
     }
 
-    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props).anyhow_err()?;
+    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-capture", props)?;
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
@@ -139,8 +138,7 @@ pub(crate) fn server_loop(
                 let _ = user_data.wake_tx.try_send(());
             }
         })
-        .register()
-        .anyhow_err()?;
+        .register()?;
 
     let socket_clone = socket.clone();
     let thread_running = is_running.clone();
@@ -175,16 +173,14 @@ pub(crate) fn server_loop(
     let values = serialize_audio_format(rate)?;
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
 
-    stream
-        .connect(
-            spa::utils::Direction::Input,
-            None,
-            pw::stream::StreamFlags::AUTOCONNECT
-                | pw::stream::StreamFlags::MAP_BUFFERS
-                | pw::stream::StreamFlags::RT_PROCESS,
-            &mut params,
-        )
-        .anyhow_err()?;
+    stream.connect(
+        spa::utils::Direction::Input,
+        None,
+        pw::stream::StreamFlags::AUTOCONNECT
+            | pw::stream::StreamFlags::MAP_BUFFERS
+            | pw::stream::StreamFlags::RT_PROCESS,
+        &mut params,
+    )?;
 
     mainloop.run();
     Ok(())
@@ -211,7 +207,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
         *pw::keys::MEDIA_ROLE => "Communication",
     };
 
-    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-playback", props).anyhow_err()?;
+    let stream = pw::stream::StreamBox::new(&core, "remote-control-audio-playback", props)?;
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
@@ -252,22 +248,19 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
                 *chunk_mut.stride_mut() = stride;
             }
         })
-        .register()
-        .anyhow_err()?;
+        .register()?;
 
     let values = serialize_audio_format(rate)?;
     let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
 
-    stream
-        .connect(
-            spa::utils::Direction::Output,
-            None,
-            pw::stream::StreamFlags::AUTOCONNECT
-                | pw::stream::StreamFlags::MAP_BUFFERS
-                | pw::stream::StreamFlags::RT_PROCESS,
-            &mut params,
-        )
-        .anyhow_err()?;
+    stream.connect(
+        spa::utils::Direction::Output,
+        None,
+        pw::stream::StreamFlags::AUTOCONNECT
+            | pw::stream::StreamFlags::MAP_BUFFERS
+            | pw::stream::StreamFlags::RT_PROCESS,
+        &mut params,
+    )?;
 
     mainloop.run();
     Ok(())
@@ -275,7 +268,7 @@ pub(crate) fn client_loop(rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Arr
 
 pub(crate) fn list_sources() -> anyhow::Result<Vec<super::AudioSourceInfo>> {
     let (mainloop, core) = crate::services::pipewire_core::connect(None)?;
-    let registry = core.get_registry().anyhow_err()?;
+    let registry = core.get_registry()?;
 
     let sources = Rc::new(RefCell::new(Vec::new()));
     let done = Rc::new(Cell::new(false));
@@ -312,7 +305,7 @@ pub(crate) fn list_sources() -> anyhow::Result<Vec<super::AudioSourceInfo>> {
         })
         .register();
 
-    let pending = core.sync(0).anyhow_err()?;
+    let pending = core.sync(0)?;
     let done_for_core = done.clone();
     let _listener_core = core
         .add_listener_local()
