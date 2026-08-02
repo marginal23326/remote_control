@@ -1,5 +1,6 @@
 import type {
     AudioConfig,
+    AudioFormatPayload as AudioFormat,
     AudioSourceInfo,
     CameraDeviceInfo,
     CameraStartConfig as StartCameraStreamPayload,
@@ -57,13 +58,8 @@ export interface ProcessDetailsResponse {
     data: ProcessDetails;
 }
 
-export interface AudioFormat {
-    rate: number;
-    channels: number;
-    format: "int16" | "float32" | (string & {});
-}
-
 export type {
+    AudioFormat,
     AudioSourceInfo,
     CameraDeviceInfo,
     EncoderPropertyConstraint,

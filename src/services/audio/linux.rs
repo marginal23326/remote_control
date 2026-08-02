@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use crate::realtime::event_names::ServerEvent;
+use crate::realtime::payloads::AudioFormatPayload;
 use crate::utils::error::AnyhowErr;
 use crossbeam_channel::bounded;
 use crossbeam_queue::ArrayQueue;
@@ -96,11 +97,10 @@ pub(crate) fn server_loop(
                 let negotiated_rate = format.rate();
                 let _ = user_data.socket.emit(
                     ServerEvent::ServerAudioFormat.as_str(),
-                    &serde_json::json!({
-                        "rate": negotiated_rate,
-                        "channels": 1,
-                        "format": "int16"
-                    }),
+                    &AudioFormatPayload {
+                        rate: negotiated_rate,
+                        channels: 1,
+                    },
                 );
             }
         })

@@ -16,6 +16,7 @@ use super::webrtc_session::{
     GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
 };
 use crate::realtime::event_names::ServerEvent;
+use crate::realtime::payloads::ActiveWindowPayload;
 
 mod frame;
 mod pipeline;
@@ -219,8 +220,10 @@ impl ScreenManager {
                     let title = backend::get_active_window_title();
                     if title != last {
                         last = title;
-                        let _ =
-                            socket_emit.emit(ServerEvent::ActiveWindow.as_str(), &serde_json::json!({"title": &last}));
+                        let _ = socket_emit.emit(
+                            ServerEvent::ActiveWindow.as_str(),
+                            &ActiveWindowPayload { title: last.clone() },
+                        );
                     }
                     thread::sleep(Duration::from_millis(500));
                 }

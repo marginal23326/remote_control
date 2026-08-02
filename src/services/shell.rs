@@ -1,8 +1,8 @@
 use crate::realtime::event_names::ServerEvent;
+use crate::realtime::payloads::{ShellClosedPayload, ShellOutputPayload};
 use anyhow::Result;
 use parking_lot::Mutex;
 use portable_pty::{ChildKiller, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
-use serde_json::json;
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -76,7 +76,10 @@ impl ShellManager {
                         Ok(s) => {
                             let _ = socket_clone.emit(
                                 ServerEvent::ShellOutput.as_str(),
-                                &json!({ "session_id": sid, "output": s }),
+                                &ShellOutputPayload {
+                                    session_id: sid.clone(),
+                                    output: s.to_string(),
+                                },
                             );
                             leftover.clear();
                             break;
@@ -88,7 +91,10 @@ impl ShellManager {
                                 let s = std::str::from_utf8(&leftover[..valid]).unwrap();
                                 let _ = socket_clone.emit(
                                     ServerEvent::ShellOutput.as_str(),
-                                    &json!({ "session_id": sid, "output": s }),
+                                    &ShellOutputPayload {
+                                        session_id: sid.clone(),
+                                        output: s.to_string(),
+                                    },
                                 );
 
                                 leftover.drain(..valid);
@@ -98,7 +104,10 @@ impl ShellManager {
                             if let Some(err_len) = e.error_len() {
                                 let _ = socket_clone.emit(
                                     ServerEvent::ShellOutput.as_str(),
-                                    &json!({ "session_id": sid, "output": "\u{FFFD}" }),
+                                    &ShellOutputPayload {
+                                        session_id: sid.clone(),
+                                        output: "\u{FFFD}".to_string(),
+                                    },
                                 );
                                 leftover.drain(..err_len);
                                 continue;
@@ -121,9 +130,15 @@ impl ShellManager {
             let _ = child.wait();
             let _ = socket_wait.emit(
                 ServerEvent::ShellOutput.as_str(),
-                &json!({ "session_id": sid_wait, "output": "\r\n\x1b[33m[Process Terminated]\x1b[0m\r\n" }),
+                &ShellOutputPayload {
+                    session_id: sid_wait.clone(),
+                    output: "\r\n\x1b[33m[Process Terminated]\x1b[0m\r\n".to_string(),
+                },
             );
-            let _ = socket_wait.emit(ServerEvent::ShellClosed.as_str(), &json!({ "session_id": sid_wait }));
+            let _ = socket_wait.emit(
+                ServerEvent::ShellClosed.as_str(),
+                &ShellClosedPayload { session_id: sid_wait },
+            );
 
             if active_for_wait.load(Ordering::Acquire) {
                 let removed = sessions_for_wait.lock().remove(&socket_id_wait);

@@ -1,9 +1,20 @@
-import type { ClientEvent, ServerEvent } from "@/generated/bindings";
+import type {
+    ActiveWindowPayload,
+    AudioSourcesPayload,
+    AuthStatusPayload,
+    AvailableShellsPayload,
+    CameraListPayload,
+    ClientEvent,
+    MessagePayload,
+    RemoteIceCandidatePayload,
+    ServerEvent,
+    ShellClosedPayload,
+    ShellCreatedPayload,
+    ShellOutputPayload,
+} from "@/generated/bindings";
 import type {
     AudioFormat,
-    AudioSourceInfo,
     AudioStartPayload,
-    CameraDeviceInfo,
     KeyboardEventPayload,
     MouseEventPayload,
     ShellCreatePayload,
@@ -14,52 +25,30 @@ import type {
     TaskListPayload,
 } from "@/shared/types";
 
-export type { AudioStartPayload, KeyboardEventPayload, MouseEventPayload };
+export type {
+    ActiveWindowPayload,
+    AudioSourcesPayload,
+    AudioStartPayload,
+    AuthStatusPayload,
+    AvailableShellsPayload,
+    CameraListPayload,
+    KeyboardEventPayload,
+    MessagePayload,
+    MouseEventPayload,
+    RemoteIceCandidatePayload,
+    ShellClosedPayload,
+    ShellCreatedPayload,
+    ShellOutputPayload,
+};
 
-export interface ShellCreatedPayload {
-    status: "success";
-    session_id: string;
-}
-
-export interface ShellOutputPayload {
-    session_id: string;
-    output: string;
-}
-
-export interface ShellClosedPayload {
-    session_id: string;
-}
-
-export interface AvailableShellsPayload {
-    shells: string[];
-    default?: string;
-}
-
-export interface AudioSourcesPayload {
-    sources: AudioSourceInfo[];
-}
-
-export interface ActiveWindowPayload {
-    title: string;
-}
-
-export interface CameraListPayload {
-    cameras: CameraDeviceInfo[];
-}
-
-export interface IceCandidatePayload {
+export type IceCandidatePayload = Omit<RemoteIceCandidatePayload, "sdp_mline_index"> & {
     sdp_mline_index?: number | null;
-    candidate: string;
-}
-
-export interface MessagePayload {
-    message: string;
-}
+};
 
 export type ServerAudioData = ArrayBuffer | ArrayBufferView | number[];
 
 interface ServerEventPayloads {
-    auth_status: { authenticated: boolean };
+    auth_status: AuthStatusPayload;
     auth_error: MessagePayload;
 
     shell_output: ShellOutputPayload;
@@ -79,12 +68,12 @@ interface ServerEventPayloads {
 
     webrtc_error: MessagePayload;
     webrtc_offer: string;
-    webrtc_remote_ice: IceCandidatePayload;
+    webrtc_remote_ice: RemoteIceCandidatePayload;
     active_window: ActiveWindowPayload;
 
     camera_list: CameraListPayload;
     camera_webrtc_offer: string;
-    camera_webrtc_remote_ice: IceCandidatePayload;
+    camera_webrtc_remote_ice: RemoteIceCandidatePayload;
     camera_webrtc_error: MessagePayload;
 }
 

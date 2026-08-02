@@ -7,9 +7,9 @@ use crate::realtime::handlers::{
     handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
     handle_webrtc_answer, handle_webrtc_ice,
 };
+use crate::realtime::payloads::{AuthStatusPayload, MessagePayload};
 use crate::state::AppState;
 use crate::utils::auth::is_authenticated;
-use serde_json::json;
 use socketioxide::{
     SocketIo,
     extract::{SocketRef, State},
@@ -86,13 +86,21 @@ async fn on_connect(socket: SocketRef, State(state): State<AppState>) {
 
     if !is_authenticated {
         warn!("Socket connection rejected: Invalid or missing token");
-        let _ = socket.emit(ServerEvent::AuthError.as_str(), &json!({ "message": "Unauthorized" }));
+        let _ = socket.emit(
+            ServerEvent::AuthError.as_str(),
+            &MessagePayload {
+                message: "Unauthorized".to_string(),
+            },
+        );
         let _ = socket.disconnect();
         return;
     }
 
     info!("Socket connected & authenticated: {}", socket.id);
-    let _ = socket.emit(ServerEvent::AuthStatus.as_str(), &json!({ "authenticated": true }));
+    let _ = socket.emit(
+        ServerEvent::AuthStatus.as_str(),
+        &AuthStatusPayload { authenticated: true },
+    );
 
     socket.on(ClientEvent::MouseEvent.as_str(), handle_mouse_event);
     socket.on(ClientEvent::KeyboardEvent.as_str(), handle_keyboard_event);

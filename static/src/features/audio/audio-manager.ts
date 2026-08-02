@@ -38,7 +38,7 @@ let currentStream: MediaStream | null = null;
 let workletNode: AudioWorkletNode | null = null;
 let serverAudioWorker: Worker | null = null;
 let audioWorkletModulePromise: Promise<void> | null = null;
-let audioFormat: AudioFormat = { channels: 1, format: "int16", rate: 48000 };
+let audioFormat: AudioFormat = { channels: 1, rate: 48000 };
 let playbackNode: AudioWorkletNode | null = null;
 
 const currentSettings: Record<AudioKind, AudioKindSettings> = {
@@ -142,7 +142,6 @@ async function startAudioStream(
             socket.on("server_audio_format", async (info) => {
                 audioFormat = {
                     channels: info.channels,
-                    format: info.format,
                     rate: info.rate,
                 };
 

@@ -1,11 +1,13 @@
 use crate::realtime::event_names::ServerEvent;
+use crate::realtime::payloads::{
+    AudioSourcesPayload, AvailableShellsPayload, CameraListPayload, MessagePayload, ShellCreatedPayload,
+};
 use crate::services::audio::AudioManager;
 use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
 use serde::Deserialize;
-use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use ts_rs::TS;
@@ -132,7 +134,10 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
                 state.shell.add_session(socket_id, session);
                 let _ = socket.emit(
                     ServerEvent::ShellCreated.as_str(),
-                    &json!({ "status": "success", "session_id": session_id }),
+                    &ShellCreatedPayload {
+                        status: "success".to_string(),
+                        session_id,
+                    },
                 );
             } else {
                 std::thread::spawn(move || drop(session));
@@ -140,7 +145,10 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
         }
         Err(e) => {
             tracing::error!("Failed to create shell: {}", e);
-            let _ = socket.emit(ServerEvent::ShellError.as_str(), &json!({ "message": e.to_string() }));
+            let _ = socket.emit(
+                ServerEvent::ShellError.as_str(),
+                &MessagePayload { message: e.to_string() },
+            );
         }
     }
 }
@@ -169,7 +177,7 @@ pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>
 
     let _ = socket.emit(
         ServerEvent::AvailableShells.as_str(),
-        &json!({ "shells": shells, "default": default }),
+        &AvailableShellsPayload { shells, default },
     );
 }
 
@@ -223,7 +231,7 @@ pub async fn handle_start_server_audio(
         tracing::error!("Failed to start server audio: {e:#}");
         let _ = socket.emit(
             ServerEvent::ServerAudioError.as_str(),
-            &json!({ "message": e.to_string() }),
+            &MessagePayload { message: e.to_string() },
         );
     }
 }
@@ -233,13 +241,13 @@ pub async fn handle_list_audio_sources(socket: SocketRef) {
 
     match sources {
         Ok(sources) => {
-            let _ = socket.emit(ServerEvent::AudioSources.as_str(), &json!({ "sources": sources }));
+            let _ = socket.emit(ServerEvent::AudioSources.as_str(), &AudioSourcesPayload { sources });
         }
         Err(e) => {
             tracing::error!("Failed to list audio sources: {e:#}");
             let _ = socket.emit(
                 ServerEvent::AudioSourcesError.as_str(),
-                &json!({ "message": e.to_string() }),
+                &MessagePayload { message: e.to_string() },
             );
         }
     }
@@ -261,7 +269,7 @@ pub async fn handle_start_client_audio(
         tracing::error!("Failed to start client playback: {e:#}");
         let _ = socket.emit(
             ServerEvent::ClientAudioError.as_str(),
-            &json!({ "message": e.to_string() }),
+            &MessagePayload { message: e.to_string() },
         );
     }
 }
@@ -289,7 +297,10 @@ pub async fn handle_start_stream(
         .await
     {
         tracing::error!("Failed to start: {e:#}");
-        let _ = socket.emit(ServerEvent::WebrtcError.as_str(), &json!({ "message": e.to_string() }));
+        let _ = socket.emit(
+            ServerEvent::WebrtcError.as_str(),
+            &MessagePayload { message: e.to_string() },
+        );
     }
 }
 
@@ -297,7 +308,7 @@ pub async fn handle_list_cameras(socket: SocketRef) {
     let cameras = tokio::task::spawn_blocking(CameraManager::list_cameras)
         .await
         .unwrap_or_default();
-    let _ = socket.emit(ServerEvent::CameraList.as_str(), &json!({ "cameras": cameras }));
+    let _ = socket.emit(ServerEvent::CameraList.as_str(), &CameraListPayload { cameras });
 }
 
 pub async fn handle_start_camera_stream(
@@ -310,7 +321,7 @@ pub async fn handle_start_camera_stream(
         tracing::error!("Failed to start: {e:#}");
         let _ = socket.emit(
             ServerEvent::CameraWebrtcError.as_str(),
-            &json!({ "message": e.to_string() }),
+            &MessagePayload { message: e.to_string() },
         );
     }
 }

@@ -7,6 +7,8 @@ use gstreamer_sdp as gst_sdp;
 use gstreamer_webrtc as gst_webrtc;
 use socketioxide::extract::SocketRef;
 
+use crate::realtime::payloads::RemoteIceCandidatePayload;
+
 use super::owned_worker::{OwnedSession, Stoppable};
 
 pub(crate) enum GstCommand {
@@ -63,10 +65,10 @@ pub(crate) fn wire_webrtc_signaling(
         webrtcbin.connect("on-ice-candidate", false, move |args| {
             let sdp_mline_index: u32 = args[1].get().unwrap();
             let candidate: String = args[2].get().unwrap();
-            let data = serde_json::json!({
-                "sdp_mline_index": sdp_mline_index,
-                "candidate": candidate,
-            });
+            let data = RemoteIceCandidatePayload {
+                sdp_mline_index,
+                candidate,
+            };
             let _ = socket_ice.emit(ice_event, &data);
             None
         });

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::realtime::event_names::ServerEvent;
+use crate::realtime::payloads::AudioFormatPayload;
 use crate::utils::error::AnyhowErr;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
@@ -77,15 +78,12 @@ pub(crate) fn server_loop(
     let blockalign = mix_format.get_blockalign() as usize;
     let bytes_per_sample = blockalign / channels;
 
-    const OUTPUT_FORMAT: &str = "int16";
-
     let _ = socket.emit(
         ServerEvent::ServerAudioFormat.as_str(),
-        &serde_json::json!({
-            "rate": actual_rate,
-            "channels": 1,
-            "format": OUTPUT_FORMAT,
-        }),
+        &AudioFormatPayload {
+            rate: actual_rate,
+            channels: 1,
+        },
     );
 
     let h_event = audio_client.set_get_eventhandle().anyhow_err()?;
