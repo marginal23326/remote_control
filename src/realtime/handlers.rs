@@ -317,7 +317,13 @@ pub async fn handle_start_camera_stream(
     State(state): State<AppState>,
 ) {
     let camera = state.camera.clone();
-    if let Err(e) = camera.start_stream(socket.clone(), state, data.device_id).await {
+    let stream_socket = socket.clone();
+    let result = tokio::task::spawn_blocking(move || camera.start_stream(stream_socket, state, data.device_id))
+        .await
+        .map_err(Into::into)
+        .and_then(|inner| inner);
+
+    if let Err(e) = result {
         tracing::error!("Failed to start: {e:#}");
         let _ = socket.emit(
             ServerEvent::CameraWebrtcError.as_str(),

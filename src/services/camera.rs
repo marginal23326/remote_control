@@ -56,12 +56,7 @@ impl CameraManager {
             .collect()
     }
 
-    pub async fn start_stream(
-        &self,
-        socket: SocketRef,
-        state: AppState,
-        device_id: Option<String>,
-    ) -> anyhow::Result<()> {
+    pub fn start_stream(&self, socket: SocketRef, state: AppState, device_id: Option<String>) -> anyhow::Result<()> {
         let guard = self
             .session
             .ownership()
