@@ -14,6 +14,17 @@ use ts_rs::TS;
 
 pub static ACTIVE_WATCHERS: AtomicUsize = AtomicUsize::new(0);
 
+async fn try_blocking<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Send + 'static) -> anyhow::Result<T> {
+    tokio::task::spawn_blocking(f).await.map_err(Into::into).flatten()
+}
+
+async fn run_blocking_or_log<T: Default + Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    tokio::task::spawn_blocking(f).await.unwrap_or_else(|e| {
+        tracing::error!("Blocking task panicked: {e}");
+        T::default()
+    })
+}
+
 // --- DATA STRUCTURES ---
 
 #[derive(Deserialize, Debug, TS)]
@@ -120,11 +131,10 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
     let shell_manager = state.shell.clone();
     let socket_id_for_create = socket_id.clone();
 
-    let session_result = tokio::task::spawn_blocking(move || {
+    let session_result = try_blocking(move || {
         shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, shell.as_deref(), socket_clone)
     })
-    .await
-    .unwrap();
+    .await;
 
     socket.extensions.remove::<ShellPendingMarker>();
 
@@ -171,9 +181,7 @@ pub async fn handle_shell_close(socket: SocketRef, State(state): State<AppState>
 
 pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>) {
     let shell = state.shell.clone();
-    let (shells, default) = tokio::task::spawn_blocking(move || shell.list_available_shells())
-        .await
-        .unwrap_or_default();
+    let (shells, default) = run_blocking_or_log(move || shell.list_available_shells()).await;
 
     let _ = socket.emit(
         ServerEvent::AvailableShells.as_str(),
@@ -237,7 +245,7 @@ pub async fn handle_start_server_audio(
 }
 
 pub async fn handle_list_audio_sources(socket: SocketRef) {
-    let sources = tokio::task::spawn_blocking(AudioManager::list_sources).await.unwrap();
+    let sources = try_blocking(AudioManager::list_sources).await;
 
     match sources {
         Ok(sources) => {
@@ -305,9 +313,7 @@ pub async fn handle_start_stream(
 }
 
 pub async fn handle_list_cameras(socket: SocketRef) {
-    let cameras = tokio::task::spawn_blocking(CameraManager::list_cameras)
-        .await
-        .unwrap_or_default();
+    let cameras = run_blocking_or_log(CameraManager::list_cameras).await;
     let _ = socket.emit(ServerEvent::CameraList.as_str(), &CameraListPayload { cameras });
 }
 
@@ -318,10 +324,7 @@ pub async fn handle_start_camera_stream(
 ) {
     let camera = state.camera.clone();
     let stream_socket = socket.clone();
-    let result = tokio::task::spawn_blocking(move || camera.start_stream(stream_socket, state, data.device_id))
-        .await
-        .map_err(Into::into)
-        .and_then(|inner| inner);
+    let result = try_blocking(move || camera.start_stream(stream_socket, state, data.device_id)).await;
 
     if let Err(e) = result {
         tracing::error!("Failed to start: {e:#}");
