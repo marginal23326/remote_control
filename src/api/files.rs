@@ -61,10 +61,9 @@ pub struct RenamePayload {
     new_name: String,
 }
 
-fn systime_to_zip_datetime(systime: std::time::SystemTime) -> Option<async_zip::ZipDateTime> {
+fn systime_to_zip_datetime(systime: std::time::SystemTime, offset: time::UtcOffset) -> Option<async_zip::ZipDateTime> {
     use time::OffsetDateTime;
     let utc_dt: OffsetDateTime = systime.into();
-    let offset = time::UtcOffset::current_local_offset().ok()?;
     let local_dt = utc_dt.to_offset(offset);
     Some(
         async_zip::ZipDateTimeBuilder::new()
@@ -285,6 +284,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         let mut skipped = Vec::new();
         let path_bufs: Vec<std::path::PathBuf> = paths_clone.iter().map(std::path::PathBuf::from).collect();
         let common_parent = find_common_parent(&path_bufs);
+        let tz_offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
 
         for root_path in path_bufs {
             for entry in walkdir::WalkDir::new(&root_path) {
@@ -309,7 +309,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
                         .metadata()
                         .ok()
                         .and_then(|meta| meta.modified().ok())
-                        .and_then(systime_to_zip_datetime)
+                        .and_then(|systime| systime_to_zip_datetime(systime, tz_offset))
                         .unwrap_or_default();
 
                     collected.push((path.to_path_buf(), zip_path_name, last_modified));
