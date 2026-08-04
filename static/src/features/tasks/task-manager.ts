@@ -44,96 +44,96 @@ function sortProcesses(rows: ProcessInfo[], column: SortColumn, order: SortOrder
     });
 }
 
-export function initializeTaskManager(socket: AppSocket): void {
-    const currentSort: { column: SortColumn; order: SortOrder } = { column: "memory_usage", order: "desc" };
-    let allProcesses: ProcessInfo[] = [];
-    let processes: ProcessInfo[] = [];
-    let searchTerm = "";
+const currentSort: { column: SortColumn; order: SortOrder } = { column: "memory_usage", order: "desc" };
+let allProcesses: ProcessInfo[] = [];
+let processes: ProcessInfo[] = [];
+let searchTerm = "";
 
-    const taskList = byId("taskList")!;
-    const searchInput = byId<HTMLInputElement>("taskSearchInput");
+const taskList = byId("taskList")!;
+const searchInput = byId<HTMLInputElement>("taskSearchInput");
 
-    const taskManager = new ListManager({
-        containerSelector: "#taskList",
-        getContextMenuItems: (context?: ContextMenuContext) => {
-            const selectedItems = context?.selectedItems ?? taskManager.getSelectedItems();
-            const items = [];
+const taskManager = new ListManager({
+    containerSelector: "#taskList",
+    getContextMenuItems: (context?: ContextMenuContext) => {
+        const selectedItems = context?.selectedItems ?? taskManager.getSelectedItems();
+        const items = [];
 
-            if (selectedItems.length === 1) {
-                items.push({
-                    label: "Process Details",
-                    action: async () => {
-                        const pid = selectedItems[0];
-                        try {
-                            const res = await apiCall<ProcessDetailsResponse>(`/api/tasks/${pid}`);
-                            const d = res.data;
-                            let msg = `Process: ${d.name} (PID: ${d.pid})\nMemory: ${d.rss_memory_mb.toFixed(2)} MB`;
-                            if (d.rss_memory_mb !== d.exact_memory_mb) {
-                                msg += `\nAccurate (PSS): ${d.exact_memory_mb.toFixed(2)} MB`;
-                            }
-                            showNotification(msg, "info");
-                        } catch (err) {
-                            showNotification("Failed to get details: " + (err as Error).message, "error");
+        if (selectedItems.length === 1) {
+            items.push({
+                label: "Process Details",
+                action: async () => {
+                    const pid = selectedItems[0];
+                    try {
+                        const res = await apiCall<ProcessDetailsResponse>(`/api/tasks/${pid}`);
+                        const d = res.data;
+                        let msg = `Process: ${d.name} (PID: ${d.pid})\nMemory: ${d.rss_memory_mb.toFixed(2)} MB`;
+                        if (d.rss_memory_mb !== d.exact_memory_mb) {
+                            msg += `\nAccurate (PSS): ${d.exact_memory_mb.toFixed(2)} MB`;
                         }
-                    },
-                });
-            }
+                        showNotification(msg, "info");
+                    } catch (err) {
+                        showNotification("Failed to get details: " + (err as Error).message, "error");
+                    }
+                },
+            });
+        }
 
-            if (selectedItems.length > 0) {
-                items.push({ label: "End Task (Del)", action: () => killProcesses(selectedItems) });
-            }
+        if (selectedItems.length > 0) {
+            items.push({ label: "End Task (Del)", action: () => killProcesses(selectedItems) });
+        }
 
-            return items;
-        },
-        getItemId: (element) => element.dataset.pid,
-        itemDataAttribute: "pid",
-        onSelectionChange: (selectedItems) => {
-            const endTaskContainer = byId("endTaskContainer")!;
-            const countEl = byId("taskSelectionCount");
-            endTaskContainer.classList.toggle("is-visible", selectedItems.length > 0);
-            if (countEl) {
-                countEl.textContent = `${selectedItems.length} selected`;
-            }
-        },
+        return items;
+    },
+    getItemId: (element) => element.dataset.pid,
+    itemDataAttribute: "pid",
+    onSelectionChange: (selectedItems) => {
+        const endTaskContainer = byId("endTaskContainer")!;
+        const countEl = byId("taskSelectionCount");
+        endTaskContainer.classList.toggle("is-visible", selectedItems.length > 0);
+        if (countEl) {
+            countEl.textContent = `${selectedItems.length} selected`;
+        }
+    },
+});
+
+function renderTaskList(newProcesses?: ProcessInfo[]): void {
+    if (newProcesses) {
+        allProcesses = newProcesses;
+    }
+
+    const term = searchTerm.trim().toLowerCase();
+    processes = term ? allProcesses.filter((process) => process.name.toLowerCase().includes(term)) : allProcesses;
+    processes = sortProcesses(processes, currentSort.column, currentSort.order);
+
+    const fragment = document.createDocumentFragment();
+    processes.forEach((process) => {
+        const row = document.createElement("tr");
+        row.classList.add("cursor-pointer");
+        row.dataset.pid = String(process.pid);
+
+        row.innerHTML = `
+            <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-100">
+                ${escapeHtml(process.name)}
+            </td>
+            <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.cpu_percent.toFixed(1)}%</td>
+            <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.memory_usage.toFixed(2)} MB</td>
+            <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-500">${process.pid}</td>
+        `;
+
+        fragment.append(row);
     });
 
+    taskList.replaceChildren(fragment);
+
+    updateSortIndicators("#processSection thead th", currentSort.column, currentSort.order === "asc");
+
+    taskManager.refreshSelectionUI();
+}
+
+export function initializeTaskManager(socket: AppSocket): void {
     byId("endTaskButton")?.addEventListener("click", () => {
         void killProcesses(taskManager.getSelectedItems());
     });
-
-    function renderTaskList(newProcesses?: ProcessInfo[]): void {
-        if (newProcesses) {
-            allProcesses = newProcesses;
-        }
-
-        const term = searchTerm.trim().toLowerCase();
-        processes = term ? allProcesses.filter((process) => process.name.toLowerCase().includes(term)) : allProcesses;
-        processes = sortProcesses(processes, currentSort.column, currentSort.order);
-
-        const fragment = document.createDocumentFragment();
-        processes.forEach((process) => {
-            const row = document.createElement("tr");
-            row.classList.add("cursor-pointer");
-            row.dataset.pid = String(process.pid);
-
-            row.innerHTML = `
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-100">
-                    ${escapeHtml(process.name)}
-                </td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.cpu_percent.toFixed(1)}%</td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-400">${process.memory_usage.toFixed(2)} MB</td>
-                <td class="px-4 py-1 whitespace-nowrap text-sm text-zinc-500">${process.pid}</td>
-            `;
-
-            fragment.append(row);
-        });
-
-        taskList.replaceChildren(fragment);
-
-        updateSortIndicators("#processSection thead th", currentSort.column, currentSort.order === "asc");
-
-        taskManager.refreshSelectionUI();
-    }
 
     // Handle sorting
     document.querySelectorAll<HTMLElement>("#processSection thead th").forEach((header) => {
