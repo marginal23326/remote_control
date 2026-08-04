@@ -3,9 +3,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     KEYEVENTF_SCANCODE, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC, MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE,
     MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
     MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL,
-    MOUSEINPUT, MapVirtualKeyW, SendInput, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE,
-    VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_HOME, VK_INSERT, VK_LEFT,
-    VK_LWIN, VK_MENU, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_TAB, VK_UP,
+    MOUSEINPUT, MapVirtualKeyW, SendInput, VIRTUAL_KEY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
@@ -93,45 +91,7 @@ impl OsInputManager {
     }
 
     fn map_key_to_vk(&self, key: &str) -> VIRTUAL_KEY {
-        let Some(logical) = LogicalKey::parse(key) else {
-            return VIRTUAL_KEY(0);
-        };
-        match logical {
-            LogicalKey::Shift => VK_SHIFT,
-            LogicalKey::Control => VK_CONTROL,
-            LogicalKey::Alt => VK_MENU,
-            LogicalKey::Super => VK_LWIN,
-            LogicalKey::Return => VK_RETURN,
-            LogicalKey::BackSpace => VK_BACK,
-            LogicalKey::Tab => VK_TAB,
-            LogicalKey::Escape => VK_ESCAPE,
-            LogicalKey::Space => VK_SPACE,
-            LogicalKey::Up => VK_UP,
-            LogicalKey::Down => VK_DOWN,
-            LogicalKey::Left => VK_LEFT,
-            LogicalKey::Right => VK_RIGHT,
-            LogicalKey::Home => VK_HOME,
-            LogicalKey::End => VK_END,
-            LogicalKey::PageUp => VK_PRIOR,
-            LogicalKey::PageDown => VK_NEXT,
-            LogicalKey::Insert => VK_INSERT,
-            LogicalKey::Delete => VK_DELETE,
-            LogicalKey::Print => VK_SNAPSHOT,
-            LogicalKey::F1 => VK_F1,
-            LogicalKey::F2 => VK_F2,
-            LogicalKey::F3 => VK_F3,
-            LogicalKey::F4 => VK_F4,
-            LogicalKey::F5 => VK_F5,
-            LogicalKey::F6 => VK_F6,
-            LogicalKey::F7 => VK_F7,
-            LogicalKey::F8 => VK_F8,
-            LogicalKey::F9 => VK_F9,
-            LogicalKey::F10 => VK_F10,
-            LogicalKey::F11 => VK_F11,
-            LogicalKey::F12 => VK_F12,
-            LogicalKey::Char(ch) if ch.is_ascii() => VIRTUAL_KEY(ch.to_ascii_uppercase() as u16),
-            LogicalKey::Char(_) => VIRTUAL_KEY(0),
-        }
+        LogicalKey::parse(key).map_or(VIRTUAL_KEY(0), LogicalKey::to_vk)
     }
 }
 
