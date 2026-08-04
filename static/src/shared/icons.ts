@@ -26,4 +26,21 @@ export const SVG_TEMPLATES = {
             <path stroke-linecap="round" stroke-width="2" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8-4-4m0 0L8 8m4-4v12"/>
         </svg>`;
     },
+    icon: (path: string, cls = "w-4 h-4") => `
+        <svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/>
+        </svg>`,
+    play: () => SVG_TEMPLATES.icon("M7 5L19 12L7 19Z"),
+    stop: (cls = "w-4 h-4") => `
+        <svg class="${cls}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="6" y="6" width="12" height="12" rx="2" stroke-width="2"></rect>
+        </svg>`,
+    network: () => `
+        <svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="3" ry="9"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h18"/>
+        </svg>`,
+    storage: () => `
+        <svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <ellipse cx="12" cy="6" rx="8" ry="3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6v12a8 3 0 0016 0V6M4 10a8 3 0 0016 0M4 14a8 3 0 0016 0"/>
+        </svg>`,
 };

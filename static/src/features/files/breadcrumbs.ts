@@ -1,3 +1,4 @@
+import { SVG_TEMPLATES } from "@/shared/icons";
 import { isWindowsPath } from "./path-utils";
 
 export function renderBreadcrumbs(
@@ -29,7 +30,7 @@ export function renderBreadcrumbs(
         return btn;
     };
 
-    const chevron = `<svg class="w-3.5 h-3.5 text-zinc-600 shrink-0 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+    const chevron = SVG_TEMPLATES.icon("M9 5l7 7-7 7", "w-3.5 h-3.5 text-zinc-600 shrink-0 mx-0.5");
 
     if (!path || path === "/" || path === "") {
         container.append(createPartBtn(path === "" ? "This PC" : "/", path === "" ? "" : "/", true));

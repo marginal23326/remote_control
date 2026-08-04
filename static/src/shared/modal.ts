@@ -25,7 +25,7 @@ function createModal(
             <button class="modal-confirm-btn px-3 py-1.5 ${
                 danger ? "bg-red-950 hover:bg-red-900 text-red-400" : "bg-zinc-100 hover:bg-white text-zinc-900"
             } rounded-md text-sm font-medium transition-colors flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                ${SVG_TEMPLATES.icon("M5 13l4 4L19 7", "w-3.5 h-3.5")}
                 ${escapeHtml(confirmLabel)}
             </button>
         </div>

@@ -1,10 +1,7 @@
 import { apiCall } from "@/shared/api";
 import { byId, escapeHtml } from "@/shared/dom-helpers";
+import { SVG_TEMPLATES } from "@/shared/icons";
 import type { SystemInfo } from "@/shared/types";
-
-const svg = (inner: string) =>
-    `<svg class="w-4 h-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">${inner}</svg>`;
-const path = (d: string) => `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/>`;
 
 function formatUptime(totalSeconds: number): string {
     const days = Math.floor(totalSeconds / 86400);
@@ -40,7 +37,10 @@ async function updateSystemInfo(): Promise<void> {
                 ["Time & Location", [info.timezone, info.country].filter(Boolean).join(" - ")],
                 ["Uptime", formatUptime(info.uptime_seconds)],
             ],
-            icon: svg(path("M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14q2 0 2-2V5q0-2-2-2H5q-2 0-2 2v10q0 2 2 2z")),
+            icon: SVG_TEMPLATES.icon(
+                "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14q2 0 2-2V5q0-2-2-2H5q-2 0-2 2v10q0 2 2 2z",
+                "w-4 h-4 shrink-0 text-zinc-400",
+            ),
             title: "Identity & OS",
         },
         {
@@ -55,10 +55,9 @@ async function updateSystemInfo(): Promise<void> {
                 ["Monitors", formatList(info.monitors)],
                 ["Battery", info.battery],
             ],
-            icon: svg(
-                path(
-                    "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10q2 0 2-2V7q0-2-2-2H7q-2 0-2 2v10q0 2 2 2M9 9h6v6H9z",
-                ),
+            icon: SVG_TEMPLATES.icon(
+                "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10q2 0 2-2V7q0-2-2-2H7q-2 0-2 2v10q0 2 2 2M9 9h6v6H9z",
+                "w-4 h-4 shrink-0 text-zinc-400",
             ),
             title: "Hardware",
         },
@@ -70,7 +69,7 @@ async function updateSystemInfo(): Promise<void> {
                 ["Antivirus", formatList(info.antivirus)],
                 ["Firewall", info.firewall],
             ],
-            icon: svg(`<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="3" ry="9"/>` + path("M3 12h18")),
+            icon: SVG_TEMPLATES.network(),
             title: "Network & Security",
         },
         {
@@ -82,10 +81,7 @@ async function updateSystemInfo(): Promise<void> {
                 ],
                 ["Active Processes", `${info.active_processes}`],
             ],
-            icon: svg(
-                `<ellipse cx="12" cy="6" rx="8" ry="3"/>` +
-                    path("M4 6v12a8 3 0 0016 0V6M4 10a8 3 0 0016 0M4 14a8 3 0 0016 0"),
-            ),
+            icon: SVG_TEMPLATES.storage(),
             title: "Storage & Status",
         },
     ];

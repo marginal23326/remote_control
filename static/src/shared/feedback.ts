@@ -156,7 +156,7 @@ export function showNotification(message: string, type: NotificationType = "erro
     const { icon, path } = config[type];
     toast.innerHTML = `
         <div class="shrink-0 ${icon} mt-0.5">
-            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>
+            ${SVG_TEMPLATES.icon(path, "w-[18px] h-[18px]")}
         </div>
         <div class="flex-1 min-w-0 break-words">
             <span class="notification-text whitespace-pre-wrap text-[13px] leading-snug text-zinc-200"></span>

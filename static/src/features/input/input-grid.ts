@@ -1,7 +1,5 @@
+import { SVG_TEMPLATES } from "@/shared/icons";
 import { byId } from "@/shared/dom-helpers";
-
-const renderIcon = (path: string): string =>
-    `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>`;
 
 export function renderInputGrids(): void {
     // Shared button style
@@ -38,12 +36,12 @@ export function renderInputGrids(): void {
     // 3. Navigation / Arrows (D-Pad)
     byId("navGrid")!.innerHTML = `
         <div class="flex gap-2">
-            <button class="${btnCls} w-10" data-key="up">${renderIcon("M5 10l7-7m0 0l7 7m-7-7v18")}</button>
+            <button class="${btnCls} w-10" data-key="up">${SVG_TEMPLATES.icon("M5 10l7-7m0 0l7 7m-7-7v18")}</button>
         </div>
         <div class="flex gap-2">
-            <button class="${btnCls} w-10" data-key="left">${renderIcon("M10 19l-7-7m0 0l7-7m-7 7h18")}</button>
-            <button class="${btnCls} w-10" data-key="down">${renderIcon("M19 14l-7 7m0 0l-7-7m7 7V3")}</button>
-            <button class="${btnCls} w-10" data-key="right">${renderIcon("M14 5l7 7m0 0l-7 7m7-7H3")}</button>
+            <button class="${btnCls} w-10" data-key="left">${SVG_TEMPLATES.icon("M10 19l-7-7m0 0l7-7m-7 7h18")}</button>
+            <button class="${btnCls} w-10" data-key="down">${SVG_TEMPLATES.icon("M19 14l-7 7m0 0l-7-7m7 7V3")}</button>
+            <button class="${btnCls} w-10" data-key="right">${SVG_TEMPLATES.icon("M14 5l7 7m0 0l-7 7m7-7H3")}</button>
         </div>
     `;
 }
