@@ -1,11 +1,14 @@
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use std::thread;
 use std::time::Duration;
 
 use bytes::Bytes;
-use crossbeam_channel::{Sender, bounded};
+use crossbeam_channel::{Receiver, Sender, bounded};
 
 use gst::prelude::*;
 use gstreamer as gst;
@@ -239,85 +242,7 @@ impl ScreenManager {
             })
         };
 
-        let is_running_enc = is_running.clone();
-        let settings_enc = settings.clone();
-        let frame_rx_enc = frame_rx;
-
-        let (scaler_recycle_tx, scaler_recycle_rx): (Sender<Vec<u8>>, _) = bounded(3);
-        let capture_recycle_tx = recycle_tx.clone();
-
-        thread::spawn(move || {
-            use fast_image_resize::{
-                PixelType, ResizeAlg, ResizeOptions, Resizer,
-                images::{Image, ImageRef},
-            };
-
-            let mut resizer = Resizer::new();
-            let mut last_width = 0;
-            let mut last_height = 0;
-
-            while is_running_enc.load(Ordering::SeqCst) {
-                let Ok(mut raw) = frame_rx_enc.recv_timeout(Duration::from_millis(100)) else {
-                    continue;
-                };
-
-                if !is_running_enc.load(Ordering::SeqCst) {
-                    break;
-                }
-
-                let scale_pct = settings_enc.lock().resolution_percentage;
-
-                let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
-                let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
-
-                let (push_buf, push_tx) = if new_w != raw.width || new_h != raw.height {
-                    let required = (new_w * new_h * 4) as usize;
-
-                    let mut final_buf = scaler_recycle_rx.try_recv().unwrap_or_else(|_| vec![0u8; required]);
-                    if final_buf.len() != required {
-                        final_buf.resize(required, 0);
-                    }
-
-                    let src = ImageRef::new(raw.width, raw.height, &raw.buffer, PixelType::U8x4).unwrap();
-                    let mut dst = Image::from_slice_u8(new_w, new_h, &mut final_buf, PixelType::U8x4).unwrap();
-                    let opts = ResizeOptions::new().resize_alg(ResizeAlg::Nearest);
-
-                    if resizer.resize(&src, &mut dst, &opts).is_ok() {
-                        let _ = capture_recycle_tx.try_send(raw.buffer);
-
-                        raw.width = new_w;
-                        raw.height = new_h;
-                        (final_buf, scaler_recycle_tx.clone())
-                    } else {
-                        (raw.buffer, capture_recycle_tx.clone())
-                    }
-                } else {
-                    (raw.buffer, capture_recycle_tx.clone())
-                };
-
-                if raw.width != last_width || raw.height != last_height {
-                    let caps = gst::Caps::builder("video/x-raw")
-                        .field("format", "BGRA")
-                        .field("width", raw.width as i32)
-                        .field("height", raw.height as i32)
-                        .build();
-                    appsrc.set_caps(Some(&caps));
-                    last_width = raw.width;
-                    last_height = raw.height;
-                }
-
-                let recycled = RecycleBin {
-                    buffer: Some(push_buf),
-                    tx: push_tx,
-                };
-
-                let buffer = gst::Buffer::from_mut_slice(recycled);
-                if appsrc.push_buffer(buffer).is_err() {
-                    tracing::debug!("Appsrc: push_buffer failed (shutting down?)");
-                    break;
-                }
-            }
-        });
+        Self::spawn_resize_encode_thread(is_running, settings, frame_rx, appsrc, min_dim, recycle_tx);
 
         inner.emit_handle = Some(emit_handle);
         self.session.finish_or_abort(
@@ -413,6 +338,90 @@ impl ScreenManager {
         );
 
         input_handle
+    }
+
+    fn spawn_resize_encode_thread(
+        is_running: Arc<AtomicBool>,
+        settings: Arc<Mutex<StreamSettings>>,
+        frame_rx: Receiver<RawFrame>,
+        appsrc: gstreamer_app::AppSrc,
+        min_dim: u32,
+        recycle_tx: Sender<Vec<u8>>,
+    ) {
+        let (scaler_recycle_tx, scaler_recycle_rx): (Sender<Vec<u8>>, _) = bounded(3);
+
+        thread::spawn(move || {
+            use fast_image_resize::{
+                PixelType, ResizeAlg, ResizeOptions, Resizer,
+                images::{Image, ImageRef},
+            };
+
+            let mut resizer = Resizer::new();
+            let mut last_width = 0;
+            let mut last_height = 0;
+
+            while is_running.load(Ordering::SeqCst) {
+                let Ok(mut raw) = frame_rx.recv_timeout(Duration::from_millis(100)) else {
+                    continue;
+                };
+
+                if !is_running.load(Ordering::SeqCst) {
+                    break;
+                }
+
+                let scale_pct = settings.lock().resolution_percentage;
+
+                let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
+                let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
+
+                let (push_buf, push_tx) = if new_w != raw.width || new_h != raw.height {
+                    let required = (new_w * new_h * 4) as usize;
+
+                    let mut final_buf = scaler_recycle_rx.try_recv().unwrap_or_else(|_| vec![0u8; required]);
+                    if final_buf.len() != required {
+                        final_buf.resize(required, 0);
+                    }
+
+                    let src = ImageRef::new(raw.width, raw.height, &raw.buffer, PixelType::U8x4).unwrap();
+                    let mut dst = Image::from_slice_u8(new_w, new_h, &mut final_buf, PixelType::U8x4).unwrap();
+                    let opts = ResizeOptions::new().resize_alg(ResizeAlg::Nearest);
+
+                    if resizer.resize(&src, &mut dst, &opts).is_ok() {
+                        let _ = recycle_tx.try_send(raw.buffer);
+
+                        raw.width = new_w;
+                        raw.height = new_h;
+                        (final_buf, scaler_recycle_tx.clone())
+                    } else {
+                        (raw.buffer, recycle_tx.clone())
+                    }
+                } else {
+                    (raw.buffer, recycle_tx.clone())
+                };
+
+                if raw.width != last_width || raw.height != last_height {
+                    let caps = gst::Caps::builder("video/x-raw")
+                        .field("format", "BGRA")
+                        .field("width", raw.width as i32)
+                        .field("height", raw.height as i32)
+                        .build();
+                    appsrc.set_caps(Some(&caps));
+                    last_width = raw.width;
+                    last_height = raw.height;
+                }
+
+                let recycled = RecycleBin {
+                    buffer: Some(push_buf),
+                    tx: push_tx,
+                };
+
+                let buffer = gst::Buffer::from_mut_slice(recycled);
+                if appsrc.push_buffer(buffer).is_err() {
+                    tracing::debug!("Appsrc: push_buffer failed (shutting down?)");
+                    break;
+                }
+            }
+        });
     }
 
     fn attach_mouse_data_channel(
