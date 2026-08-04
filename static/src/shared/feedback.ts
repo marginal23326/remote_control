@@ -162,7 +162,7 @@ export function showNotification(message: string, type: NotificationType = "erro
             <span class="notification-text whitespace-pre-wrap text-[13px] leading-snug text-zinc-200"></span>
         </div>
         <button class="p-1 -mr-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            ${SVG_TEMPLATES.cross("w-3.5 h-3.5")}
         </button>
     `;
 

@@ -1,5 +1,6 @@
 import { escapeHtml } from "./dom-helpers";
 import { showNotification } from "./feedback";
+import { SVG_TEMPLATES } from "./icons";
 
 interface CreateModalOptions {
     confirmLabel: string;
@@ -18,7 +19,7 @@ function createModal(
         ${bodyHtml}
         <div class="flex justify-end gap-2 mt-5">
             <button class="modal-cancel-btn px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                ${SVG_TEMPLATES.cross("w-3.5 h-3.5")}
                 ${escapeHtml(cancelLabel)}
             </button>
             <button class="modal-confirm-btn px-3 py-1.5 ${
