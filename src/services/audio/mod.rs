@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use ts_rs::TS;
 
-use crate::services::owned_worker::{OwnedSession, Stoppable};
+use crate::services::owned_worker::{OwnedSession, StartGuard, Stoppable};
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 
@@ -88,6 +88,17 @@ impl AudioManager {
         }
     }
 
+    fn finish_thread_session(
+        session: &OwnedSession<ThreadWorker>,
+        guard: StartGuard<'_>,
+        run: impl FnOnce(Arc<AtomicBool>) + Send + 'static,
+    ) -> anyhow::Result<()> {
+        let worker = ThreadWorker::spawn(run);
+        session.finish_or_abort(guard, worker, ThreadWorker::stop, || {
+            anyhow::anyhow!("Client disconnected during audio startup")
+        })
+    }
+
     pub fn start_server_stream(
         &self,
         socket: SocketRef,
@@ -101,14 +112,10 @@ impl AudioManager {
             .try_start(socket.id.to_string())
             .map_err(|_| anyhow::anyhow!("Server audio is already active on another client"))?;
 
-        let worker = ThreadWorker::spawn(move |is_running| {
+        Self::finish_thread_session(&self.server, guard, move |is_running| {
             if let Err(e) = backend::server_loop(socket, source, device_id, rate, is_running) {
                 tracing::error!("Server audio capture error: {e:#}");
             }
-        });
-
-        self.server.finish_or_abort(guard, worker, ThreadWorker::stop, || {
-            anyhow::anyhow!("Client disconnected during audio startup")
         })
     }
 
@@ -130,14 +137,10 @@ impl AudioManager {
         while self.client_audio_buffer.pop().is_some() {}
 
         let queue = self.client_audio_buffer.clone();
-        let worker = ThreadWorker::spawn(move |is_running| {
+        Self::finish_thread_session(&self.client, guard, move |is_running| {
             if let Err(e) = backend::client_loop(rate, is_running, queue) {
                 tracing::error!("Client audio playback error: {e:#}");
             }
-        });
-
-        self.client.finish_or_abort(guard, worker, ThreadWorker::stop, || {
-            anyhow::anyhow!("Client disconnected during audio startup")
         })
     }
 
