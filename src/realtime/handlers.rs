@@ -340,9 +340,7 @@ pub async fn handle_stop_camera_stream(State(state): State<AppState>) {
 }
 
 fn extract_sdp(data: &serde_json::Value) -> Option<String> {
-    data.as_str()
-        .or_else(|| data.as_array()?.first()?.as_str())
-        .map(str::to_string)
+    data.as_str().map(str::to_string)
 }
 
 fn extract_ice(data: &serde_json::Value) -> Option<(u32, String)> {
