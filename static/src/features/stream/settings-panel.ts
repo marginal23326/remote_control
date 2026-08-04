@@ -8,6 +8,17 @@ import type { StreamSettings, UpdateStreamSettingsPayload } from "@/shared/types
 
 let maxFps = 60;
 
+const settingsUI = {
+    bitrateInput: byId<HTMLInputElement>("streamBitrate")!,
+    resolutionInput: byId<HTMLInputElement>("streamResolution")!,
+    fpsInput: byId<HTMLInputElement>("streamFPS")!,
+    bitrateValue: byId("bitrateValue")!,
+    resolutionValue: byId("resolutionValue")!,
+    fpsValue: byId("fpsValue")!,
+    encoderTypeLabel: byId("encoderTypeLabel")!,
+    autoFpsButton: byId("autoFpsButton")!,
+};
+
 export function updateSettingsDisplay(settings: StreamSettings | null | undefined): void {
     if (!settings) return;
 
@@ -19,24 +30,24 @@ export function updateSettingsDisplay(settings: StreamSettings | null | undefine
         setNativeDimensions(settings.native_width, settings.native_height);
     }
 
-    byId<HTMLInputElement>("streamBitrate")!.value = String(settings.bitrate);
-    byId<HTMLInputElement>("streamResolution")!.value = String(settings.resolution_percentage);
+    settingsUI.bitrateInput.value = String(settings.bitrate);
+    settingsUI.resolutionInput.value = String(settings.resolution_percentage);
     if (settings.max_fps) {
         maxFps = settings.max_fps;
-        byId<HTMLInputElement>("streamFPS")!.max = String(maxFps);
+        settingsUI.fpsInput.max = String(maxFps);
     }
-    byId<HTMLInputElement>("streamFPS")!.value = String(settings.target_fps);
+    settingsUI.fpsInput.value = String(settings.target_fps);
 
     const bitrateVal = settings.bitrate;
-    byId("bitrateValue")!.textContent = formatBitrateLabel(bitrateVal);
+    settingsUI.bitrateValue.textContent = formatBitrateLabel(bitrateVal);
 
     const resText = formatResolutionLabel(settings.resolution_percentage);
-    byId("resolutionValue")!.textContent = resText;
+    settingsUI.resolutionValue.textContent = resText;
 
-    byId("fpsValue")!.textContent = `(Target: ${settings.target_fps} FPS)`;
+    settingsUI.fpsValue.textContent = `(Target: ${settings.target_fps} FPS)`;
 
     if (settings.encoder_type) {
-        byId("encoderTypeLabel")!.textContent = settings.encoder_type;
+        settingsUI.encoderTypeLabel.textContent = settings.encoder_type;
     }
     if (settings.encoder_property_constraints) {
         setEncoderPropertyConstraints(settings.encoder_property_constraints);
@@ -57,18 +68,18 @@ function formatResolutionLabel(pct: number): string {
 }
 
 function updateSliderLabels(): void {
-    const bitrate = Math.trunc(Number(byId<HTMLInputElement>("streamBitrate")!.value));
-    const resolution = Math.trunc(Number(byId<HTMLInputElement>("streamResolution")!.value));
-    const fps = Math.trunc(Number(byId<HTMLInputElement>("streamFPS")!.value));
-    byId("bitrateValue")!.textContent = formatBitrateLabel(bitrate);
-    byId("resolutionValue")!.textContent = formatResolutionLabel(resolution);
-    byId("fpsValue")!.textContent = `(Target: ${fps} FPS)`;
+    const bitrate = Math.trunc(Number(settingsUI.bitrateInput.value));
+    const resolution = Math.trunc(Number(settingsUI.resolutionInput.value));
+    const fps = Math.trunc(Number(settingsUI.fpsInput.value));
+    settingsUI.bitrateValue.textContent = formatBitrateLabel(bitrate);
+    settingsUI.resolutionValue.textContent = formatResolutionLabel(resolution);
+    settingsUI.fpsValue.textContent = `(Target: ${fps} FPS)`;
 }
 
 async function updateStreamSettings(includeEncoderProps = false): Promise<void> {
-    const bitrate = Math.trunc(Number(byId<HTMLInputElement>("streamBitrate")!.value));
-    const resolutionPercentage = Math.trunc(Number(byId<HTMLInputElement>("streamResolution")!.value));
-    const fps = Math.trunc(Number(byId<HTMLInputElement>("streamFPS")!.value));
+    const bitrate = Math.trunc(Number(settingsUI.bitrateInput.value));
+    const resolutionPercentage = Math.trunc(Number(settingsUI.resolutionInput.value));
+    const fps = Math.trunc(Number(settingsUI.fpsInput.value));
 
     const payload: UpdateStreamSettingsPayload = {
         bitrate,
@@ -90,17 +101,17 @@ async function updateStreamSettings(includeEncoderProps = false): Promise<void> 
 }
 
 function setAutoFPS(): void {
-    byId<HTMLInputElement>("streamFPS")!.value = String(maxFps);
-    byId("fpsValue")!.textContent = `${maxFps} FPS`;
+    settingsUI.fpsInput.value = String(maxFps);
+    settingsUI.fpsValue.textContent = `${maxFps} FPS`;
     void updateStreamSettings();
 }
 
 export function initSettingsPanel(): void {
-    for (const id of ["streamBitrate", "streamResolution", "streamFPS"]) {
-        byId(id)!.addEventListener("input", updateSliderLabels);
-        byId(id)!.addEventListener("change", () => void updateStreamSettings());
+    for (const input of [settingsUI.bitrateInput, settingsUI.resolutionInput, settingsUI.fpsInput]) {
+        input.addEventListener("input", updateSliderLabels);
+        input.addEventListener("change", () => void updateStreamSettings());
     }
-    byId("autoFpsButton")!.addEventListener("click", setAutoFPS);
+    settingsUI.autoFpsButton.addEventListener("click", setAutoFPS);
 }
 
 // Front-loaded like the rest of the advanced-settings panel, so it works regardless of when initializeStream() runs.
