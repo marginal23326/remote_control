@@ -71,6 +71,7 @@ pub(crate) unsafe fn get_all_private_working_sets() -> HashMap<u32, u64> {
         return HashMap::new();
     }
 
+    // Each entry is a SYSTEM_PROCESS_INFORMATION (x64 layout): NextEntryOffset @0x00, WorkingSetPrivateSize @0x08, UniqueProcessId @0x50.
     let mut map = HashMap::new();
     let mut offset = 0usize;
     loop {
