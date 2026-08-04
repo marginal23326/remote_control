@@ -1,6 +1,8 @@
 use sysinfo::System;
 use tokio::process::Command;
 
+use crate::utils::units::BYTES_PER_GB;
+
 use super::OsSpecificInfo;
 
 pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
@@ -73,7 +75,7 @@ fn get_disk_labels() -> Vec<String> {
         .list()
         .iter()
         .map(|d| {
-            let size = d.total_space() / 1024 / 1024 / 1024;
+            let size = d.total_space() / BYTES_PER_GB;
             format!("{} ({size}GB)", d.name().to_string_lossy())
         })
         .collect()

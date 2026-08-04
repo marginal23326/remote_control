@@ -1,3 +1,4 @@
+use crate::utils::units::bytes_to_mb_f64;
 use anyhow::{Result, anyhow};
 #[cfg(target_os = "windows")]
 use parking_lot::Mutex;
@@ -94,9 +95,9 @@ impl TaskManager {
             }
 
             #[cfg(not(target_os = "windows"))]
-            let mut mem_mb = proc_info.memory() as f64 / 1024.0 / 1024.0;
+            let mut mem_mb = bytes_to_mb_f64(proc_info.memory());
             #[cfg(target_os = "windows")]
-            let mut mem_mb = pws_map.get(&pid_u32).copied().unwrap_or(0) as f64 / 1024.0 / 1024.0;
+            let mut mem_mb = bytes_to_mb_f64(pws_map.get(&pid_u32).copied().unwrap_or(0));
 
             let mut cpu = proc_info.cpu_usage() / num_cpus;
             if cpu.is_nan() {
@@ -124,7 +125,7 @@ impl TaskManager {
             .process(Pid::from_u32(pid))
             .ok_or_else(|| anyhow!("Process not found"))?;
 
-        let rss_memory_mb = proc.memory() as f64 / 1024.0 / 1024.0;
+        let rss_memory_mb = bytes_to_mb_f64(proc.memory());
         #[allow(unused_mut)]
         let mut exact_memory_mb = rss_memory_mb;
 

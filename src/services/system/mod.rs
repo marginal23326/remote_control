@@ -1,3 +1,4 @@
+use crate::utils::units::{BYTES_PER_GB, BYTES_PER_MB};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -120,8 +121,8 @@ fn get_disk_usage() -> (u64, u64, u64) {
     for disk in disks.list() {
         let mount = disk.mount_point().to_string_lossy();
         if mount == "/" || mount.starts_with("C:") {
-            let total = disk.total_space() / 1024 / 1024 / 1024;
-            let free = disk.available_space() / 1024 / 1024 / 1024;
+            let total = disk.total_space() / BYTES_PER_GB;
+            let free = disk.available_space() / BYTES_PER_GB;
             return (total, total.saturating_sub(free), free);
         }
     }
@@ -159,7 +160,7 @@ pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc
     let (memory_total_mb, active_processes, cpu_threads, cpu_brand, cpu_frequency) = {
         let sys = sys_lock.read();
         (
-            sys.total_memory() / 1024 / 1024,
+            sys.total_memory() / BYTES_PER_MB,
             sys.processes().len(),
             sys.cpus().len(),
             sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default(),

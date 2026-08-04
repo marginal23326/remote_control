@@ -12,6 +12,8 @@ use windows::Win32::System::Wmi::{
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 use windows::core::{BSTR, GUID, HSTRING, PCWSTR};
 
+use crate::utils::units::BYTES_PER_GB;
+
 use super::OsSpecificInfo;
 
 const CLSID_WBEM_LOCATOR: GUID = GUID::from_u128(0x4590f811_1d3a_11d0_891f_00aa004b2e24);
@@ -88,7 +90,7 @@ fn get_disk_info() -> Vec<String> {
         let size_str = &row[1];
 
         if let Ok(bytes) = size_str.parse::<u64>() {
-            let gb = bytes / 1024 / 1024 / 1024;
+            let gb = bytes / BYTES_PER_GB;
             disks.push(format!("{} ({}GB)", model, gb));
         } else {
             disks.push(model.clone());
