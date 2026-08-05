@@ -7,7 +7,7 @@ use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
-use crate::utils::blocking::{run_blocking_or_log, try_blocking};
+use crate::utils::blocking::{run_blocking_or_log, spawn_blocking};
 use serde::Deserialize;
 use socketioxide::extract::{Data, SocketRef, State};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -121,7 +121,7 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
     let shell_manager = state.shell.clone();
     let socket_id_for_create = socket_id.clone();
 
-    let session_result = try_blocking(move || {
+    let session_result = spawn_blocking(move || {
         shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, shell.as_deref(), socket_clone)
     })
     .await;
@@ -235,7 +235,7 @@ pub async fn handle_start_server_audio(
 }
 
 pub async fn handle_list_audio_sources(socket: SocketRef) {
-    let sources = try_blocking(AudioManager::list_sources).await;
+    let sources = spawn_blocking(AudioManager::list_sources).await;
 
     match sources {
         Ok(sources) => {
@@ -314,7 +314,7 @@ pub async fn handle_start_camera_stream(
 ) {
     let camera = state.camera.clone();
     let stream_socket = socket.clone();
-    let result = try_blocking(move || camera.start_stream(stream_socket, state, data.device_id)).await;
+    let result = spawn_blocking(move || camera.start_stream(stream_socket, state, data.device_id)).await;
 
     if let Err(e) = result {
         tracing::error!("Failed to start: {e:#}");

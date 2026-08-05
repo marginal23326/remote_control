@@ -27,6 +27,12 @@ pub enum AppError {
     Forbidden(String),
 }
 
+impl From<tokio::task::JoinError> for AppError {
+    fn from(e: tokio::task::JoinError) -> Self {
+        AppError::InternalError(anyhow::anyhow!("Task join error: {e}"))
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match &self {
@@ -69,8 +75,5 @@ where
     T: Send + 'static,
     E: Into<AppError> + Send + 'static,
 {
-    match tokio::task::spawn_blocking(f).await {
-        Ok(result) => result.map_err(Into::into),
-        Err(e) => Err(AppError::InternalError(anyhow::anyhow!("Task join error: {e}"))),
-    }
+    crate::utils::blocking::spawn_blocking(move || f().map_err(Into::into)).await
 }
