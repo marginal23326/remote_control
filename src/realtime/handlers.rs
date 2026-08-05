@@ -87,6 +87,16 @@ pub struct StartStreamConfig {
 
 // --- HANDLERS ---
 
+fn emit_error(socket: &SocketRef, event: ServerEvent, action: &str, err: impl std::fmt::Display) {
+    tracing::error!("Failed to {action}: {err:#}");
+    let _ = socket.emit(
+        event.as_str(),
+        &MessagePayload {
+            message: err.to_string(),
+        },
+    );
+}
+
 pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<AppState>) {
     apply_mouse_event(&state.input, data).await;
 }
@@ -143,13 +153,7 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
                 std::thread::spawn(move || drop(session));
             }
         }
-        Err(e) => {
-            tracing::error!("Failed to create shell: {}", e);
-            let _ = socket.emit(
-                ServerEvent::ShellError.as_str(),
-                &MessagePayload { message: e.to_string() },
-            );
-        }
+        Err(e) => emit_error(&socket, ServerEvent::ShellError, "create shell", e),
     }
 }
 
@@ -226,28 +230,16 @@ pub async fn handle_start_server_audio(
     let device_id = data.device_id.filter(|id| !id.is_empty());
 
     if let Err(e) = audio.start_server_stream(socket.clone(), source, device_id, rate) {
-        tracing::error!("Failed to start server audio: {e:#}");
-        let _ = socket.emit(
-            ServerEvent::ServerAudioError.as_str(),
-            &MessagePayload { message: e.to_string() },
-        );
+        emit_error(&socket, ServerEvent::ServerAudioError, "start server audio", e);
     }
 }
 
 pub async fn handle_list_audio_sources(socket: SocketRef) {
-    let sources = spawn_blocking(AudioManager::list_sources).await;
-
-    match sources {
+    match spawn_blocking(AudioManager::list_sources).await {
         Ok(sources) => {
             let _ = socket.emit(ServerEvent::AudioSources.as_str(), &AudioSourcesPayload { sources });
         }
-        Err(e) => {
-            tracing::error!("Failed to list audio sources: {e:#}");
-            let _ = socket.emit(
-                ServerEvent::AudioSourcesError.as_str(),
-                &MessagePayload { message: e.to_string() },
-            );
-        }
+        Err(e) => emit_error(&socket, ServerEvent::AudioSourcesError, "list audio sources", e),
     }
 }
 
@@ -264,11 +256,7 @@ pub async fn handle_start_client_audio(
     let rate = data.rate.unwrap_or(48000);
 
     if let Err(e) = audio.start_client_playback(socket.id.to_string(), rate) {
-        tracing::error!("Failed to start client playback: {e:#}");
-        let _ = socket.emit(
-            ServerEvent::ClientAudioError.as_str(),
-            &MessagePayload { message: e.to_string() },
-        );
+        emit_error(&socket, ServerEvent::ClientAudioError, "start client playback", e);
     }
 }
 
@@ -294,11 +282,7 @@ pub async fn handle_start_stream(
         .start_stream(socket.clone(), state, data.capture_cursor.unwrap_or(true))
         .await
     {
-        tracing::error!("Failed to start: {e:#}");
-        let _ = socket.emit(
-            ServerEvent::WebrtcError.as_str(),
-            &MessagePayload { message: e.to_string() },
-        );
+        emit_error(&socket, ServerEvent::WebrtcError, "start stream", e);
     }
 }
 
@@ -317,11 +301,7 @@ pub async fn handle_start_camera_stream(
     let result = spawn_blocking(move || camera.start_stream(stream_socket, state, data.device_id)).await;
 
     if let Err(e) = result {
-        tracing::error!("Failed to start: {e:#}");
-        let _ = socket.emit(
-            ServerEvent::CameraWebrtcError.as_str(),
-            &MessagePayload { message: e.to_string() },
-        );
+        emit_error(&socket, ServerEvent::CameraWebrtcError, "start camera stream", e);
     }
 }
 
