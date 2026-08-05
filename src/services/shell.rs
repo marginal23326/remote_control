@@ -64,6 +64,16 @@ impl ShellManager {
             let mut buffer = [0u8; 1024];
             let mut leftover = Vec::new();
 
+            let emit = |output: &str| {
+                let _ = socket_clone.emit(
+                    ServerEvent::ShellOutput.as_str(),
+                    &ShellOutputPayload {
+                        session_id: sid.clone(),
+                        output: output.to_string(),
+                    },
+                );
+            };
+
             loop {
                 let n = match reader.read(&mut buffer) {
                     Ok(n) if n > 0 => n,
@@ -74,13 +84,7 @@ impl ShellManager {
                 while !leftover.is_empty() {
                     match std::str::from_utf8(&leftover) {
                         Ok(s) => {
-                            let _ = socket_clone.emit(
-                                ServerEvent::ShellOutput.as_str(),
-                                &ShellOutputPayload {
-                                    session_id: sid.clone(),
-                                    output: s.to_string(),
-                                },
-                            );
+                            emit(s);
                             leftover.clear();
                             break;
                         }
@@ -89,26 +93,13 @@ impl ShellManager {
 
                             if valid > 0 {
                                 let s = std::str::from_utf8(&leftover[..valid]).unwrap();
-                                let _ = socket_clone.emit(
-                                    ServerEvent::ShellOutput.as_str(),
-                                    &ShellOutputPayload {
-                                        session_id: sid.clone(),
-                                        output: s.to_string(),
-                                    },
-                                );
-
+                                emit(s);
                                 leftover.drain(..valid);
                                 continue;
                             }
 
                             if let Some(err_len) = e.error_len() {
-                                let _ = socket_clone.emit(
-                                    ServerEvent::ShellOutput.as_str(),
-                                    &ShellOutputPayload {
-                                        session_id: sid.clone(),
-                                        output: "\u{FFFD}".to_string(),
-                                    },
-                                );
+                                emit("\u{FFFD}");
                                 leftover.drain(..err_len);
                                 continue;
                             } else {
