@@ -116,8 +116,7 @@ fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> Option<String> {
     None
 }
 
-fn get_disk_usage() -> (u64, u64, u64) {
-    let disks = sysinfo::Disks::new_with_refreshed_list();
+pub(crate) fn disk_usage_from(disks: &sysinfo::Disks) -> (u64, u64, u64) {
     for disk in disks.list() {
         let mount = disk.mount_point().to_string_lossy();
         if mount == "/" || mount.starts_with("C:") {
@@ -149,6 +148,9 @@ pub(crate) struct OsSpecificInfo {
     pub antivirus: Vec<String>,
     pub firewall: String,
     pub cpu_max_speed_mhz: Option<u32>,
+    pub disk_total_gb: u64,
+    pub disk_used_gb: u64,
+    pub disk_free_gb: u64,
 }
 
 pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemBaseInfo {
@@ -185,26 +187,22 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
     let net_lock = state.networks.clone();
     let tasks = state.tasks.clone();
 
-    let (base, lan_ip, mac, username, pc_name, hostname, disk_total, disk_used, disk_free) =
-        tokio::task::spawn_blocking(move || {
-            tasks.refresh_sysinfo_if_needed();
+    let (base, lan_ip, mac, username, pc_name, hostname) = tokio::task::spawn_blocking(move || {
+        tasks.refresh_sysinfo_if_needed();
 
-            let base = refresh_system_info(&sys_lock, &net_lock);
-            let lan_ip = get_local_ip();
-            let mac = get_mac_address(&net_lock);
-            let username = whoami::username().unwrap_or_else(|_| "Unknown".to_string());
-            let pc_name = whoami::devicename().unwrap_or_else(|_| "Unknown".to_string());
-            let hostname = hostname::get()
-                .map(|h| h.to_string_lossy().to_string())
-                .unwrap_or_else(|_| "Unknown".to_string());
-            let (disk_total, disk_used, disk_free) = get_disk_usage();
+        let base = refresh_system_info(&sys_lock, &net_lock);
+        let lan_ip = get_local_ip();
+        let mac = get_mac_address(&net_lock);
+        let username = whoami::username().unwrap_or_else(|_| "Unknown".to_string());
+        let pc_name = whoami::devicename().unwrap_or_else(|_| "Unknown".to_string());
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "Unknown".to_string());
 
-            (
-                base, lan_ip, mac, username, pc_name, hostname, disk_total, disk_used, disk_free,
-            )
-        })
-        .await
-        .unwrap();
+        (base, lan_ip, mac, username, pc_name, hostname)
+    })
+    .await
+    .unwrap();
 
     let wan_info = match state.wan_info.get_or_try_init(fetch_wan_info).await {
         Ok(info) => info.clone(),
@@ -249,9 +247,9 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
         antivirus: os_info.antivirus,
         firewall: os_info.firewall,
         cpu_max_speed_mhz: os_info.cpu_max_speed_mhz,
-        disk_total_gb: disk_total,
-        disk_used_gb: disk_used,
-        disk_free_gb: disk_free,
+        disk_total_gb: os_info.disk_total_gb,
+        disk_used_gb: os_info.disk_used_gb,
+        disk_free_gb: os_info.disk_free_gb,
     }
 }
 

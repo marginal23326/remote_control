@@ -6,17 +6,24 @@ use crate::utils::units::BYTES_PER_GB;
 use super::OsSpecificInfo;
 
 pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
-    let (disks, os, gpu, monitors, battery) = tokio::task::spawn_blocking(move || {
-        (
-            get_disk_labels(),
-            linux_os_name(),
-            read_gpu_info(),
-            read_monitor_info(),
-            read_battery_status(),
-        )
-    })
-    .await
-    .unwrap();
+    let (disks, disk_total_gb, disk_used_gb, disk_free_gb, os, gpu, monitors, battery) =
+        tokio::task::spawn_blocking(move || {
+            let disks_snapshot = sysinfo::Disks::new_with_refreshed_list();
+            let (disk_total_gb, disk_used_gb, disk_free_gb) = super::disk_usage_from(&disks_snapshot);
+
+            (
+                get_disk_labels(&disks_snapshot),
+                disk_total_gb,
+                disk_used_gb,
+                disk_free_gb,
+                linux_os_name(),
+                read_gpu_info(),
+                read_monitor_info(),
+                read_battery_status(),
+            )
+        })
+        .await
+        .unwrap();
 
     let firewall = get_firewall_status().await;
 
@@ -31,6 +38,9 @@ pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
         antivirus: Vec::new(),
         firewall,
         cpu_max_speed_mhz: (cpu_frequency > 0).then_some(cpu_frequency as u32),
+        disk_total_gb,
+        disk_used_gb,
+        disk_free_gb,
     }
 }
 
@@ -69,8 +79,7 @@ fn linux_os_name() -> String {
     }
 }
 
-fn get_disk_labels() -> Vec<String> {
-    let disks = sysinfo::Disks::new_with_refreshed_list();
+fn get_disk_labels(disks: &sysinfo::Disks) -> Vec<String> {
     disks
         .list()
         .iter()

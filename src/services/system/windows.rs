@@ -22,6 +22,8 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
     tokio::task::spawn_blocking(move || {
         let gpu_info = get_gpu_info();
         let disk_info = get_disk_info();
+        let disks_snapshot = sysinfo::Disks::new_with_refreshed_list();
+        let (disk_total_gb, disk_used_gb, disk_free_gb) = super::disk_usage_from(&disks_snapshot);
         let antivirus_info = get_antivirus_info();
         let cpu_max_speed_mhz = get_cpu_max_speed();
         let os_edition = get_windows_product_name().unwrap_or_else(|| "Windows".to_string());
@@ -42,6 +44,9 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
             antivirus: antivirus_info,
             firewall: get_firewall_status(),
             cpu_max_speed_mhz,
+            disk_total_gb,
+            disk_used_gb,
+            disk_free_gb,
         }
     })
     .await
