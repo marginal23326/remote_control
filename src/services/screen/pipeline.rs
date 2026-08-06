@@ -56,30 +56,23 @@ fn constraint_from_pspec(pspec: &glib::ParamSpec) -> EncoderPropertyConstraint {
     if pspec.downcast_ref::<glib::ParamSpecBoolean>().is_some() {
         return plain(EncoderValueType::Bool, None, None);
     }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt>() {
-        return plain(
-            EncoderValueType::Int,
-            Some(p.minimum().into()),
-            Some(p.maximum().into()),
-        );
+
+    macro_rules! int_range {
+        ($($ty:ty),+ $(,)?) => {
+            $(
+                if let Some(p) = pspec.downcast_ref::<$ty>() {
+                    return plain(EncoderValueType::Int, Some(p.minimum() as i64), Some(p.maximum() as i64));
+                }
+            )+
+        };
     }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt>() {
-        return plain(
-            EncoderValueType::Int,
-            Some(p.minimum().into()),
-            Some(p.maximum().into()),
-        );
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecInt64>() {
-        return plain(EncoderValueType::Int, Some(p.minimum()), Some(p.maximum()));
-    }
-    if let Some(p) = pspec.downcast_ref::<glib::ParamSpecUInt64>() {
-        return plain(
-            EncoderValueType::Int,
-            Some(p.minimum() as i64),
-            Some(p.maximum() as i64),
-        );
-    }
+    int_range!(
+        glib::ParamSpecInt,
+        glib::ParamSpecUInt,
+        glib::ParamSpecInt64,
+        glib::ParamSpecUInt64,
+    );
+
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecEnum>() {
         let values = p.enum_class().values().iter().map(|v| v.nick().to_string()).collect();
         return EncoderPropertyConstraint {
