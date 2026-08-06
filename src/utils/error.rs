@@ -14,9 +14,6 @@ pub enum AppError {
     #[error("Internal Server Error: {0}")]
     InternalError(#[from] anyhow::Error),
 
-    #[error("Input/Output Error: {0}")]
-    IoError(#[from] std::io::Error),
-
     #[error("Bad Request: {0}")]
     BadRequest(String),
 
@@ -38,7 +35,6 @@ impl IntoResponse for AppError {
         let (status, error_message) = match &self {
             AppError::AuthError(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             AppError::InternalError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
-            AppError::IoError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),

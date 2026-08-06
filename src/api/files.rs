@@ -257,7 +257,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         }
 
         if path.is_file() {
-            let file = File::open(path).await?;
+            let file = File::open(path).await.map_err(anyhow::Error::from)?;
             let stream = ReaderStream::new(file);
             let body = Body::from_stream(stream);
             let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
