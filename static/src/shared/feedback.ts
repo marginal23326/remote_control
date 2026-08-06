@@ -91,6 +91,19 @@ export class LoadingButton {
     }
 }
 
+export async function runWithFeedback(
+    loader: LoadingButton,
+    action: () => Promise<void>,
+    errorPrefix?: string,
+): Promise<void> {
+    try {
+        await loader.withLoading(action);
+    } catch (error) {
+        const message = (error as Error).message;
+        showNotification(errorPrefix ? `${errorPrefix}: ${message}` : message, "error");
+    }
+}
+
 type NotificationType = "error" | "warning" | "info";
 
 interface NotificationWrapper extends HTMLDivElement {

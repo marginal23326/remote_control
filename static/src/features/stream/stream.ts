@@ -1,6 +1,6 @@
 import { apiCall } from "@/shared/api";
 import { byId, onAsync } from "@/shared/dom-helpers";
-import { LoadingButton, showNotification } from "@/shared/feedback";
+import { LoadingButton, runWithFeedback, showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { registerShortcuts } from "@/core/shortcuts";
 import {
@@ -76,9 +76,8 @@ export function initializeStream(socket: AppSocket): void {
 
     onAsync(byId("screenshot"), "click", async () => {
         const loader = new LoadingButton(byId<HTMLButtonElement>("screenshot")!, "");
-        loader.startLoading();
 
-        try {
+        await runWithFeedback(loader, async () => {
             const response = await fetch("/api/stream/screenshot");
             if (!response.ok) {
                 const errorObj = (await response.json().catch(() => ({}))) as { message?: string };
@@ -96,11 +95,7 @@ export function initializeStream(socket: AppSocket): void {
             await executeStopStream();
 
             showNotification("Screenshot captured. Right-click to save.", "info");
-        } catch (error) {
-            showNotification((error as Error).message, "error");
-        } finally {
-            loader.stopLoading();
-        }
+        });
     });
 
     let isFullscreen = false;
@@ -149,21 +144,21 @@ export function initializeStream(socket: AppSocket): void {
                 return;
             }
 
-            const loader = new LoadingButton(e.currentTarget as HTMLButtonElement, "").startLoading();
-            try {
-                if (action === "pull") {
-                    const data = await apiCall<{ text: string }>("/api/system/clipboard", "GET");
-                    await navigator.clipboard.writeText(data.text);
-                } else {
-                    const text = await navigator.clipboard.readText();
-                    await apiCall("/api/system/clipboard", "POST", { text });
-                }
-                showNotification(`${action === "pull" ? "Remote" : "Local"} clipboard synced!`, "info");
-            } catch (error) {
-                showNotification(`Failed to ${action} clipboard: ${(error as Error).message}`, "error");
-            } finally {
-                loader.stopLoading();
-            }
+            const loader = new LoadingButton(e.currentTarget as HTMLButtonElement, "");
+            await runWithFeedback(
+                loader,
+                async () => {
+                    if (action === "pull") {
+                        const data = await apiCall<{ text: string }>("/api/system/clipboard", "GET");
+                        await navigator.clipboard.writeText(data.text);
+                    } else {
+                        const text = await navigator.clipboard.readText();
+                        await apiCall("/api/system/clipboard", "POST", { text });
+                    }
+                    showNotification(`${action === "pull" ? "Remote" : "Local"} clipboard synced!`, "info");
+                },
+                `Failed to ${action} clipboard`,
+            );
         });
     });
 
