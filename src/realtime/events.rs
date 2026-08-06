@@ -27,8 +27,10 @@ struct TaskPayload {
 
 pub fn register(io: SocketIo, state: AppState) {
     io.ns("/", on_connect);
+    spawn_task_stats_broadcaster(io, state);
+}
 
-    let io_clone = io.clone();
+fn spawn_task_stats_broadcaster(io: SocketIo, state: AppState) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
 
@@ -71,13 +73,16 @@ pub fn register(io: SocketIo, state: AppState) {
             .await;
 
             if let Ok(data) = data_res {
-                let _ = io_clone
-                    .to("task_watchers")
-                    .emit(ServerEvent::TaskList.as_str(), &data)
-                    .await;
+                let _ = io.to("task_watchers").emit(ServerEvent::TaskList.as_str(), &data).await;
             }
         }
     });
+}
+
+macro_rules! register_handlers {
+    ($socket:expr, { $($event:ident => $handler:expr),* $(,)? }) => {
+        $( $socket.on(ClientEvent::$event.as_str(), $handler); )*
+    };
 }
 
 async fn on_connect(socket: SocketRef, State(state): State<AppState>) {
@@ -102,36 +107,38 @@ async fn on_connect(socket: SocketRef, State(state): State<AppState>) {
         &AuthStatusPayload { authenticated: true },
     );
 
-    socket.on(ClientEvent::MouseEvent.as_str(), handle_mouse_event);
-    socket.on(ClientEvent::KeyboardEvent.as_str(), handle_keyboard_event);
+    register_handlers!(socket, {
+        MouseEvent => handle_mouse_event,
+        KeyboardEvent => handle_keyboard_event,
 
-    socket.on(ClientEvent::ShellCreate.as_str(), handle_shell_create);
-    socket.on(ClientEvent::ShellInput.as_str(), handle_shell_input);
-    socket.on(ClientEvent::ShellResize.as_str(), handle_shell_resize);
-    socket.on(ClientEvent::ShellClose.as_str(), handle_shell_close);
-    socket.on(ClientEvent::ListShells.as_str(), handle_list_shells);
+        ShellCreate => handle_shell_create,
+        ShellInput => handle_shell_input,
+        ShellResize => handle_shell_resize,
+        ShellClose => handle_shell_close,
+        ListShells => handle_list_shells,
 
-    socket.on(ClientEvent::TaskPollStart.as_str(), handle_task_poll_start);
-    socket.on(ClientEvent::TaskPollStop.as_str(), handle_task_poll_stop);
+        TaskPollStart => handle_task_poll_start,
+        TaskPollStop => handle_task_poll_stop,
 
-    socket.on(ClientEvent::ListAudioSources.as_str(), handle_list_audio_sources);
-    socket.on(ClientEvent::StartServerAudio.as_str(), handle_start_server_audio);
-    socket.on(ClientEvent::StopServerAudio.as_str(), handle_stop_server_audio);
-    socket.on(ClientEvent::StartClientAudio.as_str(), handle_start_client_audio);
-    socket.on(ClientEvent::StopClientAudio.as_str(), handle_stop_client_audio);
-    socket.on(ClientEvent::ClientAudioData.as_str(), handle_client_audio_data);
+        ListAudioSources => handle_list_audio_sources,
+        StartServerAudio => handle_start_server_audio,
+        StopServerAudio => handle_stop_server_audio,
+        StartClientAudio => handle_start_client_audio,
+        StopClientAudio => handle_stop_client_audio,
+        ClientAudioData => handle_client_audio_data,
 
-    socket.on(ClientEvent::StartStream.as_str(), handle_start_stream);
+        StartStream => handle_start_stream,
 
-    socket.on(ClientEvent::WebrtcAnswer.as_str(), handle_webrtc_answer);
-    socket.on(ClientEvent::WebrtcIceCandidate.as_str(), handle_webrtc_ice);
+        WebrtcAnswer => handle_webrtc_answer,
+        WebrtcIceCandidate => handle_webrtc_ice,
 
-    socket.on(ClientEvent::ListCameras.as_str(), handle_list_cameras);
-    socket.on(ClientEvent::StartCameraStream.as_str(), handle_start_camera_stream);
-    socket.on(ClientEvent::StopCameraStream.as_str(), handle_stop_camera_stream);
+        ListCameras => handle_list_cameras,
+        StartCameraStream => handle_start_camera_stream,
+        StopCameraStream => handle_stop_camera_stream,
 
-    socket.on(ClientEvent::CameraWebrtcAnswer.as_str(), handle_camera_webrtc_answer);
-    socket.on(ClientEvent::CameraWebrtcIceCandidate.as_str(), handle_camera_webrtc_ice);
+        CameraWebrtcAnswer => handle_camera_webrtc_answer,
+        CameraWebrtcIceCandidate => handle_camera_webrtc_ice,
+    });
 
     socket.on_disconnect(handle_disconnect);
 }
