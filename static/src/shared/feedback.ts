@@ -1,4 +1,4 @@
-import { byId } from "./dom-helpers";
+import { byId, intValue } from "./dom-helpers";
 import { SVG_TEMPLATES } from "./icons";
 
 const connectionOverlay = byId("connectionOverlay")!;
@@ -125,7 +125,7 @@ export function showNotification(message: string, type: NotificationType = "erro
     ) as NotificationWrapper | undefined;
 
     if (existingWrapper) {
-        const count = Math.trunc(Number(existingWrapper.dataset.count ?? "1")) + 1;
+        const count = intValue(existingWrapper.dataset.count ?? "1") + 1;
         existingWrapper.dataset.count = String(count);
 
         const badge = existingWrapper.querySelector(".notification-badge")!;

@@ -25,6 +25,8 @@ export function byId<T extends HTMLElement = HTMLElement>(id: string): T | null 
     return document.getElementById(id) as T | null;
 }
 
+export const intValue = (value: string | number): number => Math.trunc(Number(value));
+
 export function onAsync<E extends Event = Event>(
     target: EventTarget | null | undefined,
     type: string,

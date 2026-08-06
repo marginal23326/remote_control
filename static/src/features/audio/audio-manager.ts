@@ -1,4 +1,4 @@
-import { byId, onAsync, toggleClasses } from "@/shared/dom-helpers";
+import { byId, intValue, onAsync, toggleClasses } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
@@ -353,7 +353,7 @@ function getServerAudioSettingsFromForm(): AudioKindSettings {
 
     return {
         device_id: isDefault ? null : selected.value,
-        rate: Math.trunc(Number(byId<HTMLInputElement>("serverAudioRate")!.value)),
+        rate: intValue(byId<HTMLInputElement>("serverAudioRate")!.value),
         source: selected.dataset.kind ?? "mic",
     };
 }
@@ -386,8 +386,8 @@ function initializeEventListeners(socket: AppSocket): void {
         }
 
         const settings: AudioKindSettings = {
-            chunk: Math.trunc(Number(byId<HTMLInputElement>("clientAudioChunk")!.value)),
-            rate: Math.trunc(Number(byId<HTMLInputElement>("clientAudioRate")!.value)),
+            chunk: intValue(byId<HTMLInputElement>("clientAudioChunk")!.value),
+            rate: intValue(byId<HTMLInputElement>("clientAudioRate")!.value),
         };
         await startAudioStream(socket, "client", settings);
     });

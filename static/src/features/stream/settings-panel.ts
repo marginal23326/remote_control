@@ -1,5 +1,5 @@
 import { apiCall } from "@/shared/api";
-import { byId } from "@/shared/dom-helpers";
+import { byId, intValue } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { streamState } from "./stream-state";
 import { setNativeDimensions } from "./geometry";
@@ -68,18 +68,18 @@ function formatResolutionLabel(pct: number): string {
 }
 
 function updateSliderLabels(): void {
-    const bitrate = Math.trunc(Number(settingsUI.bitrateInput.value));
-    const resolution = Math.trunc(Number(settingsUI.resolutionInput.value));
-    const fps = Math.trunc(Number(settingsUI.fpsInput.value));
+    const bitrate = intValue(settingsUI.bitrateInput.value);
+    const resolution = intValue(settingsUI.resolutionInput.value);
+    const fps = intValue(settingsUI.fpsInput.value);
     settingsUI.bitrateValue.textContent = formatBitrateLabel(bitrate);
     settingsUI.resolutionValue.textContent = formatResolutionLabel(resolution);
     settingsUI.fpsValue.textContent = `(Target: ${fps} FPS)`;
 }
 
 async function updateStreamSettings(includeEncoderProps = false): Promise<void> {
-    const bitrate = Math.trunc(Number(settingsUI.bitrateInput.value));
-    const resolutionPercentage = Math.trunc(Number(settingsUI.resolutionInput.value));
-    const fps = Math.trunc(Number(settingsUI.fpsInput.value));
+    const bitrate = intValue(settingsUI.bitrateInput.value);
+    const resolutionPercentage = intValue(settingsUI.resolutionInput.value);
+    const fps = intValue(settingsUI.fpsInput.value);
 
     const payload: UpdateStreamSettingsPayload = {
         bitrate,

@@ -1,4 +1,4 @@
-import { byId, escapeHtml, onAsync } from "@/shared/dom-helpers";
+import { byId, escapeHtml, intValue, onAsync } from "@/shared/dom-helpers";
 import { showNotification } from "@/shared/feedback";
 import { showPromptModal } from "@/shared/modal";
 import type { EncoderPropertyConstraint } from "@/shared/types";
@@ -111,7 +111,7 @@ export function readEncoderPropsFromDOM(): Record<string, string> | null {
         const constraint = encoderPropertyConstraints[key];
         if (constraint) {
             if (constraint.value_type === "int") {
-                const num = Math.trunc(Number(val));
+                const num = intValue(val);
                 if (isNaN(num)) {
                     warnings.push(`"${key}": not a valid integer`);
                     return;

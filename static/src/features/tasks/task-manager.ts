@@ -2,7 +2,7 @@ import { apiCall } from "@/shared/api";
 import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import { showConfirmModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
-import { bindDebouncedInput, byId, escapeHtml, updateSortIndicators } from "@/shared/dom-helpers";
+import { bindDebouncedInput, byId, escapeHtml, intValue, updateSortIndicators } from "@/shared/dom-helpers";
 import { registerShortcuts } from "@/core/shortcuts";
 import type { AppSocket } from "@/core/socket";
 import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
@@ -12,7 +12,7 @@ type SortOrder = "asc" | "desc";
 
 async function killProcesses(items: string[]): Promise<void> {
     if (items.length === 0) return;
-    const pids = items.map((pid) => Math.trunc(Number(pid)));
+    const pids = items.map((pid) => intValue(pid));
 
     const confirmed = await showConfirmModal({
         confirmLabel: "End Task",
