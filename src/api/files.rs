@@ -211,7 +211,11 @@ pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Mul
             .await
             {
                 Ok(Ok(ntf)) => ntf,
-                _ => continue,
+                Ok(Err(e)) => {
+                    tracing::error!("Failed to create temp file in {:?}: {}", dir_path, e);
+                    continue;
+                }
+                Err(_) => continue,
             };
 
             // into_parts() gives TempPath which retains the Drop guard that auto-deletes the file.
