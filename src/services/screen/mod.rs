@@ -20,6 +20,7 @@ use super::webrtc_session::{
 };
 use crate::realtime::event_names::ServerEvent;
 use crate::realtime::payloads::ActiveWindowPayload;
+use crate::services::input::MouseEvent;
 
 mod frame;
 mod pipeline;
@@ -260,8 +261,8 @@ impl ScreenManager {
         input: crate::services::input::InputManager,
         runtime: tokio::runtime::Handle,
     ) -> tokio::task::JoinHandle<()> {
-        let (move_tx, mut move_rx) = tokio::sync::watch::channel::<Option<crate::services::input::MouseEvent>>(None);
-        let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel::<crate::services::input::MouseEvent>();
+        let (move_tx, mut move_rx) = tokio::sync::watch::channel::<Option<MouseEvent>>(None);
+        let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel::<MouseEvent>();
 
         let input_handle = runtime.spawn(async move {
             let mut move_open = true;
@@ -291,11 +292,11 @@ impl ScreenManager {
                         }
                         let event = move_rx.borrow_and_update().clone();
                             if let Some(event) = event {
-                                if let Some(seq) = event.seq {
-                                    if seq <= last_low_latency_seq {
+                                if let MouseEvent::Move { seq: Some(seq), .. } = &event {
+                                    if *seq <= last_low_latency_seq {
                                         continue;
                                     }
-                                    last_low_latency_seq = seq;
+                                    last_low_latency_seq = *seq;
                                 }
                                 crate::services::input::apply_mouse_event(&input, event).await;
                             }
@@ -317,7 +318,7 @@ impl ScreenManager {
             .expect("Failed to create mouse-move data channel");
         Self::attach_mouse_data_channel(
             &move_channel,
-            |t| t == "move",
+            |e| matches!(e, MouseEvent::Move { .. }),
             move |e| {
                 let _ = move_tx.send(Some(e));
             },
@@ -331,7 +332,7 @@ impl ScreenManager {
             .expect("Failed to create mouse-control data channel");
         Self::attach_mouse_data_channel(
             &control_channel,
-            |t| t != "move",
+            |e| !matches!(e, MouseEvent::Move { .. }),
             move |e| {
                 let _ = control_tx.send(e);
             },
@@ -426,20 +427,20 @@ impl ScreenManager {
 
     fn attach_mouse_data_channel(
         channel: &gst_webrtc::WebRTCDataChannel,
-        accept: impl Fn(&str) -> bool + Send + Sync + 'static,
-        forward: impl Fn(crate::services::input::MouseEvent) + Send + Sync + 'static,
+        accept: impl Fn(&MouseEvent) -> bool + Send + Sync + 'static,
+        forward: impl Fn(MouseEvent) + Send + Sync + 'static,
     ) {
         channel.connect_on_message_string(move |_, message| {
             let Some(message) = message else {
                 return;
             };
 
-            let Ok(event) = serde_json::from_str::<crate::services::input::MouseEvent>(message) else {
+            let Ok(event) = serde_json::from_str::<MouseEvent>(message) else {
                 tracing::debug!("Ignoring malformed mouse data-channel message");
                 return;
             };
 
-            if accept(&event.r#type) {
+            if accept(&event) {
                 forward(event);
             }
         });

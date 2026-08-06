@@ -10,29 +10,26 @@ function mouseButtonName(button: number): "left" | "right" | "middle" {
     return button === 0 ? "left" : button === 2 ? "right" : "middle";
 }
 
+function mouseCoords(event: { clientX: number; clientY: number }): { x: number; y: number } {
+    const dimensions = calculateStreamDimensions();
+    const relativeX = event.clientX - dimensions.container.left - dimensions.offsetX;
+    const relativeY = event.clientY - dimensions.container.top - dimensions.offsetY;
+    return {
+        x: Math.max(0, Math.min(dimensions.nativeWidth, relativeX * dimensions.scaleX)),
+        y: Math.max(0, Math.min(dimensions.nativeHeight, relativeY * dimensions.scaleY)),
+    };
+}
+
 export function initializePointerInput(socket: AppSocket): void {
     let touchStarted = false;
     let initialTouchY: number | null = null;
     let isScrolling = false;
     let isDragging = false;
 
-    function sendMouseEvent(
-        type: MouseEventPayload["type"],
-        event: { clientX: number; clientY: number },
-        options: Partial<MouseEventPayload> = {},
-    ): void {
+    function sendPayload(payload: MouseEventPayload): void {
         if (!streamState.active) return;
-        const { clientX } = event;
-        const { clientY } = event;
-        const dimensions = calculateStreamDimensions();
-        const relativeX = clientX - dimensions.container.left - dimensions.offsetX;
-        const relativeY = clientY - dimensions.container.top - dimensions.offsetY;
-        const x = Math.max(0, Math.min(dimensions.nativeWidth, relativeX * dimensions.scaleX));
-        const y = Math.max(0, Math.min(dimensions.nativeHeight, relativeY * dimensions.scaleY));
-
-        const data: MouseEventPayload = { type, x, y, ...options };
-        if (!sendMouseEventOverDataChannel(data)) {
-            socket.emit("mouse_event", data);
+        if (!sendMouseEventOverDataChannel(payload)) {
+            socket.emit("mouse_event", payload);
         }
     }
 
@@ -48,7 +45,7 @@ export function initializePointerInput(socket: AppSocket): void {
 
     streamUI.view.addEventListener("wheel", (event) => {
         event.preventDefault();
-        sendMouseEvent("scroll", event, { dx: Math.sign(event.deltaX), dy: Math.sign(event.deltaY) });
+        sendPayload({ type: "scroll", dx: Math.sign(event.deltaX), dy: Math.sign(event.deltaY) });
     });
 
     streamUI.view.addEventListener("touchstart", (event) => {
@@ -56,7 +53,7 @@ export function initializePointerInput(socket: AppSocket): void {
         if (event.touches.length === 2) {
             if (touchStarted) {
                 touchStarted = false;
-                sendMouseEvent("click", event.touches[0]!, { button: "left", pressed: false });
+                sendPayload({ type: "click", ...mouseCoords(event.touches[0]!), button: "left", pressed: false });
             }
             isScrolling = true;
             initialTouchY = event.touches[1]!.clientY;
@@ -65,7 +62,7 @@ export function initializePointerInput(socket: AppSocket): void {
 
         if (event.touches.length === 1 && !isScrolling) {
             touchStarted = true;
-            sendMouseEvent("click", event.touches[0]!, { button: "left", pressed: true });
+            sendPayload({ type: "click", ...mouseCoords(event.touches[0]!), button: "left", pressed: true });
         }
     });
 
@@ -75,14 +72,14 @@ export function initializePointerInput(socket: AppSocket): void {
             const currentTouchY = event.touches[1]!.clientY;
             const deltaY = initialTouchY - currentTouchY;
             if (Math.abs(deltaY) > 5) {
-                sendMouseEvent("scroll", event.touches[0]!, { dx: 0, dy: Math.sign(deltaY) });
+                sendPayload({ type: "scroll", dx: 0, dy: Math.sign(deltaY) });
                 initialTouchY = currentTouchY;
             }
             return;
         }
 
         if (event.touches.length === 1 && touchStarted && !isScrolling) {
-            sendMouseEvent("move", event.touches[0]!);
+            sendPayload({ type: "move", ...mouseCoords(event.touches[0]!) });
         }
     });
 
@@ -94,7 +91,7 @@ export function initializePointerInput(socket: AppSocket): void {
         }
         if (touchStarted && event.touches.length === 0) {
             touchStarted = false;
-            sendMouseEvent("click", event.changedTouches[0]!, { button: "left", pressed: false });
+            sendPayload({ type: "click", ...mouseCoords(event.changedTouches[0]!), button: "left", pressed: false });
         }
     });
 
@@ -104,21 +101,21 @@ export function initializePointerInput(socket: AppSocket): void {
         initialTouchY = null;
         if (touchStarted) {
             touchStarted = false;
-            sendMouseEvent("click", event.changedTouches[0]!, { button: "left", pressed: false });
+            sendPayload({ type: "click", ...mouseCoords(event.changedTouches[0]!), button: "left", pressed: false });
         }
     });
 
     streamUI.view.addEventListener("mousemove", (event) => {
         event.preventDefault();
         if (isDragging || captureState.mouse) {
-            sendMouseEvent("move", event);
+            sendPayload({ type: "move", ...mouseCoords(event) });
         }
     });
 
     streamUI.view.addEventListener("mousedown", (event) => {
         event.preventDefault();
         const button = mouseButtonName(event.button);
-        sendMouseEvent("click", event, { button, pressed: true });
+        sendPayload({ type: "click", ...mouseCoords(event), button, pressed: true });
         if (button === "left") isDragging = true;
     });
 
@@ -128,7 +125,7 @@ export function initializePointerInput(socket: AppSocket): void {
                 event.preventDefault();
             }
             const button = mouseButtonName(event.button);
-            sendMouseEvent("click", event, { button, pressed: false });
+            sendPayload({ type: "click", ...mouseCoords(event), button, pressed: false });
             if (button === "left") isDragging = false;
         }
     });

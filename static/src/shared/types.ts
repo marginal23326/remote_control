@@ -37,10 +37,7 @@ export interface UploadResponse {
     count: number;
 }
 
-export type MouseEventPayload = Omit<MouseEventDTO, "type" | "button"> & {
-    type: "move" | "click" | "scroll";
-    button?: "left" | "right" | "middle";
-};
+export type MouseEventPayload = MouseEventDTO;
 
 export type AudioStartPayload = AudioConfig;
 

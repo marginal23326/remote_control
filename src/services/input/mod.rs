@@ -24,16 +24,24 @@ pub(crate) trait OsInput {
 }
 
 #[derive(Clone, Deserialize, Debug, TS)]
+#[serde(tag = "type", rename_all = "camelCase")]
 #[ts(export, export_to = "bindings.ts", optional_fields)]
-pub struct MouseEvent {
-    pub r#type: String,
-    pub seq: Option<u64>,
-    pub x: Option<f64>,
-    pub y: Option<f64>,
-    pub button: Option<String>,
-    pub pressed: Option<bool>,
-    pub dx: Option<i32>,
-    pub dy: Option<i32>,
+pub enum MouseEvent {
+    Move {
+        seq: Option<u64>,
+        x: f64,
+        y: f64,
+    },
+    Click {
+        x: f64,
+        y: f64,
+        button: String,
+        pressed: bool,
+    },
+    Scroll {
+        dx: i32,
+        dy: i32,
+    },
 }
 
 macro_rules! input_commands {
@@ -94,27 +102,18 @@ impl InputManager {
 }
 
 pub async fn apply_mouse_event(input: &InputManager, data: MouseEvent) {
-    match data.r#type.as_str() {
-        "move" => {
-            if let (Some(x), Some(y)) = (data.x, data.y) {
-                input.move_mouse(x as i32, y as i32).await;
-            }
+    match data {
+        MouseEvent::Move { x, y, .. } => {
+            input.move_mouse(x as i32, y as i32).await;
         }
-        "click" => {
-            if let (Some(x), Some(y)) = (data.x, data.y) {
-                input.move_mouse(x as i32, y as i32).await;
-            }
-            if let (Some(btn), Some(pressed)) = (data.button, data.pressed) {
-                input.click_mouse(btn, pressed).await;
-            }
+        MouseEvent::Click { x, y, button, pressed } => {
+            input.move_mouse(x as i32, y as i32).await;
+            input.click_mouse(button, pressed).await;
         }
-        "scroll" => {
-            let dx = data.dx.unwrap_or(0);
-            let dy = data.dy.unwrap_or(0);
+        MouseEvent::Scroll { dx, dy } => {
             if dx != 0 || dy != 0 {
                 input.scroll_mouse(dx, dy).await;
             }
         }
-        _ => {}
     }
 }

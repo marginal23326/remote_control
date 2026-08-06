@@ -38,7 +38,7 @@ export type KeyboardEvent = { "type": "text", text: string, } | { "type": "short
 
 export type MessagePayload = { message: string, };
 
-export type MouseEvent = { type: string, seq?: number, x?: number, y?: number, button?: string, pressed?: boolean, dx?: number, dy?: number, };
+export type MouseEvent = { "type": "move", seq?: number, x: number, y: number, } | { "type": "click", x: number, y: number, button: string, pressed: boolean, } | { "type": "scroll", dx: number, dy: number, };
 
 export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
 
