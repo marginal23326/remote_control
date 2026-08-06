@@ -6,6 +6,54 @@ import type { EncoderPropertyConstraint } from "@/shared/types";
 let encoderProperties: Record<string, string> = {};
 let encoderPropertyConstraints: Record<string, EncoderPropertyConstraint> = {};
 
+const INPUT_CLS = "text-xs font-mono text-zinc-200 w-full";
+
+type ValidateResult = { value: string } | { error: string };
+
+interface PropertyTypeHandler {
+    render: (value: string, constraint?: EncoderPropertyConstraint) => string;
+    validate: (value: string, constraint: EncoderPropertyConstraint) => ValidateResult;
+}
+
+const PROPERTY_TYPES: Record<EncoderPropertyConstraint["value_type"], PropertyTypeHandler> = {
+    enum: {
+        render: (value, constraint) => {
+            const options = (constraint?.enum_values ?? [])
+                .map((v) => `<option value="${v}" ${v === value ? "selected" : ""}>${v}</option>`)
+                .join("");
+            return `<select class="prop-val w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-500 rounded text-xs font-mono text-zinc-200 transition-colors">${options}</select>`;
+        },
+        validate: (value, constraint) =>
+            constraint.enum_values?.includes(value) ? { value } : { error: `"${value}" is not a valid option` },
+    },
+    int: {
+        render: (value, constraint) =>
+            `<input type="number" class="prop-val ${INPUT_CLS}" value="${escapeHtml(value)}"${constraint?.min === undefined ? "" : ` min="${constraint.min}"`}${constraint?.max === undefined ? "" : ` max="${constraint.max}"`}>`,
+        validate: (value, constraint) => {
+            const num = intValue(value);
+            if (isNaN(num)) return { error: "not a valid integer" };
+            if (constraint.min !== undefined && num < constraint.min) {
+                return { error: `${num} is below minimum ${constraint.min}` };
+            }
+            if (constraint.max !== undefined && num > constraint.max) {
+                return { error: `${num} exceeds maximum ${constraint.max}` };
+            }
+            return { value: String(num) };
+        },
+    },
+    bool: {
+        render: (value) => {
+            const checked = value === "true" ? "checked" : "";
+            return `<input type="checkbox" class="prop-val w-4 h-4 accent-zinc-100 bg-zinc-950 border-zinc-800 rounded focus:ring-0 mt-1 cursor-pointer" ${checked}>`;
+        },
+        validate: (value) => ({ value: value === "true" ? "true" : "false" }),
+    },
+    string: {
+        render: (value) => `<input type="text" class="prop-val ${INPUT_CLS}" value="${escapeHtml(value)}">`,
+        validate: (value) => ({ value }),
+    },
+};
+
 export function setEncoderPropertyConstraints(constraints: Record<string, EncoderPropertyConstraint>): void {
     encoderPropertyConstraints = { ...constraints };
 }
@@ -20,35 +68,15 @@ function renderEncoderProperties(): void {
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    const inputCls = "text-xs font-mono text-zinc-200 w-full";
-
     const sortedEntries = Object.entries(encoderProperties).toSorted((a, b) => a[0].localeCompare(b[0]));
     for (const [key, value] of sortedEntries) {
         const row = document.createElement("tr");
         row.className = "group";
         const constraint = encoderPropertyConstraints[key];
-        let valHtml: string;
-
-        if (constraint) {
-            if (constraint.value_type === "enum") {
-                const options = (constraint.enum_values ?? [])
-                    .map((v) => `<option value="${v}" ${v === value ? "selected" : ""}>${v}</option>`)
-                    .join("");
-                valHtml = `<select class="prop-val w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-500 rounded text-xs font-mono text-zinc-200 transition-colors">${options}</select>`;
-            } else if (constraint.value_type === "int") {
-                valHtml = `<input type="number" class="prop-val ${inputCls}" value="${escapeHtml(value)}"${constraint.min === undefined ? "" : ` min="${constraint.min}"`}${constraint.max === undefined ? "" : ` max="${constraint.max}"`}>`;
-            } else if (constraint.value_type === "bool") {
-                const checked = value === "true" ? "checked" : "";
-                valHtml = `<input type="checkbox" class="prop-val w-4 h-4 accent-zinc-100 bg-zinc-950 border-zinc-800 rounded focus:ring-0 mt-1 cursor-pointer" ${checked}>`;
-            } else {
-                valHtml = `<input type="text" class="prop-val ${inputCls}" value="${escapeHtml(value)}">`;
-            }
-        } else {
-            valHtml = `<input type="text" class="prop-val ${inputCls}" value="${escapeHtml(value)}">`;
-        }
+        const valHtml = PROPERTY_TYPES[constraint?.value_type ?? "string"].render(value, constraint);
 
         row.innerHTML = `
-            <td class="py-1.5 pr-2"><input type="text" class="prop-key ${inputCls}" value="${escapeHtml(key)}"></td>
+            <td class="py-1.5 pr-2"><input type="text" class="prop-key ${INPUT_CLS}" value="${escapeHtml(key)}"></td>
             <td class="py-1.5 pr-2">${valHtml}</td>
             <td class="py-1.5"><button class="prop-remove px-1.5 py-0.5 text-sm text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100" title="Remove property">&times;</button></td>
         `;
@@ -110,29 +138,12 @@ export function readEncoderPropsFromDOM(): Record<string, string> | null {
         if (!val && (valInput as HTMLInputElement).type !== "checkbox") return;
         const constraint = encoderPropertyConstraints[key];
         if (constraint) {
-            if (constraint.value_type === "int") {
-                const num = intValue(val);
-                if (isNaN(num)) {
-                    warnings.push(`"${key}": not a valid integer`);
-                    return;
-                }
-                if (constraint.min !== undefined && num < constraint.min) {
-                    warnings.push(`"${key}": ${num} is below minimum ${constraint.min}`);
-                    return;
-                }
-                if (constraint.max !== undefined && num > constraint.max) {
-                    warnings.push(`"${key}": ${num} exceeds maximum ${constraint.max}`);
-                    return;
-                }
-                val = String(num);
-            } else if (constraint.value_type === "enum") {
-                if (!constraint.enum_values || !constraint.enum_values.includes(val)) {
-                    warnings.push(`"${key}": "${val}" is not a valid option`);
-                    return;
-                }
-            } else if (constraint.value_type === "bool") {
-                val = val === "true" ? "true" : "false";
+            const result = PROPERTY_TYPES[constraint.value_type].validate(val, constraint);
+            if ("error" in result) {
+                warnings.push(`"${key}": ${result.error}`);
+                return;
             }
+            val = result.value;
         }
         props[key] = val;
     });
