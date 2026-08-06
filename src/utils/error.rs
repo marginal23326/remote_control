@@ -75,5 +75,5 @@ where
     T: Send + 'static,
     E: Into<AppError> + Send + 'static,
 {
-    crate::utils::blocking::spawn_blocking(move || f().map_err(Into::into)).await
+    crate::utils::blocking::run(move || f().map_err(Into::into)).await
 }

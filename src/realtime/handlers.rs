@@ -7,7 +7,7 @@ use crate::services::camera::CameraManager;
 use crate::services::input::{MouseEvent, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
-use crate::utils::blocking::{run_blocking_or_log, spawn_blocking};
+use crate::utils::blocking::{run, run_or_log_default};
 use serde::Deserialize;
 use socketioxide::extract::{Data, SocketRef, State};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -131,7 +131,7 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
     let shell_manager = state.shell.clone();
     let socket_id_for_create = socket_id.clone();
 
-    let session_result = spawn_blocking(move || {
+    let session_result = run(move || {
         shell_manager.create_session(&socket_id_for_create, &sid, cols, rows, shell.as_deref(), socket_clone)
     })
     .await;
@@ -175,7 +175,7 @@ pub async fn handle_shell_close(socket: SocketRef, State(state): State<AppState>
 
 pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>) {
     let shell = state.shell.clone();
-    let (shells, default) = run_blocking_or_log(move || shell.list_available_shells()).await;
+    let (shells, default) = run_or_log_default(move || shell.list_available_shells()).await;
 
     let _ = socket.emit(
         ServerEvent::AvailableShells.as_str(),
@@ -235,7 +235,7 @@ pub async fn handle_start_server_audio(
 }
 
 pub async fn handle_list_audio_sources(socket: SocketRef) {
-    match spawn_blocking(AudioManager::list_sources).await {
+    match run(AudioManager::list_sources).await {
         Ok(sources) => {
             let _ = socket.emit(ServerEvent::AudioSources.as_str(), &AudioSourcesPayload { sources });
         }
@@ -287,7 +287,7 @@ pub async fn handle_start_stream(
 }
 
 pub async fn handle_list_cameras(socket: SocketRef) {
-    let cameras = run_blocking_or_log(CameraManager::list_cameras).await;
+    let cameras = run_or_log_default(CameraManager::list_cameras).await;
     let _ = socket.emit(ServerEvent::CameraList.as_str(), &CameraListPayload { cameras });
 }
 
@@ -298,7 +298,7 @@ pub async fn handle_start_camera_stream(
 ) {
     let camera = state.camera.clone();
     let stream_socket = socket.clone();
-    let result = spawn_blocking(move || camera.start_stream(stream_socket, state, data.device_id)).await;
+    let result = run(move || camera.start_stream(stream_socket, state, data.device_id)).await;
 
     if let Err(e) = result {
         emit_error(&socket, ServerEvent::CameraWebrtcError, "start camera stream", e);
