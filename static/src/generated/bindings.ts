@@ -28,9 +28,7 @@ export type CurrentSettingsResponse = { bitrate: number, resolution_percentage: 
 
 export type DriveEntry = { name: string, path: string, is_dir: boolean, };
 
-export type EncoderPropertyConstraint = { value_type: EncoderValueType, min?: number, max?: number, enum_values?: Array<string>, };
-
-export type EncoderValueType = "bool" | "int" | "enum" | "string";
+export type EncoderPropertyConstraint = { "value_type": "bool" } | { "value_type": "int", min: number, max: number, } | { "value_type": "enum", enum_values: Array<string>, } | { "value_type": "string" };
 
 export type FileEntry = { name: string, path: string, is_dir: boolean, size: number, last_modified?: number | null, };
 

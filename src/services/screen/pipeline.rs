@@ -23,45 +23,26 @@ pub(crate) fn encode_and_webrtc_tail(encoder_pipeline_str: &str) -> String {
     )
 }
 
-#[derive(Serialize, Clone, Copy, Debug, TS)]
-#[serde(rename_all = "lowercase")]
+#[derive(Serialize, Clone, Debug, TS)]
+#[serde(tag = "value_type", rename_all = "lowercase")]
 #[ts(export, export_to = "bindings.ts")]
-pub enum EncoderValueType {
+pub enum EncoderPropertyConstraint {
     Bool,
-    Int,
-    Enum,
+    Int { min: i64, max: i64 },
+    Enum { enum_values: Vec<String> },
     String,
 }
 
-#[derive(Serialize, Clone, Debug, TS)]
-#[ts(export, export_to = "bindings.ts", optional_fields)]
-pub struct EncoderPropertyConstraint {
-    pub value_type: EncoderValueType,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enum_values: Option<Vec<String>>,
-}
-
 fn constraint_from_pspec(pspec: &glib::ParamSpec) -> EncoderPropertyConstraint {
-    let plain = |value_type, min: Option<i64>, max: Option<i64>| EncoderPropertyConstraint {
-        value_type,
-        min,
-        max,
-        enum_values: None,
-    };
-
     if pspec.downcast_ref::<glib::ParamSpecBoolean>().is_some() {
-        return plain(EncoderValueType::Bool, None, None);
+        return EncoderPropertyConstraint::Bool;
     }
 
     macro_rules! int_range {
         ($($ty:ty),+ $(,)?) => {
             $(
                 if let Some(p) = pspec.downcast_ref::<$ty>() {
-                    return plain(EncoderValueType::Int, Some(p.minimum() as i64), Some(p.maximum() as i64));
+                    return EncoderPropertyConstraint::Int { min: p.minimum() as i64, max: p.maximum() as i64 };
                 }
             )+
         };
@@ -74,15 +55,11 @@ fn constraint_from_pspec(pspec: &glib::ParamSpec) -> EncoderPropertyConstraint {
     );
 
     if let Some(p) = pspec.downcast_ref::<glib::ParamSpecEnum>() {
-        let values = p.enum_class().values().iter().map(|v| v.nick().to_string()).collect();
-        return EncoderPropertyConstraint {
-            value_type: EncoderValueType::Enum,
-            min: None,
-            max: None,
-            enum_values: Some(values),
-        };
+        let enum_values = p.enum_class().values().iter().map(|v| v.nick().to_string()).collect();
+        return EncoderPropertyConstraint::Enum { enum_values };
     }
-    plain(EncoderValueType::String, None, None)
+
+    EncoderPropertyConstraint::String
 }
 
 fn encoder_constraints(encoder: &gst::Element, names: &[&str]) -> HashMap<String, EncoderPropertyConstraint> {

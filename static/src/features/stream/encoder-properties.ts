@@ -10,49 +10,46 @@ const INPUT_CLS = "text-xs font-mono text-zinc-200 w-full";
 
 type ValidateResult = { value: string } | { error: string };
 
-interface PropertyTypeHandler {
-    render: (value: string, constraint?: EncoderPropertyConstraint) => string;
-    validate: (value: string, constraint: EncoderPropertyConstraint) => ValidateResult;
+function renderTextInput(value: string): string {
+    return `<input type="text" class="prop-val ${INPUT_CLS}" value="${escapeHtml(value)}">`;
 }
 
-const PROPERTY_TYPES: Record<EncoderPropertyConstraint["value_type"], PropertyTypeHandler> = {
-    enum: {
-        render: (value, constraint) => {
-            const options = (constraint?.enum_values ?? [])
+function renderConstraint(value: string, constraint: EncoderPropertyConstraint): string {
+    switch (constraint.value_type) {
+        case "enum": {
+            const options = constraint.enum_values
                 .map((v) => `<option value="${v}" ${v === value ? "selected" : ""}>${v}</option>`)
                 .join("");
             return `<select class="prop-val w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 focus:border-zinc-500 rounded text-xs font-mono text-zinc-200 transition-colors">${options}</select>`;
-        },
-        validate: (value, constraint) =>
-            constraint.enum_values?.includes(value) ? { value } : { error: `"${value}" is not a valid option` },
-    },
-    int: {
-        render: (value, constraint) =>
-            `<input type="number" class="prop-val ${INPUT_CLS}" value="${escapeHtml(value)}"${constraint?.min === undefined ? "" : ` min="${constraint.min}"`}${constraint?.max === undefined ? "" : ` max="${constraint.max}"`}>`,
-        validate: (value, constraint) => {
-            const num = intValue(value);
-            if (isNaN(num)) return { error: "not a valid integer" };
-            if (constraint.min !== undefined && num < constraint.min) {
-                return { error: `${num} is below minimum ${constraint.min}` };
-            }
-            if (constraint.max !== undefined && num > constraint.max) {
-                return { error: `${num} exceeds maximum ${constraint.max}` };
-            }
-            return { value: String(num) };
-        },
-    },
-    bool: {
-        render: (value) => {
+        }
+        case "int":
+            return `<input type="number" class="prop-val ${INPUT_CLS}" value="${escapeHtml(value)}" min="${constraint.min}" max="${constraint.max}">`;
+        case "bool": {
             const checked = value === "true" ? "checked" : "";
             return `<input type="checkbox" class="prop-val w-4 h-4 accent-zinc-100 bg-zinc-950 border-zinc-800 rounded focus:ring-0 mt-1 cursor-pointer" ${checked}>`;
-        },
-        validate: (value) => ({ value: value === "true" ? "true" : "false" }),
-    },
-    string: {
-        render: (value) => `<input type="text" class="prop-val ${INPUT_CLS}" value="${escapeHtml(value)}">`,
-        validate: (value) => ({ value }),
-    },
-};
+        }
+        case "string":
+            return renderTextInput(value);
+    }
+}
+
+function validateConstraint(value: string, constraint: EncoderPropertyConstraint): ValidateResult {
+    switch (constraint.value_type) {
+        case "enum":
+            return constraint.enum_values.includes(value) ? { value } : { error: `"${value}" is not a valid option` };
+        case "int": {
+            const num = intValue(value);
+            if (isNaN(num)) return { error: "not a valid integer" };
+            if (num < constraint.min) return { error: `${num} is below minimum ${constraint.min}` };
+            if (num > constraint.max) return { error: `${num} exceeds maximum ${constraint.max}` };
+            return { value: String(num) };
+        }
+        case "bool":
+            return { value: value === "true" ? "true" : "false" };
+        case "string":
+            return { value };
+    }
+}
 
 export function setEncoderPropertyConstraints(constraints: Record<string, EncoderPropertyConstraint>): void {
     encoderPropertyConstraints = { ...constraints };
@@ -73,7 +70,7 @@ function renderEncoderProperties(): void {
         const row = document.createElement("tr");
         row.className = "group";
         const constraint = encoderPropertyConstraints[key];
-        const valHtml = PROPERTY_TYPES[constraint?.value_type ?? "string"].render(value, constraint);
+        const valHtml = constraint ? renderConstraint(value, constraint) : renderTextInput(value);
 
         row.innerHTML = `
             <td class="py-1.5 pr-2"><input type="text" class="prop-key ${INPUT_CLS}" value="${escapeHtml(key)}"></td>
@@ -138,7 +135,7 @@ export function readEncoderPropsFromDOM(): Record<string, string> | null {
         if (!val && (valInput as HTMLInputElement).type !== "checkbox") return;
         const constraint = encoderPropertyConstraints[key];
         if (constraint) {
-            const result = PROPERTY_TYPES[constraint.value_type].validate(val, constraint);
+            const result = validateConstraint(val, constraint);
             if ("error" in result) {
                 warnings.push(`"${key}": ${result.error}`);
                 return;
