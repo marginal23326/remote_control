@@ -2,17 +2,15 @@ interface ApiErrorBody {
     message?: string;
 }
 
-export async function parseJsonResponse<T = unknown>(response: Response): Promise<T> {
-    if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            const errData = (await response.json()) as ApiErrorBody;
-            throw new Error(errData.message ?? `API Error: ${response.status}`);
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+export function parseApiResult<T = unknown>(status: number, rawBody: string): T {
+    if (status < 200 || status >= 300) {
+        let message = `HTTP error! status: ${status}`;
+        try {
+            message = (JSON.parse(rawBody) as ApiErrorBody).message ?? message;
+        } catch {}
+        throw new Error(message);
     }
-
-    return response.json() as Promise<T>;
+    return JSON.parse(rawBody) as T;
 }
 
 export async function apiCall<T = unknown>(endpoint: string, method: string = "GET", data: unknown = null): Promise<T> {
@@ -37,5 +35,5 @@ export async function apiCall<T = unknown>(endpoint: string, method: string = "G
         await new Promise<never>(() => {});
     }
 
-    return parseJsonResponse<T>(response);
+    return parseApiResult<T>(response.status, await response.text());
 }

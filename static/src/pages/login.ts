@@ -1,6 +1,6 @@
 import "../../input.css";
 import "../../css/styles.css";
-import { parseJsonResponse } from "@/shared/api";
+import { parseApiResult } from "@/shared/api";
 import { byId, onAsync } from "@/shared/dom-helpers";
 import { LoadingButton } from "@/shared/feedback";
 
@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
             });
 
-            await parseJsonResponse(response);
+            parseApiResult(response.status, await response.text());
 
             submitBtn.setLoadingText("Success");
             setTimeout(() => {

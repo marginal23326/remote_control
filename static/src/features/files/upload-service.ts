@@ -1,3 +1,4 @@
+import { parseApiResult } from "@/shared/api";
 import type { UploadResponse } from "@/shared/types";
 
 export interface UploadFilesOptions {
@@ -38,14 +39,9 @@ export function uploadFiles(
                 return;
             }
             try {
-                const data = JSON.parse(xhr.responseText) as UploadResponse;
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(data);
-                } else {
-                    reject(new Error(data.message ?? `Upload failed: ${xhr.status}`));
-                }
-            } catch {
-                reject(new Error(`HTTP error! status: ${xhr.status}`));
+                resolve(parseApiResult<UploadResponse>(xhr.status, xhr.responseText));
+            } catch (error) {
+                reject(error as Error);
             }
         });
 
