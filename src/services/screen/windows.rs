@@ -23,6 +23,7 @@ use windows::Win32::Graphics::Gdi::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW}
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
+use super::CaptureHandles;
 use super::StreamSettings;
 use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
@@ -38,7 +39,7 @@ pub(crate) fn get_max_fps() -> u64 {
     }
 }
 
-pub(crate) async fn start_os_capture(
+pub(crate) async fn start_capture(
     work_tx: Sender<RawFrame>,
     recycle_rx: Receiver<Vec<u8>>,
     settings: Arc<Mutex<StreamSettings>>,
@@ -46,7 +47,7 @@ pub(crate) async fn start_os_capture(
     native_size: Arc<Mutex<(i32, i32)>>,
     capture_cursor: bool,
     on_exit: impl FnOnce() + Send + 'static,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<CaptureHandles> {
     unsafe {
         *native_size.lock() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
     }
@@ -80,7 +81,7 @@ pub(crate) async fn start_os_capture(
         on_exit();
     });
 
-    Ok(())
+    Ok(CaptureHandles { pw: None, title: None })
 }
 
 pub(crate) fn get_display_native_size() -> (i32, i32) {

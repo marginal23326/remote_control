@@ -7,6 +7,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+use std::thread;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
@@ -28,6 +29,7 @@ use std::sync::LazyLock;
 use tokio::sync::Mutex as AsyncMutex;
 use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
+use super::CaptureHandles;
 use super::StreamSettings;
 use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
@@ -55,6 +57,42 @@ pub(crate) fn get_max_fps() -> u64 {
         }
     }
     60
+}
+
+pub(crate) async fn start_capture(
+    frame_tx: Sender<RawFrame>,
+    recycle_rx: Receiver<Vec<u8>>,
+    settings: Arc<Mutex<StreamSettings>>,
+    is_running: Arc<AtomicBool>,
+    native_size: Arc<Mutex<(i32, i32)>>,
+    capture_cursor: bool,
+    on_exit: impl FnOnce() + Send + 'static,
+) -> Result<CaptureHandles> {
+    let (pw_node_id, pw_size, pw_fd) = portal_session().open_pipewire_remote(capture_cursor).await?;
+    *native_size.lock() = pw_size;
+
+    let title_is_running = is_running.clone();
+    let pw = thread::spawn(move || {
+        if let Err(e) = run_pipewire_capture(
+            pw_node_id,
+            pw_fd,
+            frame_tx,
+            recycle_rx,
+            settings,
+            is_running,
+            native_size,
+        ) {
+            tracing::error!("PipeWire capture error: {e:#}");
+        }
+        on_exit();
+    });
+
+    let title = thread::spawn(move || run_active_window_title_poll(title_is_running));
+
+    Ok(CaptureHandles {
+        pw: Some(pw),
+        title: Some(title),
+    })
 }
 
 pub(crate) fn run_pipewire_capture(

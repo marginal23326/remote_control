@@ -92,6 +92,11 @@ impl GstSession for InnerState {
     }
 }
 
+pub(crate) struct CaptureHandles {
+    pub(crate) pw: Option<thread::JoinHandle<()>>,
+    pub(crate) title: Option<thread::JoinHandle<()>>,
+}
+
 impl ScreenManager {
     pub fn new() -> Self {
         let max_fps = backend::get_max_fps();
@@ -158,61 +163,23 @@ impl ScreenManager {
             screen.session.stop_if_owner(&owner_id);
         });
 
-        #[cfg(target_os = "linux")]
-        let (pw_handle, title_handle): (Option<thread::JoinHandle<()>>, Option<thread::JoinHandle<()>>) = {
-            let (pw_node_id, pw_size, pw_fd) = {
-                let portal = linux::portal_session();
-                portal.open_pipewire_remote(capture_cursor).await
-            }?;
-            *self.native_size.lock() = pw_size;
-
-            let is_running_cap = is_running.clone();
-            let settings_cap = settings.clone();
-            let frame_tx_cap = frame_tx.clone();
-            let recycle_rx_cap = recycle_rx.clone();
-            let native_size_cap = self.native_size.clone();
-
-            let pw = thread::spawn(move || {
-                if let Err(e) = linux::run_pipewire_capture(
-                    pw_node_id,
-                    pw_fd,
-                    frame_tx_cap,
-                    recycle_rx_cap,
-                    settings_cap,
-                    is_running_cap,
-                    native_size_cap,
-                ) {
-                    tracing::error!("PipeWire capture error: {e:#}");
-                }
-            });
-
-            let title = {
-                let r = is_running.clone();
-                thread::spawn(move || linux::run_active_window_title_poll(r))
-            };
-
-            (Some(pw), Some(title))
-        };
-
-        #[cfg(windows)]
-        let (pw_handle, title_handle): (Option<thread::JoinHandle<()>>, Option<thread::JoinHandle<()>>) = {
-            let screen = state.screen.clone();
-            let owner_id = socket.id.to_string();
-            windows::start_os_capture(
-                frame_tx,
-                recycle_rx,
-                settings.clone(),
-                is_running.clone(),
-                self.native_size.clone(),
-                capture_cursor,
-                move || {
-                    screen.session.stop_if_owner(&owner_id);
-                },
-            )
-            .await?;
-
-            (None, None)
-        };
+        let screen = state.screen.clone();
+        let owner_id = socket.id.to_string();
+        let CaptureHandles {
+            pw: pw_handle,
+            title: title_handle,
+        } = backend::start_capture(
+            frame_tx,
+            recycle_rx,
+            settings.clone(),
+            is_running.clone(),
+            self.native_size.clone(),
+            capture_cursor,
+            move || {
+                screen.session.stop_if_owner(&owner_id);
+            },
+        )
+        .await?;
 
         let mut inner = InnerState {
             pipeline,
