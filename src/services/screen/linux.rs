@@ -72,7 +72,7 @@ pub(crate) async fn start_capture(
     *native_size.lock() = pw_size;
 
     let title_is_running = is_running.clone();
-    let pw = thread::spawn(move || {
+    let capture_handle = thread::spawn(move || {
         if let Err(e) = run_pipewire_capture(
             pw_node_id,
             pw_fd,
@@ -90,7 +90,7 @@ pub(crate) async fn start_capture(
     let title = thread::spawn(move || run_active_window_title_poll(title_is_running));
 
     Ok(CaptureHandles {
-        pw: Some(pw),
+        capture: Some(capture_handle),
         title: Some(title),
     })
 }

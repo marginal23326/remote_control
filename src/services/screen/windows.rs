@@ -81,7 +81,10 @@ pub(crate) async fn start_capture(
         on_exit();
     });
 
-    Ok(CaptureHandles { pw: None, title: None })
+    Ok(CaptureHandles {
+        capture: None,
+        title: None,
+    })
 }
 
 pub(crate) fn get_display_native_size() -> (i32, i32) {

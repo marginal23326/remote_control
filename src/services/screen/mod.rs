@@ -63,7 +63,7 @@ pub(crate) struct InnerState {
     encoder: gst::Element,
     cmd_tx: Sender<GstCommand>,
     input_handle: Option<tokio::task::JoinHandle<()>>,
-    pw_handle: Option<thread::JoinHandle<()>>,
+    capture_handle: Option<thread::JoinHandle<()>>,
     title_handle: Option<thread::JoinHandle<()>>,
     emit_handle: Option<thread::JoinHandle<()>>,
 }
@@ -78,7 +78,7 @@ impl GstSession for InnerState {
     }
 
     fn on_stop(self) {
-        drop(self.pw_handle);
+        drop(self.capture_handle);
         drop(self.title_handle);
         drop(self.emit_handle);
         if let Some(handle) = self.input_handle {
@@ -93,7 +93,7 @@ impl GstSession for InnerState {
 }
 
 pub(crate) struct CaptureHandles {
-    pub(crate) pw: Option<thread::JoinHandle<()>>,
+    pub(crate) capture: Option<thread::JoinHandle<()>>,
     pub(crate) title: Option<thread::JoinHandle<()>>,
 }
 
@@ -166,7 +166,7 @@ impl ScreenManager {
         let screen = state.screen.clone();
         let owner_id = socket.id.to_string();
         let CaptureHandles {
-            pw: pw_handle,
+            capture: capture_handle,
             title: title_handle,
         } = backend::start_capture(
             frame_tx,
@@ -186,7 +186,7 @@ impl ScreenManager {
             encoder,
             cmd_tx,
             input_handle: Some(input_handle),
-            pw_handle,
+            capture_handle,
             title_handle,
             emit_handle: None,
         };
