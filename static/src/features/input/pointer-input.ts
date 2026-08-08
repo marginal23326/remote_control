@@ -33,6 +33,13 @@ export function initializePointerInput(socket: AppSocket): void {
         }
     }
 
+    function releaseTouch(event: TouchEvent): void {
+        if (touchStarted) {
+            touchStarted = false;
+            sendPayload({ type: "click", ...mouseCoords(event.changedTouches[0]!), button: "left", pressed: false });
+        }
+    }
+
     window.addEventListener("blur", () => {
         isDragging = false;
     });
@@ -88,10 +95,7 @@ export function initializePointerInput(socket: AppSocket): void {
         if (event.touches.length === 0) {
             isScrolling = false;
             initialTouchY = null;
-        }
-        if (touchStarted && event.touches.length === 0) {
-            touchStarted = false;
-            sendPayload({ type: "click", ...mouseCoords(event.changedTouches[0]!), button: "left", pressed: false });
+            releaseTouch(event);
         }
     });
 
@@ -99,10 +103,7 @@ export function initializePointerInput(socket: AppSocket): void {
         event.preventDefault();
         isScrolling = false;
         initialTouchY = null;
-        if (touchStarted) {
-            touchStarted = false;
-            sendPayload({ type: "click", ...mouseCoords(event.changedTouches[0]!), button: "left", pressed: false });
-        }
+        releaseTouch(event);
     });
 
     streamUI.view.addEventListener("mousemove", (event) => {
