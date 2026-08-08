@@ -7,7 +7,7 @@ use crate::realtime::handlers::{
     handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
     handle_webrtc_answer, handle_webrtc_ice,
 };
-use crate::realtime::payloads::{AuthStatusPayload, MessagePayload};
+use crate::realtime::payloads::{AuthStatusPayload, MessagePayload, TaskPayload};
 use crate::state::AppState;
 use crate::utils::auth::is_authenticated;
 use socketioxide::{
@@ -15,15 +15,6 @@ use socketioxide::{
     extract::{SocketRef, State},
 };
 use tracing::{info, warn};
-use ts_rs::TS;
-
-#[derive(serde::Serialize, TS)]
-#[ts(export, export_to = "bindings.ts")]
-struct TaskPayload {
-    processes: Vec<crate::services::tasks::ProcessDTO>,
-    total_cpu_usage: f32,
-    total_memory_percentage: f64,
-}
 
 pub fn register(io: SocketIo, state: AppState) {
     io.ns("/", on_connect);

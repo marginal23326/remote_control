@@ -3,6 +3,7 @@ use ts_rs::TS;
 
 use crate::services::audio::AudioSourceInfo;
 use crate::services::camera::CameraDeviceInfo;
+use crate::services::tasks::ProcessDTO;
 
 macro_rules! ts_payload {
     ($item:item) => {
@@ -80,5 +81,13 @@ ts_payload! {
 pub struct RemoteIceCandidatePayload {
     pub sdp_mline_index: u32,
     pub candidate: String,
+}
+}
+
+ts_payload! {
+pub struct TaskPayload {
+    pub processes: Vec<ProcessDTO>,
+    pub total_cpu_usage: f32,
+    pub total_memory_percentage: f64,
 }
 }

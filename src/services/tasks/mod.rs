@@ -13,7 +13,7 @@ mod windows;
 #[cfg(windows)]
 use windows as backend;
 
-#[derive(Serialize, Clone, TS)]
+#[derive(Serialize, Clone, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct ProcessDTO {
     pub pid: u32,
