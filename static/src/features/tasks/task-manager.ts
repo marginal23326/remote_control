@@ -2,7 +2,14 @@ import { apiCall } from "@/shared/api";
 import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import { showConfirmModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
-import { bindDebouncedInput, byId, escapeHtml, intValue, updateSortIndicators } from "@/shared/dom-helpers";
+import {
+    bindDebouncedInput,
+    bindSortableHeaders,
+    byId,
+    escapeHtml,
+    intValue,
+    updateSortIndicators,
+} from "@/shared/dom-helpers";
 import { registerShortcuts } from "@/core/shortcuts";
 import type { AppSocket } from "@/core/socket";
 import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
@@ -44,7 +51,7 @@ function sortProcesses(rows: ProcessInfo[], column: SortColumn, order: SortOrder
     });
 }
 
-const currentSort: { column: SortColumn; order: SortOrder } = { column: "memory_usage", order: "desc" };
+const currentSort: { column: SortColumn; direction: SortOrder } = { column: "memory_usage", direction: "desc" };
 let allProcesses: ProcessInfo[] = [];
 let processes: ProcessInfo[] = [];
 let searchTerm = "";
@@ -103,7 +110,7 @@ function renderTaskList(newProcesses?: ProcessInfo[]): void {
 
     const term = searchTerm.trim().toLowerCase();
     processes = term ? allProcesses.filter((process) => process.name.toLowerCase().includes(term)) : allProcesses;
-    processes = sortProcesses(processes, currentSort.column, currentSort.order);
+    processes = sortProcesses(processes, currentSort.column, currentSort.direction);
 
     const fragment = document.createDocumentFragment();
     processes.forEach((process) => {
@@ -125,7 +132,7 @@ function renderTaskList(newProcesses?: ProcessInfo[]): void {
 
     taskList.replaceChildren(fragment);
 
-    updateSortIndicators("#processSection thead th", currentSort.column, currentSort.order === "asc");
+    updateSortIndicators("#processSection thead th", currentSort.column, currentSort.direction === "asc");
 
     taskManager.refreshSelectionUI();
 }
@@ -136,16 +143,7 @@ export function initializeTaskManager(socket: AppSocket): void {
     });
 
     // Handle sorting
-    document.querySelectorAll<HTMLElement>("#processSection thead th").forEach((header) => {
-        header.addEventListener("click", () => {
-            const column = header.dataset.sort as SortColumn | undefined;
-            if (column) {
-                currentSort.order = currentSort.column === column && currentSort.order === "asc" ? "desc" : "asc";
-                currentSort.column = column;
-                renderTaskList();
-            }
-        });
-    });
+    bindSortableHeaders("#processSection thead th", currentSort, renderTaskList);
 
     // Handle searching
     if (searchInput) {

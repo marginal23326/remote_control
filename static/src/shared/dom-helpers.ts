@@ -70,3 +70,19 @@ export function updateSortIndicators(headerSelector: string, activeColumn: strin
         indicator.textContent = th.dataset.sort === activeColumn ? (ascending ? " ▲" : " ▼") : "";
     });
 }
+
+export function bindSortableHeaders<C extends string>(
+    selector: string,
+    state: { column: C; direction: "asc" | "desc" },
+    onChange: () => void,
+): void {
+    document.querySelectorAll<HTMLElement>(selector).forEach((th) => {
+        th.addEventListener("click", () => {
+            const column = th.dataset.sort as C | undefined;
+            if (!column) return;
+            state.direction = state.column === column && state.direction === "asc" ? "desc" : "asc";
+            state.column = column;
+            onChange();
+        });
+    });
+}

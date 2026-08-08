@@ -4,6 +4,7 @@ import type { ContextMenuItem } from "@/shared/context-menu";
 import { formatDate, formatFileSize } from "@/shared/format";
 import {
     bindDebouncedInput,
+    bindSortableHeaders,
     byId,
     escapeHtml,
     onAsync,
@@ -100,8 +101,7 @@ let navigationHistory: string[] = [];
 let currentFileList: RenderableFileItem[] = [];
 let filteredList: RenderableFileItem[] = [];
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-let sortColumn: SortColumn = "name";
-let sortDirection: SortDirection = "asc";
+const sortState: { column: SortColumn; direction: SortDirection } = { column: "name", direction: "asc" };
 let dropZone: DropZone | null = null;
 let isLoading = false;
 let pendingScrollPath: string | null = null;
@@ -313,15 +313,15 @@ function applySortAndFilter(resetScroll = false): void {
     const term = (elements.searchInput?.value ?? "").toLowerCase();
     const list = currentFileList.filter((item) => !term || item._nameLower.includes(term));
 
-    const dirMul = sortDirection === "asc" ? 1 : -1;
+    const dirMul = sortState.direction === "asc" ? 1 : -1;
     list.sort((a, b) => {
         if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
 
-        if (sortColumn === "name") {
+        if (sortState.column === "name") {
             return dirMul * collator.compare(a.name, b.name);
         }
 
-        const key: "size" | "last_modified" = sortColumn === "modified" ? "last_modified" : "size";
+        const key: "size" | "last_modified" = sortState.column === "modified" ? "last_modified" : "size";
         return dirMul * ((a[key] ?? 0) - (b[key] ?? 0));
     });
 
@@ -633,24 +633,17 @@ function initializeSortListeners(): void {
         th.addEventListener("mousedown", (e) => {
             e.stopPropagation();
         });
+    });
 
-        th.addEventListener("click", () => {
-            const sortField = th.dataset.sort as SortColumn;
-            if (sortColumn === sortField) {
-                sortDirection = sortDirection === "asc" ? "desc" : "asc";
-            } else {
-                sortColumn = sortField;
-                sortDirection = "asc";
-            }
-            updateSortIndicators();
-            applySortAndFilter(true);
-        });
+    bindSortableHeaders("#fileTable th[data-sort]", sortState, () => {
+        updateSortIndicators();
+        applySortAndFilter(true);
     });
     updateSortIndicators();
 }
 
 function updateSortIndicators(): void {
-    renderSortIndicators("#fileTable th[data-sort]", sortColumn, sortDirection === "asc");
+    renderSortIndicators("#fileTable th[data-sort]", sortState.column, sortState.direction === "asc");
 }
 
 export function initializeFileManagement(): void {
