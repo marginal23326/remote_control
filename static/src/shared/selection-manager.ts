@@ -12,17 +12,7 @@ export interface SelectionManagerConfig {
     onSelectionChange?: (items: string[]) => void;
 }
 
-interface ResolvedSelectionManagerConfig {
-    containerSelector: string;
-    itemSelector: string;
-    selectedClass: string;
-    defaultHoverClass: string;
-    selectedHoverClass: string;
-    getItemId: (element: HTMLElement) => string | undefined;
-    isItemSelectable: (element: HTMLElement) => boolean;
-    getAllIds: (() => string[]) | null;
-    onSelectionChange: (items: string[]) => void;
-}
+type ResolvedSelectionManagerConfig = Required<SelectionManagerConfig>;
 
 export class SelectionManager {
     selectedIds = new Set<string>();

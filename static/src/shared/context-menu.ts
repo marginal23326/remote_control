@@ -9,11 +9,7 @@ export interface ContextMenuConfig<TContext = unknown> {
     getMenuItems?: (context?: TContext) => ContextMenuItem[];
 }
 
-interface ResolvedContextMenuConfig<TContext> {
-    menuClass: string;
-    menuItemClass: string;
-    getMenuItems: (context?: TContext) => ContextMenuItem[];
-}
+type ResolvedContextMenuConfig<TContext> = Required<ContextMenuConfig<TContext>>;
 
 export class ContextMenuManager<TContext = unknown> {
     private menuElement: HTMLDivElement | null = null;
