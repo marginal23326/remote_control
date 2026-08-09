@@ -1,6 +1,7 @@
 use crate::services::system::{SystemInfoDTO, get_system_info};
 use crate::state::AppState;
-use crate::utils::error::{run_blocking, success};
+use crate::utils::blocking::run_blocking;
+use crate::utils::error::success;
 use axum::{Json, extract::State};
 
 pub async fn get_system_info_handler(State(state): State<AppState>) -> Json<SystemInfoDTO> {

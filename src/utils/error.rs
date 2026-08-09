@@ -65,11 +65,3 @@ macro_rules! success {
     };
 }
 pub(crate) use success;
-
-pub async fn run_blocking<T, E>(f: impl FnOnce() -> Result<T, E> + Send + 'static) -> AppResult<T>
-where
-    T: Send + 'static,
-    E: Into<AppError> + Send + 'static,
-{
-    crate::utils::blocking::run(move || f().map_err(Into::into)).await
-}
