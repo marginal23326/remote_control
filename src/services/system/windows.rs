@@ -12,7 +12,7 @@ use windows::Win32::System::Wmi::{
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 use windows::core::{BSTR, GUID, HSTRING, PCWSTR};
 
-use crate::utils::units::BYTES_PER_GB;
+use crate::utils::units::bytes_to_gb;
 
 use super::OsSpecificInfo;
 
@@ -95,7 +95,7 @@ fn get_disk_info() -> Vec<String> {
         let size_str = &row[1];
 
         if let Ok(bytes) = size_str.parse::<u64>() {
-            let gb = bytes / BYTES_PER_GB;
+            let gb = bytes_to_gb(bytes);
             disks.push(format!("{} ({}GB)", model, gb));
         } else {
             disks.push(model.clone());

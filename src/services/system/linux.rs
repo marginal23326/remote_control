@@ -1,7 +1,7 @@
 use sysinfo::System;
 use tokio::process::Command;
 
-use crate::utils::units::BYTES_PER_GB;
+use crate::utils::units::bytes_to_gb;
 
 use super::OsSpecificInfo;
 
@@ -84,7 +84,7 @@ fn get_disk_labels(disks: &sysinfo::Disks) -> Vec<String> {
         .list()
         .iter()
         .map(|d| {
-            let size = d.total_space() / BYTES_PER_GB;
+            let size = bytes_to_gb(d.total_space());
             format!("{} ({size}GB)", d.name().to_string_lossy())
         })
         .collect()

@@ -1,4 +1,4 @@
-use crate::utils::units::{BYTES_PER_GB, BYTES_PER_MB};
+use crate::utils::units::{BYTES_PER_MB, bytes_to_gb};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -120,8 +120,8 @@ pub(crate) fn disk_usage_from(disks: &sysinfo::Disks) -> (u64, u64, u64) {
     for disk in disks.list() {
         let mount = disk.mount_point().to_string_lossy();
         if mount == "/" || mount.starts_with("C:") {
-            let total = disk.total_space() / BYTES_PER_GB;
-            let free = disk.available_space() / BYTES_PER_GB;
+            let total = bytes_to_gb(disk.total_space());
+            let free = bytes_to_gb(disk.available_space());
             return (total, total.saturating_sub(free), free);
         }
     }
