@@ -1,6 +1,6 @@
 import { apiCall } from "@/shared/api";
 import { byId, onAsync } from "@/shared/dom-helpers";
-import { LoadingButton, runWithFeedback, showNotification } from "@/shared/feedback";
+import { LoadingButton, runWithFeedback, secureContextRequiredMessage, showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { registerShortcuts } from "@/core/shortcuts";
 import {
@@ -137,10 +137,7 @@ export function initializeStream(socket: AppSocket): void {
     (["pull", "push"] as const).forEach((action) => {
         onAsync(byId(`${action}ClipboardBtn`), "click", async (e) => {
             if (!navigator.clipboard) {
-                showNotification(
-                    "Clipboard sync requires a Secure Context (HTTPS or localhost). See the README for the Chrome flag workaround.",
-                    "error",
-                );
+                showNotification(secureContextRequiredMessage("Clipboard sync"), "error");
                 return;
             }
 

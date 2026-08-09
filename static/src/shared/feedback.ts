@@ -35,6 +35,10 @@ function setInteractiveElementsEnabled(enabled: boolean): void {
     });
 }
 
+export function secureContextRequiredMessage(feature: string): string {
+    return `${feature} requires a Secure Context (HTTPS or localhost). See the README for the Chrome flag workaround.`;
+}
+
 export function showConnectionOverlay(message: string): void {
     connectionMessage.textContent = message;
     connectionOverlay.classList.remove("hidden");

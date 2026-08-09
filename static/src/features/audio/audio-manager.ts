@@ -1,5 +1,5 @@
 import { byId, intValue, onAsync, toggleClasses } from "@/shared/dom-helpers";
-import { showNotification } from "@/shared/feedback";
+import { secureContextRequiredMessage, showNotification } from "@/shared/feedback";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
 import audioWorkletProcessorUrl from "./audio-worklet-processor.ts?worker&url";
@@ -107,9 +107,7 @@ async function startAudioStream(
 
         if (type === "client") {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error(
-                    "Microphone access requires a Secure Context (HTTPS or localhost). See the README for the Chrome flag workaround.",
-                );
+                throw new Error(secureContextRequiredMessage("Microphone access"));
             }
 
             const rateInput = byId<HTMLInputElement>("clientAudioRate");
