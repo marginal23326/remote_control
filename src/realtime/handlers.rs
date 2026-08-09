@@ -309,29 +309,23 @@ pub async fn handle_stop_camera_stream(State(state): State<AppState>) {
     state.camera.stop_stream();
 }
 
-fn extract_sdp(data: &serde_json::Value) -> Option<String> {
-    data.as_str().map(str::to_string)
-}
-
-fn extract_ice(data: &serde_json::Value) -> Option<(u32, String)> {
-    Some((
-        data.get("sdp_mline_index")?.as_u64()? as u32,
-        data.get("candidate")?.as_str()?.to_string(),
-    ))
+#[derive(Deserialize, Debug)]
+pub struct IceCandidateEvent {
+    sdp_mline_index: Option<u32>,
+    candidate: String,
 }
 
 macro_rules! webrtc_signal_handlers {
     ($answer_fn:ident, $ice_fn:ident, $manager:ident) => {
-        pub async fn $answer_fn(Data(data): Data<serde_json::Value>, State(state): State<AppState>) {
-            let Some(sdp_str) = extract_sdp(&data) else { return };
-            state.$manager.set_remote_description(sdp_str);
+        pub async fn $answer_fn(Data(sdp): Data<String>, State(state): State<AppState>) {
+            state.$manager.set_remote_description(sdp);
         }
 
-        pub async fn $ice_fn(Data(data): Data<serde_json::Value>, State(state): State<AppState>) {
-            let Some((sdp_mline_index, candidate)) = extract_ice(&data) else {
+        pub async fn $ice_fn(Data(ice): Data<IceCandidateEvent>, State(state): State<AppState>) {
+            let Some(sdp_mline_index) = ice.sdp_mline_index else {
                 return;
             };
-            state.$manager.add_ice_candidate(sdp_mline_index, candidate);
+            state.$manager.add_ice_candidate(sdp_mline_index, ice.candidate);
         }
     };
 }
