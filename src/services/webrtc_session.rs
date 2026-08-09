@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::thread;
 
 use crossbeam_channel::{Receiver, Sender};
@@ -186,5 +187,14 @@ pub(crate) trait WebRtcManager {
 
     fn add_ice_candidate(&self, sdp_mline_index: u32, candidate: String) {
         self.session().add_ice_candidate(sdp_mline_index, candidate);
+    }
+}
+
+pub(crate) fn stop_owner_on_exit<M>(manager: Arc<M>, owner_id: String) -> impl FnOnce() + Send + 'static
+where
+    M: WebRtcManager + Send + Sync + 'static,
+{
+    move || {
+        manager.disconnect_if_owner(&owner_id);
     }
 }

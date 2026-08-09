@@ -16,7 +16,8 @@ use gstreamer_webrtc as gst_webrtc;
 
 use super::owned_worker::OwnedSession;
 use super::webrtc_session::{
-    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
+    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, stop_owner_on_exit,
+    wire_webrtc_signaling,
 };
 use crate::realtime::event_names::ServerEvent;
 use crate::realtime::payloads::ActiveWindowPayload;
@@ -157,14 +158,12 @@ impl ScreenManager {
         let is_running = self.session.ownership().running_flag();
         let settings = self.settings.clone();
 
-        let screen = state.screen.clone();
-        let owner_id = socket.id.to_string();
-        spawn_bus_watch(pipeline.clone(), "screen", move || {
-            screen.session.stop_if_owner(&owner_id);
-        });
+        spawn_bus_watch(
+            pipeline.clone(),
+            "screen",
+            stop_owner_on_exit(state.screen.clone(), socket.id.to_string()),
+        );
 
-        let screen = state.screen.clone();
-        let owner_id = socket.id.to_string();
         let CaptureHandles {
             capture: capture_handle,
             title: title_handle,
@@ -175,9 +174,7 @@ impl ScreenManager {
             is_running.clone(),
             self.native_size.clone(),
             capture_cursor,
-            move || {
-                screen.session.stop_if_owner(&owner_id);
-            },
+            stop_owner_on_exit(state.screen.clone(), socket.id.to_string()),
         )
         .await?;
 

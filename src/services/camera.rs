@@ -2,7 +2,8 @@ use crate::realtime::event_names::ServerEvent;
 use crate::services::owned_worker::OwnedSession;
 use crate::services::screen::{detect_encoder, encode_and_webrtc_tail};
 use crate::services::webrtc_session::{
-    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, wire_webrtc_signaling,
+    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, stop_owner_on_exit,
+    wire_webrtc_signaling,
 };
 use crate::state::AppState;
 use serde::Serialize;
@@ -109,11 +110,11 @@ impl CameraManager {
             },
         );
 
-        let camera = state.camera.clone();
-        let owner_id = socket.id.to_string();
-        spawn_bus_watch(pipeline.clone(), "camera", move || {
-            camera.session.stop_if_owner(&owner_id);
-        });
+        spawn_bus_watch(
+            pipeline.clone(),
+            "camera",
+            stop_owner_on_exit(state.camera.clone(), socket.id.to_string()),
+        );
 
         self.session.finish_or_abort(
             guard,
