@@ -32,11 +32,11 @@ export type EncoderPropertyConstraint = { "value_type": "bool" } | { "value_type
 
 export type FileEntry = { name: string, path: string, is_dir: boolean, size: number, last_modified?: number | null, };
 
-export type KeyboardEvent = { "type": "text", text: string, } | { "type": "shortcut", shortcut: string, modifiers?: Array<string>, } | { "type": "keyDown", key: string, } | { "type": "keyUp", key: string, };
+export type KeyboardEventPayload = { "type": "text", text: string, } | { "type": "shortcut", shortcut: string, modifiers?: Array<string>, } | { "type": "keyDown", key: string, } | { "type": "keyUp", key: string, };
 
 export type MessagePayload = { message: string, };
 
-export type MouseEvent = { "type": "move", seq?: number, x: number, y: number, } | { "type": "click", x: number, y: number, button: string, pressed: boolean, } | { "type": "scroll", dx: number, dy: number, };
+export type MouseEventPayload = { "type": "move", seq?: number, x: number, y: number, } | { "type": "click", x: number, y: number, button: string, pressed: boolean, } | { "type": "scroll", dx: number, dy: number, };
 
 export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
 

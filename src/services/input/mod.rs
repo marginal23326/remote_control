@@ -26,7 +26,7 @@ pub(crate) trait OsInput {
 #[derive(Clone, Deserialize, Debug, TS)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[ts(export, export_to = "bindings.ts", optional_fields)]
-pub enum MouseEvent {
+pub enum MouseEventPayload {
     Move {
         seq: Option<u64>,
         x: f64,
@@ -101,16 +101,16 @@ impl InputManager {
     }
 }
 
-pub async fn apply_mouse_event(input: &InputManager, data: MouseEvent) {
+pub async fn apply_mouse_event(input: &InputManager, data: MouseEventPayload) {
     match data {
-        MouseEvent::Move { x, y, .. } => {
+        MouseEventPayload::Move { x, y, .. } => {
             input.move_mouse(x as i32, y as i32).await;
         }
-        MouseEvent::Click { x, y, button, pressed } => {
+        MouseEventPayload::Click { x, y, button, pressed } => {
             input.move_mouse(x as i32, y as i32).await;
             input.click_mouse(button, pressed).await;
         }
-        MouseEvent::Scroll { dx, dy } => {
+        MouseEventPayload::Scroll { dx, dy } => {
             if dx != 0 || dy != 0 {
                 input.scroll_mouse(dx, dy).await;
             }

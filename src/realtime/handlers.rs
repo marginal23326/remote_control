@@ -4,7 +4,7 @@ use crate::realtime::payloads::{
 };
 use crate::services::audio::AudioManager;
 use crate::services::camera::CameraManager;
-use crate::services::input::{MouseEvent, apply_mouse_event};
+use crate::services::input::{MouseEventPayload, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
 use crate::utils::blocking::{run, run_or_log_default};
@@ -20,7 +20,7 @@ pub static ACTIVE_WATCHERS: AtomicUsize = AtomicUsize::new(0);
 #[derive(Deserialize, Debug, TS)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[ts(export, export_to = "bindings.ts", optional_fields)]
-pub enum KeyboardEvent {
+pub enum KeyboardEventPayload {
     Text {
         text: String,
     },
@@ -97,19 +97,19 @@ fn emit_error(socket: &SocketRef, event: ServerEvent, action: &str, err: impl st
     );
 }
 
-pub async fn handle_mouse_event(Data(data): Data<MouseEvent>, State(state): State<AppState>) {
+pub async fn handle_mouse_event(Data(data): Data<MouseEventPayload>, State(state): State<AppState>) {
     apply_mouse_event(&state.input, data).await;
 }
 
-pub async fn handle_keyboard_event(Data(data): Data<KeyboardEvent>, State(state): State<AppState>) {
+pub async fn handle_keyboard_event(Data(data): Data<KeyboardEventPayload>, State(state): State<AppState>) {
     match data {
-        KeyboardEvent::Text { text } => state.input.type_text(text).await,
-        KeyboardEvent::Shortcut { shortcut, modifiers } => {
+        KeyboardEventPayload::Text { text } => state.input.type_text(text).await,
+        KeyboardEventPayload::Shortcut { shortcut, modifiers } => {
             let mods = modifiers.unwrap_or_default();
             state.input.send_shortcut(shortcut, mods).await
         }
-        KeyboardEvent::KeyDown { key } => state.input.set_key_state(key, true).await,
-        KeyboardEvent::KeyUp { key } => state.input.set_key_state(key, false).await,
+        KeyboardEventPayload::KeyDown { key } => state.input.set_key_state(key, true).await,
+        KeyboardEventPayload::KeyUp { key } => state.input.set_key_state(key, false).await,
     };
 }
 

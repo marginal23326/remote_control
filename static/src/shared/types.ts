@@ -7,8 +7,8 @@ import type {
     CurrentSettingsResponse,
     EncoderPropertyConstraint,
     FileEntry,
-    KeyboardEvent as KeyboardEventPayload,
-    MouseEvent as MouseEventDTO,
+    KeyboardEventPayload,
+    MouseEventPayload,
     ProcessDTO as ProcessInfo,
     ProcessDetailsDTO as ProcessDetails,
     ShellCreateEvent as ShellCreatePayload,
@@ -37,8 +37,6 @@ export interface UploadResponse {
     count: number;
 }
 
-export type MouseEventPayload = MouseEventDTO;
-
 export type AudioStartPayload = AudioConfig;
 
 export type StreamSettings = Omit<CurrentSettingsResponse, "encoder_properties" | "encoder_property_constraints"> & {
@@ -61,6 +59,7 @@ export type {
     CameraDeviceInfo,
     EncoderPropertyConstraint,
     KeyboardEventPayload,
+    MouseEventPayload,
     ProcessDetails,
     ProcessInfo,
     ShellCreatePayload,
