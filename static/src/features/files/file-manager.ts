@@ -11,7 +11,7 @@ import {
     updateSortIndicators as renderSortIndicators,
 } from "@/shared/dom-helpers";
 import { showConfirmModal, showPromptModal } from "@/shared/modal";
-import { LoadingButton, showNotification } from "@/shared/feedback";
+import { LoadingButton, showNotification, withErrorNotification } from "@/shared/feedback";
 import { registerShortcuts } from "@/core/shortcuts";
 import { getParentPath, getSeparator, joinPath } from "./path-utils";
 import { renderBreadcrumbs } from "./breadcrumbs";
@@ -38,14 +38,11 @@ async function handleApiCall(
     data: unknown,
     successCallback?: (response: ApiMessageResponse) => void | Promise<void>,
 ): Promise<void> {
-    try {
+    await withErrorNotification(async () => {
         const response = await apiCall<ApiMessageResponse>(apiEndpoint, method, data);
         if (response.message) showNotification(response.message, "info");
-        void successCallback?.(response);
-    } catch (error) {
-        console.error(`Error in ${apiEndpoint}:`, error);
-        showNotification(`Error: ${(error as Error).message}`, "error");
-    }
+        await successCallback?.(response);
+    }, "Error");
 }
 
 function handleDownload(paths: string[]): void {

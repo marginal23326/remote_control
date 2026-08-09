@@ -91,17 +91,22 @@ export class LoadingButton {
     }
 }
 
+export async function withErrorNotification(action: () => Promise<void>, errorPrefix?: string): Promise<void> {
+    try {
+        await action();
+    } catch (error) {
+        console.error(errorPrefix ?? "Unhandled error", error);
+        const message = (error as Error).message;
+        showNotification(errorPrefix ? `${errorPrefix}: ${message}` : message, "error");
+    }
+}
+
 export async function runWithFeedback(
     loader: LoadingButton,
     action: () => Promise<void>,
     errorPrefix?: string,
 ): Promise<void> {
-    try {
-        await loader.withLoading(action);
-    } catch (error) {
-        const message = (error as Error).message;
-        showNotification(errorPrefix ? `${errorPrefix}: ${message}` : message, "error");
-    }
+    await withErrorNotification(() => loader.withLoading(action), errorPrefix);
 }
 
 type NotificationType = "error" | "warning" | "info";
