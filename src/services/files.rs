@@ -1,10 +1,11 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_zip::tokio::write::ZipFileWriter;
 use async_zip::{Compression, ZipEntryBuilder};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use sysinfo::Disks;
+use thiserror::Error;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use ts_rs::TS;
 
@@ -42,15 +43,33 @@ pub fn get_drives() -> Vec<DriveEntry> {
         .collect()
 }
 
-pub fn list_directory(path_str: &str) -> Result<Vec<FileEntry>> {
+#[derive(Error, Debug)]
+pub enum FileOpError {
+    #[error("Path does not exist")]
+    NotFound,
+    #[error("Access denied: {0}")]
+    AccessDenied(#[source] std::io::Error),
+    #[error("Invalid file name")]
+    InvalidName,
+    #[error("Invalid path")]
+    InvalidPath,
+    #[error("A file or folder with that name already exists")]
+    AlreadyExists,
+    #[error("Failed to delete: {0}")]
+    DeleteFailed(String),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
+pub fn list_directory(path_str: &str) -> Result<Vec<FileEntry>, FileOpError> {
     let path = Path::new(path_str);
 
     if !path.exists() {
-        return Err(anyhow!("Path does not exist"));
+        return Err(FileOpError::NotFound);
     }
 
     let mut entries = Vec::new();
-    let read_dir = fs::read_dir(path).map_err(|e| anyhow!("Access denied: {}", e))?;
+    let read_dir = fs::read_dir(path).map_err(FileOpError::AccessDenied)?;
 
     for entry in read_dir.flatten() {
         let file_type = entry.file_type().ok();
@@ -86,13 +105,15 @@ pub fn list_directory(path_str: &str) -> Result<Vec<FileEntry>> {
     Ok(entries)
 }
 
-pub fn create_folder(parent: &str, name: &str) -> Result<()> {
+pub fn create_folder(parent: &str, name: &str) -> Result<(), FileOpError> {
     let path = Path::new(parent).join(name);
-    fs::create_dir(path)?;
-    Ok(())
+    fs::create_dir(&path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => FileOpError::AlreadyExists,
+        _ => FileOpError::Io(e),
+    })
 }
 
-pub fn delete_items(paths: Vec<String>) -> Result<()> {
+pub fn delete_items(paths: Vec<String>) -> Result<(), FileOpError> {
     let mut failed = Vec::new();
     for p in paths {
         let path = Path::new(&p);
@@ -108,22 +129,22 @@ pub fn delete_items(paths: Vec<String>) -> Result<()> {
     }
 
     if !failed.is_empty() {
-        return Err(anyhow!("Failed to delete: {}", failed.join(", ")));
+        return Err(FileOpError::DeleteFailed(failed.join(", ")));
     }
     Ok(())
 }
 
-pub fn rename_item(old: &str, new_name: &str) -> Result<()> {
+pub fn rename_item(old: &str, new_name: &str) -> Result<(), FileOpError> {
     if new_name.contains(['/', '\\']) {
-        return Err(anyhow!("Invalid file name"));
+        return Err(FileOpError::InvalidName);
     }
 
     let old_path = Path::new(old);
-    let parent = old_path.parent().ok_or_else(|| anyhow!("Invalid path"))?;
+    let parent = old_path.parent().ok_or(FileOpError::InvalidPath)?;
     let new_path = parent.join(new_name);
 
     if new_path.exists() {
-        return Err(anyhow!("A file or folder with that name already exists"));
+        return Err(FileOpError::AlreadyExists);
     }
 
     fs::rename(old_path, new_path)?;

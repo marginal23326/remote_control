@@ -58,6 +58,21 @@ pub struct RenamePayload {
     new_name: String,
 }
 
+impl From<files::FileOpError> for AppError {
+    fn from(e: files::FileOpError) -> Self {
+        let message = e.to_string();
+        match e {
+            files::FileOpError::NotFound => AppError::NotFound(message),
+            files::FileOpError::AccessDenied(_) => AppError::Forbidden(message),
+            files::FileOpError::InvalidName | files::FileOpError::InvalidPath | files::FileOpError::AlreadyExists => {
+                AppError::BadRequest(message)
+            }
+            files::FileOpError::DeleteFailed(_) => AppError::InternalError(anyhow::anyhow!(message)),
+            files::FileOpError::Io(io_err) => AppError::InternalError(io_err.into()),
+        }
+    }
+}
+
 // --- HANDLERS ---
 
 pub async fn check_access_handler(Json(mut paths): Json<Vec<String>>) -> AppResult<Json<Vec<String>>> {
@@ -78,19 +93,7 @@ pub async fn list_files_handler(Query(q): Query<ListQuery>) -> AppResult<Json<Va
         return Ok(Json(json!(files::get_drives())));
     };
 
-    let entries = run_blocking(move || {
-        files::list_directory(&path).map_err(|e| {
-            let message = e.to_string();
-            if message.to_lowercase().contains("access") {
-                AppError::Forbidden(message)
-            } else if message.contains("does not exist") {
-                AppError::NotFound(message)
-            } else {
-                AppError::InternalError(e)
-            }
-        })
-    })
-    .await?;
+    let entries = run_blocking(move || files::list_directory(&path)).await?;
 
     Ok(Json(json!(entries)))
 }
