@@ -1,5 +1,5 @@
 import { apiCall } from "@/shared/api";
-import { type ContextMenuContext, ListManager } from "@/shared/list-manager";
+import { CLASSES, type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import { showConfirmModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
 import {
@@ -115,7 +115,7 @@ function renderTaskList(newProcesses?: ProcessInfo[]): void {
     const fragment = document.createDocumentFragment();
     processes.forEach((process) => {
         const row = document.createElement("tr");
-        row.classList.add("cursor-pointer");
+        row.classList.add(CLASSES.row);
         row.dataset.pid = String(process.pid);
 
         row.innerHTML = `
