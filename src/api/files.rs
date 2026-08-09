@@ -1,11 +1,9 @@
 use crate::services::files;
 use crate::utils::error::{AppError, AppResult, run_blocking, success};
-use async_zip::tokio::write::ZipFileWriter;
-use async_zip::{Compression, ZipEntryBuilder};
 use axum::{
     Json,
     body::Body,
-    extract::{Multipart, Query, multipart::Field},
+    extract::{Multipart, Query},
     http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
@@ -19,7 +17,6 @@ use std::io;
 use std::path::Path;
 use tokio::fs::File;
 use tokio::io::duplex;
-use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use tokio_util::io::{ReaderStream, StreamReader};
 
 const FILENAME_SAFE: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'_').remove(b'.').remove(b'~');
@@ -59,46 +56,6 @@ pub struct DeletePayload {
 pub struct RenamePayload {
     old_path: String,
     new_name: String,
-}
-
-fn systime_to_zip_datetime(systime: std::time::SystemTime, offset: time::UtcOffset) -> Option<async_zip::ZipDateTime> {
-    use time::OffsetDateTime;
-    let utc_dt: OffsetDateTime = systime.into();
-    let local_dt = utc_dt.to_offset(offset);
-    Some(
-        async_zip::ZipDateTimeBuilder::new()
-            .year(local_dt.year())
-            .month(local_dt.month() as u32)
-            .day(local_dt.day() as u32)
-            .hour(local_dt.hour() as u32)
-            .minute(local_dt.minute() as u32)
-            .second(local_dt.second() as u32)
-            .build(),
-    )
-}
-
-fn find_common_parent(paths: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
-    if paths.is_empty() {
-        return None;
-    }
-    let mut common = paths[0].parent().unwrap_or(&paths[0]).to_path_buf();
-    for path in paths.iter().skip(1) {
-        let parent = path.parent().unwrap_or(path);
-        let mut new_common = std::path::PathBuf::new();
-        for (c, p) in common.components().zip(parent.components()) {
-            if c == p {
-                new_common.push(c);
-            } else {
-                break;
-            }
-        }
-        common = new_common;
-    }
-    if common.as_os_str().is_empty() {
-        None
-    } else {
-        Some(common)
-    }
 }
 
 // --- HANDLERS ---
@@ -161,85 +118,38 @@ pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Jso
     Ok(success!())
 }
 
-async fn stream_field_to_file(field: Field<'_>, file: &mut File) -> bool {
-    let mut reader = StreamReader::new(field.map_err(io::Error::other));
-
-    match tokio::io::copy(&mut reader, file).await {
-        Ok(_) => true,
-        Err(e) => {
-            tracing::error!("Upload stream interrupted: {}", e);
-            false
-        }
-    }
-}
-
 pub async fn upload_handler(Query(query): Query<UploadQuery>, mut multipart: Multipart) -> AppResult<Json<Value>> {
-    let dir_path = std::path::Path::new(&query.path);
+    let dir_path = Path::new(&query.path);
     let mut uploaded_count = 0;
     let mut dir_created = false;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         let name = field.name().unwrap_or("").to_string();
+        if name != "files" {
+            continue;
+        }
 
-        if name == "files" {
-            let raw_file_name = field.file_name().unwrap_or("uploaded_file");
-            let file_name = std::path::Path::new(raw_file_name)
-                .file_name()
-                .unwrap_or_else(|| std::ffi::OsStr::new("uploaded_file"))
-                .to_string_lossy()
-                .into_owned();
+        let raw_file_name = field.file_name().unwrap_or("uploaded_file");
+        let file_name = Path::new(raw_file_name)
+            .file_name()
+            .unwrap_or_else(|| std::ffi::OsStr::new("uploaded_file"))
+            .to_string_lossy()
+            .into_owned();
 
-            if !dir_created {
-                if let Err(e) = tokio::fs::create_dir_all(dir_path).await {
-                    return Err(AppError::BadRequest(format!(
-                        "Failed to create directory {}: {}",
-                        query.path, e
-                    )));
-                }
-                dir_created = true;
+        if !dir_created {
+            if let Err(e) = tokio::fs::create_dir_all(dir_path).await {
+                return Err(AppError::BadRequest(format!(
+                    "Failed to create directory {}: {}",
+                    query.path, e
+                )));
             }
+            dir_created = true;
+        }
 
-            let named_temp = match tokio::task::spawn_blocking({
-                let dir_path = dir_path.to_path_buf();
-                move || {
-                    tempfile::Builder::new()
-                        .prefix(".upload_")
-                        .suffix(".part")
-                        .tempfile_in(dir_path)
-                }
-            })
-            .await
-            {
-                Ok(Ok(ntf)) => ntf,
-                Ok(Err(e)) => {
-                    tracing::error!("Failed to create temp file in {:?}: {}", dir_path, e);
-                    continue;
-                }
-                Err(_) => continue,
-            };
-
-            // into_parts() gives TempPath which retains the Drop guard that auto-deletes the file.
-            let (std_file, temp_path) = named_temp.into_parts();
-            let dest_path = dir_path.join(&file_name);
-
-            let mut file = tokio::fs::File::from_std(std_file);
-
-            if stream_field_to_file(field, &mut file).await {
-                drop(file);
-
-                let dest = dest_path.clone();
-                match tokio::task::spawn_blocking(move || temp_path.persist(dest)).await {
-                    Ok(Ok(_)) => {
-                        uploaded_count += 1;
-                    }
-                    Ok(Err(e)) => {
-                        tracing::error!("Failed to persist temp file to {:?}: {}", dest_path, e);
-                    }
-                    Err(e) => {
-                        tracing::error!("Thread pool task failed during rename: {}", e);
-                    }
-                }
-            }
+        let reader = StreamReader::new(field.map_err(io::Error::other));
+        match files::save_uploaded_file(dir_path, &file_name, reader).await {
+            Ok(()) => uploaded_count += 1,
+            Err(e) => tracing::error!("Failed to save uploaded file {file_name:?}: {e:#}"),
         }
     }
 
@@ -282,47 +192,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
         }
     }
 
-    let paths_clone = paths.clone();
-    let (files_to_zip, skipped) = run_blocking(move || -> anyhow::Result<_> {
-        let mut collected = Vec::new();
-        let mut skipped = Vec::new();
-        let path_bufs: Vec<std::path::PathBuf> = paths_clone.iter().map(std::path::PathBuf::from).collect();
-        let common_parent = find_common_parent(&path_bufs);
-        let tz_offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
-
-        for root_path in path_bufs {
-            for entry in walkdir::WalkDir::new(&root_path) {
-                let entry = match entry {
-                    Ok(e) => e,
-                    Err(e) => {
-                        if let Some(path) = e.path() {
-                            skipped.push(path.to_string_lossy().into_owned());
-                        }
-                        continue;
-                    }
-                };
-                let path = entry.path();
-                if path.is_file() {
-                    let zip_path_name = common_parent
-                        .as_ref()
-                        .and_then(|parent| path.strip_prefix(parent).ok())
-                        .map(|p| p.to_string_lossy().replace('\\', "/"))
-                        .unwrap_or_else(|| path.file_name().unwrap().to_string_lossy().into_owned());
-
-                    let last_modified = entry
-                        .metadata()
-                        .ok()
-                        .and_then(|meta| meta.modified().ok())
-                        .and_then(|systime| systime_to_zip_datetime(systime, tz_offset))
-                        .unwrap_or_default();
-
-                    collected.push((path.to_path_buf(), zip_path_name, last_modified));
-                }
-            }
-        }
-        Ok((collected, skipped))
-    })
-    .await?;
+    let (files_to_zip, skipped) = run_blocking(move || files::plan_zip_entries(&paths)).await?;
 
     if files_to_zip.is_empty() {
         return Err(AppError::BadRequest(
@@ -331,41 +201,7 @@ pub async fn download_handler(Form(payload): Form<DownloadForm>) -> AppResult<Re
     }
 
     let (w, r) = duplex(1024 * 1024);
-
-    tokio::spawn(async move {
-        let mut writer = ZipFileWriter::with_tokio(w);
-
-        if !skipped.is_empty() {
-            let header = "The following paths could not be read and were excluded from the archive:\n\n";
-            let content = format!("{}{}", header, skipped.join("\n"));
-            let entry = ZipEntryBuilder::new("_skipped.txt".into(), Compression::Stored);
-            if let Ok(entry_writer) = writer.write_entry_stream(entry).await {
-                let mut compat_writer = entry_writer.compat_write();
-                let _ = tokio::io::copy(&mut content.as_bytes(), &mut compat_writer).await;
-                let _ = compat_writer.into_inner().close().await;
-            }
-        }
-
-        for (fs_path, zip_path, last_modified) in files_to_zip {
-            if let Ok(mut f) = tokio::fs::File::open(&fs_path).await {
-                let builder =
-                    ZipEntryBuilder::new(zip_path.into(), Compression::Stored).last_modification_date(last_modified);
-
-                if let Ok(entry_writer) = writer.write_entry_stream(builder).await {
-                    let mut compat_writer = entry_writer.compat_write();
-                    if tokio::io::copy(&mut f, &mut compat_writer).await.is_err() {
-                        break;
-                    }
-                    if compat_writer.into_inner().close().await.is_err() {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-        let _ = writer.close().await;
-    });
+    tokio::spawn(files::write_zip_archive(files_to_zip, skipped, w));
 
     let stream = ReaderStream::new(r);
     let body = Body::from_stream(stream);

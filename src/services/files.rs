@@ -1,8 +1,11 @@
 use anyhow::{Result, anyhow};
+use async_zip::tokio::write::ZipFileWriter;
+use async_zip::{Compression, ZipEntryBuilder};
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use sysinfo::Disks;
+use tokio_util::compat::FuturesAsyncWriteCompatExt;
 use ts_rs::TS;
 
 #[derive(Serialize, Debug, TS)]
@@ -141,4 +144,158 @@ pub fn get_home_dir() -> String {
     std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
         .unwrap_or_else(|_| fallback_root().to_string())
+}
+
+pub async fn save_uploaded_file<R>(dir: &Path, file_name: &str, mut reader: R) -> Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let named_temp = tokio::task::spawn_blocking({
+        let dir = dir.to_path_buf();
+        move || {
+            tempfile::Builder::new()
+                .prefix(".upload_")
+                .suffix(".part")
+                .tempfile_in(dir)
+        }
+    })
+    .await??;
+
+    // into_parts() gives TempPath which retains the Drop guard that auto-deletes the file.
+    let (std_file, temp_path) = named_temp.into_parts();
+    let mut file = tokio::fs::File::from_std(std_file);
+
+    tokio::io::copy(&mut reader, &mut file).await?;
+    drop(file);
+
+    let dest = dir.join(file_name);
+    tokio::task::spawn_blocking(move || temp_path.persist(dest)).await??;
+
+    Ok(())
+}
+
+pub struct ZipPlanEntry {
+    fs_path: PathBuf,
+    zip_path: String,
+    last_modified: async_zip::ZipDateTime,
+}
+
+fn systime_to_zip_datetime(systime: std::time::SystemTime, offset: time::UtcOffset) -> async_zip::ZipDateTime {
+    use time::OffsetDateTime;
+    let utc_dt: OffsetDateTime = systime.into();
+    let local_dt = utc_dt.to_offset(offset);
+    async_zip::ZipDateTimeBuilder::new()
+        .year(local_dt.year())
+        .month(local_dt.month() as u32)
+        .day(local_dt.day() as u32)
+        .hour(local_dt.hour() as u32)
+        .minute(local_dt.minute() as u32)
+        .second(local_dt.second() as u32)
+        .build()
+}
+
+fn find_common_parent(paths: &[PathBuf]) -> Option<PathBuf> {
+    if paths.is_empty() {
+        return None;
+    }
+    let mut common = paths[0].parent().unwrap_or(&paths[0]).to_path_buf();
+    for path in paths.iter().skip(1) {
+        let parent = path.parent().unwrap_or(path);
+        let mut new_common = PathBuf::new();
+        for (c, p) in common.components().zip(parent.components()) {
+            if c == p {
+                new_common.push(c);
+            } else {
+                break;
+            }
+        }
+        common = new_common;
+    }
+    if common.as_os_str().is_empty() {
+        None
+    } else {
+        Some(common)
+    }
+}
+
+pub fn plan_zip_entries(paths: &[String]) -> Result<(Vec<ZipPlanEntry>, Vec<String>)> {
+    let mut collected = Vec::new();
+    let mut skipped = Vec::new();
+    let path_bufs: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+    let common_parent = find_common_parent(&path_bufs);
+    let tz_offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
+
+    for root_path in path_bufs {
+        for entry in walkdir::WalkDir::new(&root_path) {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    if let Some(path) = e.path() {
+                        skipped.push(path.to_string_lossy().into_owned());
+                    }
+                    continue;
+                }
+            };
+            let path = entry.path();
+            if path.is_file() {
+                let zip_path = common_parent
+                    .as_ref()
+                    .and_then(|parent| path.strip_prefix(parent).ok())
+                    .map(|p| p.to_string_lossy().replace('\\', "/"))
+                    .unwrap_or_else(|| path.file_name().unwrap().to_string_lossy().into_owned());
+
+                let last_modified = entry
+                    .metadata()
+                    .ok()
+                    .and_then(|meta| meta.modified().ok())
+                    .map(|systime| systime_to_zip_datetime(systime, tz_offset))
+                    .unwrap_or_default();
+
+                collected.push(ZipPlanEntry {
+                    fs_path: path.to_path_buf(),
+                    zip_path,
+                    last_modified,
+                });
+            }
+        }
+    }
+    Ok((collected, skipped))
+}
+
+pub async fn write_zip_archive<W>(entries: Vec<ZipPlanEntry>, skipped: Vec<String>, writer: W)
+where
+    W: tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    let mut writer = ZipFileWriter::with_tokio(writer);
+
+    if !skipped.is_empty() {
+        let header = "The following paths could not be read and were excluded from the archive:\n\n";
+        let content = format!("{header}{}", skipped.join("\n"));
+        let entry = ZipEntryBuilder::new("_skipped.txt".into(), Compression::Stored);
+        if let Ok(entry_writer) = writer.write_entry_stream(entry).await {
+            let mut compat_writer = entry_writer.compat_write();
+            let _ = tokio::io::copy(&mut content.as_bytes(), &mut compat_writer).await;
+            let _ = compat_writer.into_inner().close().await;
+        }
+    }
+
+    for entry in entries {
+        if let Ok(mut f) = tokio::fs::File::open(&entry.fs_path).await {
+            let builder = ZipEntryBuilder::new(entry.zip_path.into(), Compression::Stored)
+                .last_modification_date(entry.last_modified);
+
+            if let Ok(entry_writer) = writer.write_entry_stream(builder).await {
+                let mut compat_writer = entry_writer.compat_write();
+                if tokio::io::copy(&mut f, &mut compat_writer).await.is_err() {
+                    break;
+                }
+                if compat_writer.into_inner().close().await.is_err() {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    let _ = writer.close().await;
 }
