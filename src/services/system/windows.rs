@@ -1,22 +1,14 @@
+use serde::Deserialize;
 use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory, IDXGIFactory};
-use windows::Win32::System::Com::{
-    CLSCTX_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoSetProxyBlanket, CoUninitialize,
-    EOAC_NONE, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE,
-};
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW};
-use windows::Win32::System::Variant::{VARIANT, VT_BSTR, VT_I4, VT_I8, VT_UI4, VT_UI8};
-use windows::Win32::System::Wmi::{
-    IWbemLocator, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_GENERIC_FLAG_TYPE,
-};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
-use windows::core::{BSTR, GUID, HSTRING, PCWSTR};
+use windows::core::{HSTRING, PCWSTR};
+use wmi::{WMIConnection, WMIResult};
 
 use crate::utils::units::bytes_to_gb;
 
 use super::OsSpecificInfo;
-
-const CLSID_WBEM_LOCATOR: GUID = GUID::from_u128(0x4590f811_1d3a_11d0_891f_00aa004b2e24);
 
 pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo {
     tokio::task::spawn_blocking(move || {
@@ -82,141 +74,56 @@ fn get_gpu_info() -> Vec<String> {
     }
 }
 
+#[derive(Deserialize)]
+struct DiskDriveRow {
+    #[serde(rename = "Model")]
+    model: String,
+    #[serde(rename = "Size")]
+    size: Option<u64>,
+}
+
 fn get_disk_info() -> Vec<String> {
-    let rows = wmi_query(
-        "root\\cimv2",
-        "SELECT Model, Size FROM Win32_DiskDrive",
-        &["Model", "Size"],
-    );
-
-    let mut disks = Vec::new();
-    for row in &rows {
-        let model = &row[0];
-        let size_str = &row[1];
-
-        if let Ok(bytes) = size_str.parse::<u64>() {
-            let gb = bytes_to_gb(bytes);
-            disks.push(format!("{} ({}GB)", model, gb));
-        } else {
-            disks.push(model.clone());
-        }
-    }
-
-    disks
+    query_wmi::<DiskDriveRow>(None, "SELECT Model, Size FROM Win32_DiskDrive")
+        .unwrap_or_default()
+        .into_iter()
+        .map(|DiskDriveRow { model, size }| match size {
+            Some(bytes) => format!("{model} ({}GB)", bytes_to_gb(bytes)),
+            None => model,
+        })
+        .collect()
 }
 
 fn get_cpu_max_speed() -> Option<u32> {
     read_reg_dword(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0", "~MHz")
 }
 
-fn get_antivirus_info() -> Vec<String> {
-    let rows = wmi_query(
-        "root\\SecurityCenter2",
-        "SELECT displayName FROM AntiVirusProduct",
-        &["displayName"],
-    );
+#[derive(Deserialize)]
+struct AntivirusRow {
+    #[serde(rename = "displayName")]
+    display_name: String,
+}
 
+fn get_antivirus_info() -> Vec<String> {
     let mut items = Vec::new();
-    for row in &rows {
-        let name = &row[0];
-        if !name.is_empty() && !items.contains(name) {
-            items.push(name.clone());
+    for row in query_wmi::<AntivirusRow>(
+        Some(r"ROOT\SecurityCenter2"),
+        "SELECT displayName FROM AntiVirusProduct",
+    )
+    .unwrap_or_default()
+    {
+        if !row.display_name.is_empty() && !items.contains(&row.display_name) {
+            items.push(row.display_name);
         }
     }
-
     items
 }
 
-struct ComGuard;
-impl Drop for ComGuard {
-    fn drop(&mut self) {
-        unsafe { CoUninitialize() }
-    }
-}
-
-fn wmi_query(namespace: &str, query: &str, properties: &[&str]) -> Vec<Vec<String>> {
-    unsafe {
-        let _guard = if CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() {
-            Some(ComGuard)
-        } else {
-            return Vec::new();
-        };
-
-        let locator: IWbemLocator = match CoCreateInstance(&CLSID_WBEM_LOCATOR, None, CLSCTX_SERVER) {
-            Ok(l) => l,
-            Err(_) => return Vec::new(),
-        };
-
-        let ns = BSTR::from(namespace);
-        let empty = BSTR::new();
-        let services = match locator.ConnectServer(&ns, &empty, &empty, &empty, 0, &empty, None) {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
-
-        let _ = CoSetProxyBlanket(
-            &services,
-            10,
-            0,
-            None,
-            RPC_C_AUTHN_LEVEL_DEFAULT,
-            RPC_C_IMP_LEVEL_IMPERSONATE,
-            None,
-            EOAC_NONE,
-        );
-
-        let wql = BSTR::from("WQL");
-        let wql_query = BSTR::from(query);
-        let flags = WBEM_GENERIC_FLAG_TYPE(WBEM_FLAG_FORWARD_ONLY.0 | WBEM_FLAG_RETURN_IMMEDIATELY.0);
-        let results = match services.ExecQuery(&wql, &wql_query, flags, None) {
-            Ok(r) => r,
-            Err(_) => return Vec::new(),
-        };
-
-        let mut rows = Vec::new();
-        let prop_names: Vec<HSTRING> = properties.iter().map(|p| HSTRING::from(*p)).collect();
-
-        loop {
-            let mut objs = [None; 1];
-            let mut returned: u32 = 0;
-            let hr = results.Next(1000, &mut objs, &mut returned);
-
-            if hr.is_err() || returned == 0 {
-                break;
-            }
-
-            if let Some(obj) = &objs[0] {
-                let mut row = Vec::with_capacity(properties.len());
-                for prop_name in &prop_names {
-                    let mut variant = VARIANT::default();
-                    let value = obj
-                        .Get(PCWSTR(prop_name.as_ptr()), 0, &mut variant, None, None)
-                        .ok()
-                        .and_then(|()| variant_to_string(&variant))
-                        .unwrap_or_default();
-                    row.push(value);
-                }
-                rows.push(row);
-            }
-        }
-
-        rows
-    }
-}
-
-// VARIANT::drop calls VariantClear automatically.
-unsafe fn variant_to_string(variant: &VARIANT) -> Option<String> {
-    unsafe {
-        let vt = variant.vt().0;
-        match vt {
-            t if t == VT_BSTR.0 => Some(variant.Anonymous.Anonymous.Anonymous.bstrVal.to_string()),
-            t if t == VT_I4.0 => Some(variant.Anonymous.Anonymous.Anonymous.lVal.to_string()),
-            t if t == VT_UI4.0 => Some(variant.Anonymous.Anonymous.Anonymous.ulVal.to_string()),
-            t if t == VT_I8.0 => Some(variant.Anonymous.Anonymous.Anonymous.llVal.to_string()),
-            t if t == VT_UI8.0 => Some(variant.Anonymous.Anonymous.Anonymous.ullVal.to_string()),
-            _ => None,
-        }
-    }
+fn query_wmi<T: serde::de::DeserializeOwned>(namespace: Option<&str>, query: &str) -> WMIResult<Vec<T>> {
+    let con = match namespace {
+        Some(ns) => WMIConnection::with_namespace_path(ns)?,
+        None => WMIConnection::new()?,
+    };
+    con.raw_query(query)
 }
 
 fn get_firewall_status() -> String {
