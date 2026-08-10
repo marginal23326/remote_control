@@ -32,11 +32,17 @@ export type EncoderPropertyConstraint = { "value_type": "bool" } | { "value_type
 
 export type FileEntry = { name: string, path: string, is_dir: boolean, size: number, last_modified?: number | null, };
 
+export type HardwareInfo = { processor: string, cpu_cores: number, cpu_threads: number, cpu_base_speed: string | null, cpu_max_speed_mhz: number | null, memory_total_mb: number, gpu: Array<string>, monitors: Array<string>, battery: string, };
+
+export type IdentityInfo = { os: string, architecture: string, username: string, pc_name: string, domain: string | null, hostname: string, uptime_seconds: number, timezone: string | null, country: string | null, };
+
 export type KeyboardEventPayload = { "type": "text", text: string, } | { "type": "shortcut", shortcut: string, modifiers?: Array<string>, } | { "type": "keyDown", key: string, } | { "type": "keyUp", key: string, };
 
 export type MessagePayload = { message: string, };
 
 export type MouseEventPayload = { "type": "move", seq?: number, x: number, y: number, } | { "type": "click", x: number, y: number, button: string, pressed: boolean, } | { "type": "scroll", dx: number, dy: number, };
+
+export type NetworkInfo = { mac_address: string | null, lan_ip: string, wan_ip: string | null, asn: string | null, isp: string | null, antivirus: Array<string>, firewall: string, };
 
 export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
 
@@ -60,8 +66,10 @@ export type ShellResizeEvent = { cols: number, rows: number, };
 
 export type StartStreamConfig = { capture_cursor?: boolean, };
 
+export type StorageInfo = { disks: Array<string>, system_drive: string, disk_total_gb: number, disk_used_gb: number, disk_free_gb: number, active_processes: number, };
+
 export type StreamSettingsDTO = { bitrate?: number, resolution_percentage?: number, target_fps?: number, encoder_properties?: { [key in string]: string }, };
 
-export type SystemInfoDTO = { os: string, architecture: string, processor: string, cpu_cores: number, cpu_threads: number, cpu_base_speed: string | null, cpu_max_speed_mhz: number | null, memory_total_mb: number, gpu: Array<string>, monitors: Array<string>, disks: Array<string>, battery: string, username: string, pc_name: string, domain: string | null, hostname: string, system_drive: string, uptime_seconds: number, mac_address: string | null, lan_ip: string, wan_ip: string | null, asn: string | null, isp: string | null, antivirus: Array<string>, firewall: string, timezone: string | null, country: string | null, disk_total_gb: number, disk_used_gb: number, disk_free_gb: number, active_processes: number, };
+export type SystemInfoDTO = { identity: IdentityInfo, hardware: HardwareInfo, network: NetworkInfo, storage: StorageInfo, };
 
 export type TaskPayload = { processes: Array<ProcessDTO>, total_cpu_usage: number, total_memory_percentage: number, };
