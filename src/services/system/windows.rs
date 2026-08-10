@@ -6,8 +6,6 @@ use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_
 use windows::core::{HSTRING, PCWSTR};
 use wmi::{WMIConnection, WMIResult};
 
-use crate::utils::units::bytes_to_gb;
-
 use super::OsSpecificInfo;
 
 pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo {
@@ -87,7 +85,7 @@ fn get_disk_info() -> Vec<String> {
         .unwrap_or_default()
         .into_iter()
         .map(|DiskDriveRow { model, size }| match size {
-            Some(bytes) => format!("{model} ({}GB)", bytes_to_gb(bytes)),
+            Some(bytes) => super::format_disk_label(&model, bytes),
             None => model,
         })
         .collect()

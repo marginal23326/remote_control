@@ -128,6 +128,10 @@ pub(crate) fn disk_usage_from(disks: &sysinfo::Disks) -> (u64, u64, u64) {
     (0, 0, 0)
 }
 
+pub(crate) fn format_disk_label(name: &str, bytes: u64) -> String {
+    format!("{name} ({}GB)", bytes_to_gb(bytes))
+}
+
 pub(crate) struct SystemBaseInfo {
     pub memory_total_mb: u64,
     pub active_processes: usize,
