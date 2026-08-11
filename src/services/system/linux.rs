@@ -1,7 +1,7 @@
 use sysinfo::System;
 use tokio::process::Command;
 
-use super::OsSpecificInfo;
+use super::{OsSpecificInfo, PowerAction};
 
 pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
     let (disks, disk_total_gb, disk_used_gb, disk_free_gb, os, gpu, monitors, battery) =
@@ -121,6 +121,18 @@ fn read_gpu_info() -> Vec<String> {
         .filter_map(|line| line.split_once(':').map(|(_, rest)| rest.trim().to_string()))
         .filter(|line| !line.is_empty())
         .collect()
+}
+
+pub(crate) async fn execute_power_action(action: PowerAction) -> anyhow::Result<()> {
+    let (cmd, args): (&str, &[&str]) = match action {
+        PowerAction::Shutdown => ("systemctl", &["poweroff"]),
+        PowerAction::Restart => ("systemctl", &["reboot"]),
+        PowerAction::Sleep => ("systemctl", &["suspend"]),
+        PowerAction::Lock => ("loginctl", &["lock-session"]),
+    };
+
+    Command::new(cmd).args(args).spawn()?;
+    Ok(())
 }
 
 async fn get_firewall_status() -> String {

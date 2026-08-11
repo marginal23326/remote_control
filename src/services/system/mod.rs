@@ -84,6 +84,16 @@ pub struct SystemInfoDTO {
     pub storage: StorageInfo,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "bindings.ts")]
+pub enum PowerAction {
+    Shutdown,
+    Restart,
+    Sleep,
+    Lock,
+}
+
 #[derive(Deserialize)]
 struct IpApiConnect {
     ip: Option<String>,
@@ -288,6 +298,10 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
             active_processes: base.active_processes,
         },
     }
+}
+
+pub async fn execute_power_action(action: PowerAction) -> anyhow::Result<()> {
+    backend::execute_power_action(action).await
 }
 
 #[cfg(target_os = "linux")]

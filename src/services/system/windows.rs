@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use tokio::process::Command;
 use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory, IDXGIFactory};
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW};
@@ -6,7 +7,7 @@ use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_
 use windows::core::{HSTRING, PCWSTR};
 use wmi::{WMIConnection, WMIResult};
 
-use super::OsSpecificInfo;
+use super::{OsSpecificInfo, PowerAction};
 
 pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo {
     tokio::task::spawn_blocking(move || {
@@ -41,6 +42,18 @@ pub(crate) async fn get_os_specific_info(_cpu_frequency: u64) -> OsSpecificInfo 
     })
     .await
     .unwrap()
+}
+
+pub(crate) async fn execute_power_action(action: PowerAction) -> anyhow::Result<()> {
+    let (cmd, args): (&str, &[&str]) = match action {
+        PowerAction::Shutdown => ("shutdown", &["/s", "/t", "0"]),
+        PowerAction::Restart => ("shutdown", &["/r", "/t", "0"]),
+        PowerAction::Sleep => ("rundll32.exe", &["powrprof.dll,SetSuspendState", "0,1,0"]),
+        PowerAction::Lock => ("rundll32.exe", &["user32.dll,LockWorkStation"]),
+    };
+
+    Command::new(cmd).args(args).spawn()?;
+    Ok(())
 }
 
 fn get_gpu_info() -> Vec<String> {

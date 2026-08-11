@@ -44,6 +44,8 @@ export type MouseEventPayload = { "type": "move", seq?: number, x: number, y: nu
 
 export type NetworkInfo = { mac_address: string | null, lan_ip: string, wan_ip: string | null, asn: string | null, isp: string | null, antivirus: Array<string>, firewall: string, };
 
+export type PowerAction = "shutdown" | "restart" | "sleep" | "lock";
+
 export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
 
 export type ProcessDetailsDTO = { pid: number, name: string, rss_memory_mb: number, exact_memory_mb: number, };

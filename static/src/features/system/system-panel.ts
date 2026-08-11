@@ -1,7 +1,9 @@
 import { apiCall } from "@/shared/api";
-import { byId, escapeHtml } from "@/shared/dom-helpers";
+import { byId, escapeHtml, onAsync } from "@/shared/dom-helpers";
+import { LoadingButton, runWithFeedback, showNotification } from "@/shared/feedback";
 import { SVG_TEMPLATES } from "@/shared/icons";
-import type { SystemInfo } from "@/shared/types";
+import { showConfirmModal } from "@/shared/modal";
+import type { PowerAction, SystemInfo } from "@/shared/types";
 
 function formatUptime(totalSeconds: number): string {
     const days = Math.floor(totalSeconds / 86400);
@@ -114,6 +116,104 @@ async function updateSystemInfo(): Promise<void> {
         )
         .join("");
 }
+
+const POWER_ACTION_ICON_PATH = "M12 3v9m6-6A9 9 0 1 1 6 6";
+
+interface PowerActionConfig {
+    label: string;
+    icon: string;
+    confirmMessage?: string;
+    danger?: boolean;
+}
+
+const POWER_ACTIONS: Record<PowerAction, PowerActionConfig> = {
+    lock: {
+        icon: SVG_TEMPLATES.icon(
+            "M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2M7 9V7a5 5 0 0 1 10 0v2",
+            "w-3.5 h-3.5",
+        ),
+        label: "Lock",
+    },
+    restart: {
+        confirmMessage: "Restart the remote machine? Active sessions will be interrupted.",
+        danger: true,
+        icon: SVG_TEMPLATES.icon(
+            "M16 9h5v0M3 20v-5m0 0h5m-5 0 3 3a8 8 0 0 0 14-4M4 10a8 8 0 0 1 14-4l3 3m0-5v5",
+            "w-3.5 h-3.5",
+        ),
+        label: "Restart",
+    },
+    shutdown: {
+        confirmMessage: "Shut down the remote machine? You'll need physical or Wake-on-LAN access to turn it back on.",
+        danger: true,
+        icon: SVG_TEMPLATES.icon(POWER_ACTION_ICON_PATH, "w-3.5 h-3.5"),
+        label: "Shut Down",
+    },
+    sleep: {
+        confirmMessage: "Put the remote machine to sleep now?",
+        icon: SVG_TEMPLATES.icon("M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10", "w-3.5 h-3.5"),
+        label: "Sleep",
+    },
+};
+
+function renderPowerCard(): string {
+    const buttons = (Object.entries(POWER_ACTIONS) as [PowerAction, PowerActionConfig][])
+        .map(([action, { label, icon, danger }]) => {
+            const colorClasses = danger
+                ? "bg-red-950 hover:bg-red-900 text-red-400"
+                : "bg-zinc-800 hover:bg-zinc-700 text-zinc-100";
+            return `
+                <button type="button" data-power-action="${action}" class="px-3 py-1.5 ${colorClasses} rounded-md text-sm font-medium transition-colors flex items-center gap-1.5">
+                    ${icon}
+                    ${escapeHtml(label)}
+                </button>`;
+        })
+        .join("");
+
+    return `
+        <div class="flex items-center gap-2 text-zinc-100 font-medium pb-3 border-b border-zinc-800/50">
+            ${SVG_TEMPLATES.icon(POWER_ACTION_ICON_PATH, "w-4 h-4 shrink-0 text-zinc-400")}
+            Power
+        </div>
+        <div class="flex flex-wrap gap-2">${buttons}</div>
+    `;
+}
+
+async function runPowerAction(action: PowerAction, button: HTMLButtonElement): Promise<void> {
+    const config = POWER_ACTIONS[action];
+
+    if (config.confirmMessage) {
+        const confirmed = await showConfirmModal({
+            confirmLabel: config.label,
+            danger: config.danger ?? false,
+            message: config.confirmMessage,
+            title: config.label,
+        });
+        if (!confirmed) return;
+    }
+
+    await runWithFeedback(
+        new LoadingButton(button, ""),
+        async () => {
+            await apiCall("/api/system/power", "POST", { action });
+            showNotification(`${config.label} command sent.`, "info");
+        },
+        `Failed to ${config.label.toLowerCase()}`,
+    );
+}
+
+function initPowerControls(): void {
+    const container = byId("powerControls")!;
+    container.innerHTML = renderPowerCard();
+
+    onAsync(container, "click", async (e) => {
+        const button = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-power-action]");
+        if (!button) return;
+        await runPowerAction(button.dataset.powerAction as PowerAction, button);
+    });
+}
+
+initPowerControls();
 
 window.addEventListener("sectionchange", (event) => {
     if (event.detail.activeSectionId === "systemSection") {

@@ -1,4 +1,4 @@
-use crate::services::system::{SystemInfoDTO, get_system_info};
+use crate::services::system::{PowerAction, SystemInfoDTO, execute_power_action, get_system_info};
 use crate::state::AppState;
 use crate::utils::blocking::run_blocking;
 use crate::utils::error::success;
@@ -41,6 +41,19 @@ pub async fn set_clipboard_handler(
     Json(payload): Json<ClipboardRequest>,
 ) -> crate::utils::error::AppResult<Json<serde_json::Value>> {
     run_blocking(move || -> anyhow::Result<()> { with_clipboard(|ctx| Ok(ctx.set_text(payload.text)?)) }).await?;
+
+    Ok(success!())
+}
+
+#[derive(serde::Deserialize)]
+pub struct PowerActionRequest {
+    pub action: PowerAction,
+}
+
+pub async fn power_action_handler(
+    Json(payload): Json<PowerActionRequest>,
+) -> crate::utils::error::AppResult<Json<serde_json::Value>> {
+    execute_power_action(payload.action).await?;
 
     Ok(success!())
 }
