@@ -33,7 +33,7 @@ export function computeVisibleRange({
 
 function renderItemNameCell(item: RenderableFileItem): string {
     const icon = item.is_dir ? SVG_TEMPLATES.folder("text-blue-400") : SVG_TEMPLATES.file();
-    return `<div class="flex items-center gap-2 truncate overflow-hidden">${icon}<span class="truncate block w-full" title="${item._safeName}">${item._safeName}</span></div>`;
+    return `<div class="flex items-center gap-2 truncate overflow-hidden">${icon}<span class="file-name truncate block w-full" title="${item._safeName}">${item._safeName}</span></div>`;
 }
 
 export function renderFileRow(

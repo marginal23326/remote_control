@@ -13,7 +13,7 @@ import {
 import { showConfirmModal, showPromptModal } from "@/shared/modal";
 import { LoadingButton, showNotification, withErrorNotification } from "@/shared/feedback";
 import { registerShortcuts } from "@/core/shortcuts";
-import { getParentPath, getSeparator, joinPath } from "./path-utils";
+import { getParentPath, getSeparator, joinPath, sanitizeFileName } from "./path-utils";
 import { renderBreadcrumbs } from "./breadcrumbs";
 import { AccessChecker } from "./access-checker";
 import { uploadFiles } from "./upload-service";
@@ -526,7 +526,7 @@ function initializeEventListeners(): void {
         const folderName = await showPromptModal({
             confirmLabel: "Create",
             label: "Please enter the folder name",
-            sanitize: (value) => value.replaceAll(/[/\\]/gu, ""),
+            sanitize: sanitizeFileName,
             title: "Create folder",
         });
         if (!folderName) return;
@@ -619,25 +619,78 @@ function setSearchMode(active: boolean, refilter = false): void {
 
 function renameSelectedItem(): void {
     const selected = listManager.getSelectedItems();
-    if (selected.length === 1) void openRenameModal(selected[0]!);
+    if (selected.length === 1) startInlineRename(selected[0]!);
 }
 
-async function openRenameModal(oldPath: string): Promise<void> {
+function startInlineRename(oldPath: string): void {
+    const row = elements.fileList!.querySelector<HTMLElement>(`tr[data-path=${CSS.escape(oldPath)}]`);
+    const nameEl = row?.querySelector<HTMLElement>(".file-name");
+    if (!row || !nameEl) return;
+
     const fileItem = currentFileList.find((f) => f.path === oldPath);
-    const currentName = fileItem ? fileItem.name : oldPath.split(/[/\\]/u).pop();
+    const currentName = fileItem ? fileItem.name : (oldPath.split(/[/\\]/u).pop() ?? "");
 
-    const newName = await showPromptModal({
-        confirmLabel: "Rename",
-        initialValue: currentName,
-        label: "Please enter the new name",
-        sanitize: (value) => value.replaceAll(/[/\\]/gu, ""),
-        title: `Rename "${currentName}"`,
-    });
-    if (!newName || newName === currentName) return;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.spellcheck = false;
+    input.className =
+        "w-full bg-zinc-950 border border-zinc-700 rounded px-1 -mx-1 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500";
+    input.value = currentName;
 
-    await handleApiCall("/api/rename", "POST", { newName, oldPath }, async () => {
-        await listFiles(currentPath, joinPath(currentPath, newName));
+    nameEl.replaceWith(input);
+    input.focus();
+
+    const isDir = row.dataset.isDir === "true";
+    const extStart = currentName.lastIndexOf(".");
+    if (!isDir && extStart > 0) input.setSelectionRange(0, extStart);
+    else input.select();
+
+    let settled = false;
+    const endEdit = () => {
+        if (settled) return;
+        settled = true;
+        if (input.isConnected) input.replaceWith(nameEl);
+    };
+
+    const commit = async () => {
+        if (settled) return;
+        const newName = input.value.trim();
+        if (!newName || newName === currentName) {
+            endEdit();
+            return;
+        }
+
+        settled = true;
+        await handleApiCall("/api/rename", "POST", { newName, oldPath }, async () => {
+            await listFiles(currentPath, joinPath(currentPath, newName));
+        });
+        // Rebuild already replaced this row on success; on failure, put the original name back.
+        if (input.isConnected) input.replaceWith(nameEl);
+    };
+
+    input.addEventListener("input", () => {
+        const cleaned = sanitizeFileName(input.value);
+        if (cleaned !== input.value) input.value = cleaned;
     });
+
+    input.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+    });
+    input.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+    });
+
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            void commit();
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            endEdit();
+        }
+    });
+
+    input.addEventListener("blur", () => void commit());
 }
 
 function initializeSortListeners(): void {

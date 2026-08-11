@@ -11,6 +11,10 @@ export function joinPath(parent: string, child: string): string {
     return parent.endsWith(sep) ? `${parent}${child}` : `${parent}${sep}${child}`;
 }
 
+export function sanitizeFileName(value: string): string {
+    return value.replaceAll(/[/\\]/gu, "");
+}
+
 export function getParentPath(path: string): string {
     if (/^[A-Z]:\\$/iu.test(path) || path === "/") return "";
 
