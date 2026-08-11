@@ -19,6 +19,7 @@ import { AccessChecker } from "./access-checker";
 import { uploadFiles } from "./upload-service";
 import { DropZone } from "./drop-zone";
 import { renderEmptyRow, renderFileRow } from "./file-list-renderer";
+import { openFileEditor } from "./file-editor";
 import { VirtualList } from "./virtual-list";
 import type { ApiMessageResponse, FileListItem, RenderableFileItem } from "@/shared/types";
 
@@ -122,6 +123,16 @@ const listManager = new ListManager({
         ];
 
         if (selectedItems.length === 1) {
+            const item = currentFileList.find((f) => f.path === selectedItems[0]);
+            if (item && !item.is_dir) {
+                items.push({
+                    label: "Edit",
+                    action: () => {
+                        void openFileEditor(item.path, item.name);
+                    },
+                });
+            }
+
             items.push({
                 label: "Rename (F2)",
                 action: () => {
@@ -466,7 +477,12 @@ async function handleDelete(paths: string[]): Promise<void> {
 function initializeEventListeners(): void {
     elements.fileList!.addEventListener("dblclick", (e) => {
         const row = (e.target as HTMLElement).closest<HTMLElement>("tr");
-        if (row && row.dataset.isDir === "true") void listFiles(row.dataset.path!);
+        if (!row) return;
+        if (row.dataset.isDir === "true") {
+            void listFiles(row.dataset.path!);
+        } else {
+            void openFileEditor(row.dataset.path!, row.dataset.name!);
+        }
     });
 
     const handleButtonClick = async (buttonId: string, action: () => Promise<void> | void) => {

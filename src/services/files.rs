@@ -57,9 +57,15 @@ pub enum FileOpError {
     AlreadyExists,
     #[error("Failed to delete: {0}")]
     DeleteFailed(String),
+    #[error("File is too large to edit ({0} bytes)")]
+    TooLarge(u64),
+    #[error("File is not valid UTF-8 text")]
+    NotText,
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
+
+pub const MAX_EDITABLE_FILE_SIZE: u64 = 2 * 1024 * 1024;
 
 pub fn list_directory(path_str: &str) -> Result<Vec<FileEntry>, FileOpError> {
     let path = Path::new(path_str);
@@ -148,6 +154,36 @@ pub fn rename_item(old: &str, new_name: &str) -> Result<(), FileOpError> {
     }
 
     fs::rename(old_path, new_path)?;
+    Ok(())
+}
+
+pub fn read_file_content(path_str: &str) -> Result<String, FileOpError> {
+    let path = Path::new(path_str);
+    if !path.exists() {
+        return Err(FileOpError::NotFound);
+    }
+    if path.is_dir() {
+        return Err(FileOpError::InvalidPath);
+    }
+
+    let size = fs::metadata(path)?.len();
+    if size > MAX_EDITABLE_FILE_SIZE {
+        return Err(FileOpError::TooLarge(size));
+    }
+
+    String::from_utf8(fs::read(path)?).map_err(|_| FileOpError::NotText)
+}
+
+pub fn write_file_content(path_str: &str, content: &str) -> Result<(), FileOpError> {
+    let path = Path::new(path_str);
+    if path.is_dir() {
+        return Err(FileOpError::InvalidPath);
+    }
+    if content.len() as u64 > MAX_EDITABLE_FILE_SIZE {
+        return Err(FileOpError::TooLarge(content.len() as u64));
+    }
+
+    fs::write(path, content)?;
     Ok(())
 }
 

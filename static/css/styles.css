@@ -110,6 +110,23 @@ button:focus-visible {
     font-family: "JetBrains Mono", monospace;
 }
 
+.file-editor-tokens .yace-tok--kw {
+    color: #a78bfa; /* violet-400 */
+}
+.file-editor-tokens .yace-tok--str {
+    color: #34d399; /* emerald-400 */
+}
+.file-editor-tokens .yace-tok--num {
+    color: #fb923c; /* orange-400 */
+}
+.file-editor-tokens .yace-tok--com {
+    color: #71717a; /* zinc-500 */
+    font-style: italic;
+}
+.file-editor-tokens .yace-tok--punc {
+    color: var(--text-muted);
+}
+
 .stream-container {
     position: relative;
     background: #000;

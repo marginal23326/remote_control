@@ -2,6 +2,26 @@ import { escapeHtml } from "./dom-helpers";
 import { showNotification } from "./feedback";
 import { SVG_TEMPLATES } from "./icons";
 
+export function createModalOverlay(): HTMLDivElement {
+    const overlay = document.createElement("div");
+    overlay.dataset.appModal = "";
+    overlay.className = "fixed inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4";
+    document.body.append(overlay);
+    requestAnimationFrame(() => {
+        overlay.classList.add("is-open");
+    });
+    return overlay;
+}
+
+export const MODAL_EXIT_MS = 150;
+
+export function closeModalOverlay(overlay: HTMLDivElement): void {
+    overlay.classList.remove("is-open");
+    setTimeout(() => {
+        overlay.remove();
+    }, MODAL_EXIT_MS);
+}
+
 interface CreateModalOptions {
     confirmLabel: string;
     cancelLabel?: string;
@@ -12,9 +32,7 @@ function createModal(
     bodyHtml: string,
     { confirmLabel, cancelLabel = "Cancel", danger = false }: CreateModalOptions,
 ): HTMLDivElement {
-    const overlay = document.createElement("div");
-    overlay.dataset.appModal = "";
-    overlay.className = "fixed inset-0 z-30 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4";
+    const overlay = createModalOverlay();
     overlay.innerHTML = `<div class="modal-card w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
         ${bodyHtml}
         <div class="flex justify-end gap-2 mt-5">
@@ -30,20 +48,7 @@ function createModal(
             </button>
         </div>
     </div>`;
-    document.body.append(overlay);
-    requestAnimationFrame(() => {
-        overlay.classList.add("is-open");
-    });
     return overlay;
-}
-
-const MODAL_EXIT_MS = 150;
-
-function closeModalOverlay(overlay: HTMLDivElement): void {
-    overlay.classList.remove("is-open");
-    setTimeout(() => {
-        overlay.remove();
-    }, MODAL_EXIT_MS);
 }
 
 interface RunModalOptions<T> {

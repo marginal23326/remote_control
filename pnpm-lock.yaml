@@ -20,6 +20,9 @@ importers:
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
+      yace:
+        specifier: ^1.1.0
+        version: 1.1.0
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.3
@@ -1036,6 +1039,9 @@ packages:
     resolution: {integrity: sha512-TEU+nJVUUnA4CYJFLvK5X9AOeH4KvDvhIfm0vV1GaQRtchnG0hgK5p8hw/xjv8cunWYCsiPCSDzObPyhEwq3KQ==}
     engines: {node: '>=0.4.0'}
 
+  yace@1.1.0:
+    resolution: {integrity: sha512-jB29trAxPBvTIR/lXsgh97q22n/Rq5ZHbDT4DT6WUvXVlJLR7jdwiBKD+0zi3XZAD5N+YKa3GrdIrelqIXj2oQ==}
+
 snapshots:
 
   '@emnapi/core@2.0.0-alpha.3':
@@ -1715,3 +1721,5 @@ snapshots:
   ws@8.21.1: {}
 
   xmlhttprequest-ssl@2.1.2: {}
+
+  yace@1.1.0: {}

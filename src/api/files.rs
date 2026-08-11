@@ -59,15 +59,28 @@ pub struct RenamePayload {
     new_name: String,
 }
 
+#[derive(Deserialize)]
+pub struct FileContentQuery {
+    path: String,
+}
+
+#[derive(Deserialize)]
+pub struct SaveFileContentPayload {
+    path: String,
+    content: String,
+}
+
 impl From<files::FileOpError> for AppError {
     fn from(e: files::FileOpError) -> Self {
         let message = e.to_string();
         match e {
             files::FileOpError::NotFound => AppError::NotFound(message),
             files::FileOpError::AccessDenied(_) => AppError::Forbidden(message),
-            files::FileOpError::InvalidName | files::FileOpError::InvalidPath | files::FileOpError::AlreadyExists => {
-                AppError::BadRequest(message)
-            }
+            files::FileOpError::InvalidName
+            | files::FileOpError::InvalidPath
+            | files::FileOpError::AlreadyExists
+            | files::FileOpError::TooLarge(_)
+            | files::FileOpError::NotText => AppError::BadRequest(message),
             files::FileOpError::DeleteFailed(_) => AppError::InternalError(anyhow::anyhow!(message)),
             files::FileOpError::Io(io_err) => AppError::InternalError(io_err.into()),
         }
@@ -118,6 +131,18 @@ pub async fn delete_handler(Json(payload): Json<DeletePayload>) -> AppResult<Jso
 
 pub async fn rename_handler(Json(payload): Json<RenamePayload>) -> AppResult<Json<Value>> {
     run_blocking(move || files::rename_item(&payload.old_path, &payload.new_name)).await?;
+
+    Ok(success!())
+}
+
+pub async fn get_file_content_handler(Query(q): Query<FileContentQuery>) -> AppResult<Json<Value>> {
+    let content = run_blocking(move || files::read_file_content(&q.path)).await?;
+
+    Ok(Json(json!({ "content": content })))
+}
+
+pub async fn save_file_content_handler(Json(payload): Json<SaveFileContentPayload>) -> AppResult<Json<Value>> {
+    run_blocking(move || files::write_file_content(&payload.path, &payload.content)).await?;
 
     Ok(success!())
 }
