@@ -44,6 +44,7 @@ export type WebRtcFeatureKind = keyof typeof WEBRTC_FEATURE_CONFIG;
 export interface WebRtcFeatureHooks {
     isActive: () => boolean;
     getStunServer: () => string | null | undefined;
+    getTurnServer: () => string | null | undefined;
     onConnectionCreated?: (pc: RTCPeerConnection) => void;
     onTrack: (stream: MediaStream) => void;
     onOfferReceived?: () => void;
@@ -63,6 +64,7 @@ export function initWebRtcFeature(
 
     const signaling = createPeerSignaling({
         getStunServer: hooks.getStunServer,
+        getTurnServer: hooks.getTurnServer,
         onAnswer: (sdp) => {
             socket.emit(config.answer, sdp);
         },

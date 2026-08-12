@@ -24,7 +24,7 @@ export type CameraStartConfig = { device_id?: string | null, };
 
 export type ClientEvent = "mouse_event" | "keyboard_event" | "shell_create" | "shell_input" | "shell_resize" | "shell_close" | "list_shells" | "task_poll_start" | "task_poll_stop" | "list_audio_sources" | "start_server_audio" | "stop_server_audio" | "start_client_audio" | "stop_client_audio" | "client_audio_data" | "start_stream" | "webrtc_answer" | "webrtc_ice_candidate" | "list_cameras" | "start_camera_stream" | "stop_camera_stream" | "camera_webrtc_answer" | "camera_webrtc_ice_candidate";
 
-export type CurrentSettingsResponse = { bitrate: number, resolution_percentage: number, target_fps: number, max_fps: number, native_width: number, native_height: number, encoder_type: string, encoder_properties: { [key in string]: string }, encoder_property_constraints: { [key in string]: EncoderPropertyConstraint }, rejected_properties: Array<string>, stun_server: string | null, };
+export type CurrentSettingsResponse = { bitrate: number, resolution_percentage: number, target_fps: number, max_fps: number, native_width: number, native_height: number, encoder_type: string, encoder_properties: { [key in string]: string }, encoder_property_constraints: { [key in string]: EncoderPropertyConstraint }, rejected_properties: Array<string>, stun_server: string | null, turn_server: string | null, };
 
 export type DriveEntry = { name: string, path: string, is_dir: boolean, };
 

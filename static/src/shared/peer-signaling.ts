@@ -7,6 +7,22 @@ export interface PeerSignalingHandlers {
     onNegotiationError: (error: unknown) => void;
     onTrack: (stream: MediaStream) => void;
     getStunServer: () => string | null | undefined;
+    getTurnServer: () => string | null | undefined;
+}
+
+function parseTurnServer(turnUrl: string): RTCIceServer | null {
+    try {
+        const url = new URL(turnUrl);
+        if (!url.username) return null;
+
+        return {
+            urls: `${url.protocol}${url.host}${url.search}`,
+            username: decodeURIComponent(url.username),
+            credential: decodeURIComponent(url.password),
+        };
+    } catch {
+        return null;
+    }
 }
 
 export interface PeerSignaling {
@@ -21,11 +37,20 @@ export function createPeerSignaling(handlers: PeerSignalingHandlers): PeerSignal
 
     async function handleOffer(sdpText: string): Promise<void> {
         if (!peerConnection) {
-            const rtcConfig: RTCConfiguration = {};
+            const iceServers: RTCIceServer[] = [];
+
             const stunServer = handlers.getStunServer();
             if (stunServer) {
-                rtcConfig.iceServers = [{ urls: stunServer }];
+                iceServers.push({ urls: stunServer });
             }
+
+            const turnServer = handlers.getTurnServer();
+            const parsedTurnServer = turnServer ? parseTurnServer(turnServer) : null;
+            if (parsedTurnServer) {
+                iceServers.push(parsedTurnServer);
+            }
+
+            const rtcConfig: RTCConfiguration = iceServers.length > 0 ? { iceServers } : {};
 
             peerConnection = new RTCPeerConnection(rtcConfig);
 

@@ -2,7 +2,7 @@ use crate::realtime::event_names::ServerEvent;
 use crate::services::owned_worker::OwnedSession;
 use crate::services::screen::{detect_encoder, encode_and_webrtc_tail};
 use crate::services::webrtc_session::{
-    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, stop_owner_on_exit,
+    GstCommand, GstSession, IceServerConfig, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, stop_owner_on_exit,
     wire_webrtc_signaling,
 };
 use crate::state::AppState;
@@ -102,7 +102,10 @@ impl CameraManager {
             &webrtcbin,
             cmd_rx,
             socket.clone(),
-            state.config.stun_server.clone(),
+            IceServerConfig {
+                stun: state.config.stun_server.clone(),
+                turn: state.config.turn_server.clone(),
+            },
             WebRtcSignalConfig {
                 label: "camera",
                 offer_event: ServerEvent::CameraWebrtcOffer.as_str(),

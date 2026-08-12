@@ -27,6 +27,7 @@ let mouseInputSeq = 0;
 export function initializePeerConnectionSignaling(socket: AppSocket): void {
     webrtcFeature = initWebRtcFeature(socket, "stream", {
         getStunServer: () => streamState.stunServer,
+        getTurnServer: () => streamState.turnServer,
         isActive: () => streamState.active,
         onConnectionCreated: (pc) => {
             pc.ondatachannel = (event) => {

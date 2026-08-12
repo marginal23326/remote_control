@@ -32,6 +32,7 @@ pub struct CurrentSettingsResponse {
     #[serde(default)]
     pub rejected_properties: Vec<String>,
     pub stun_server: Option<String>,
+    pub turn_server: Option<String>,
 }
 
 fn build_settings_response(state: &AppState) -> CurrentSettingsResponse {
@@ -54,6 +55,7 @@ fn build_settings_response(state: &AppState) -> CurrentSettingsResponse {
         encoder_property_constraints,
         rejected_properties: Vec::new(),
         stun_server: state.config.stun_server.clone(),
+        turn_server: state.config.turn_server.clone(),
     }
 }
 

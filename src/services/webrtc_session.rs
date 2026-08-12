@@ -24,17 +24,29 @@ pub(crate) struct WebRtcSignalConfig {
     pub ice_event: &'static str,
 }
 
+/// `turn(s)://username:password@host:port`
+#[derive(Clone, Default)]
+pub(crate) struct IceServerConfig {
+    pub stun: Option<String>,
+    pub turn: Option<String>,
+}
+
 pub(crate) fn wire_webrtc_signaling(
     webrtcbin: &gst::Element,
     cmd_rx: Receiver<GstCommand>,
     socket: SocketRef,
-    stun_server: Option<String>,
+    ice_servers: IceServerConfig,
     config: WebRtcSignalConfig,
 ) {
-    if let Some(stun) = stun_server
+    if let Some(stun) = ice_servers.stun
         && !stun.is_empty()
     {
         webrtcbin.set_property_from_str("stun-server", &stun);
+    }
+    if let Some(turn) = ice_servers.turn
+        && !turn.is_empty()
+    {
+        webrtcbin.set_property_from_str("turn-server", &turn);
     }
 
     {

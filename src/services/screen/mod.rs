@@ -16,7 +16,7 @@ use gstreamer_webrtc as gst_webrtc;
 
 use super::owned_worker::OwnedSession;
 use super::webrtc_session::{
-    GstCommand, GstSession, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, stop_owner_on_exit,
+    GstCommand, GstSession, IceServerConfig, WebRtcManager, WebRtcSignalConfig, spawn_bus_watch, stop_owner_on_exit,
     wire_webrtc_signaling,
 };
 use crate::realtime::event_names::ServerEvent;
@@ -145,7 +145,10 @@ impl ScreenManager {
             &webrtcbin,
             cmd_rx,
             socket.clone(),
-            state.config.stun_server.clone(),
+            IceServerConfig {
+                stun: state.config.stun_server.clone(),
+                turn: state.config.turn_server.clone(),
+            },
             WebRtcSignalConfig {
                 label: "screen",
                 offer_event: ServerEvent::WebrtcOffer.as_str(),

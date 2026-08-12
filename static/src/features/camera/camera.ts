@@ -32,6 +32,7 @@ function hidePip(): void {
 let cameraActive = false;
 let webrtcFeature: WebRtcFeature | null = null;
 let activeStunServer: string | null = null;
+let activeTurnServer: string | null = null;
 let toggleBtnLoader: LoadingButton | null = null;
 
 function setToggleUI(active: boolean): void {
@@ -155,6 +156,7 @@ export function initializeCamera(socket: AppSocket): void {
     apiCall<StreamSettings>("/api/stream/settings", "GET")
         .then((s) => {
             if (s?.stun_server) activeStunServer = s.stun_server;
+            if (s?.turn_server) activeTurnServer = s.turn_server;
         })
         .catch(() => {});
 
@@ -180,6 +182,7 @@ export function initializeCamera(socket: AppSocket): void {
 
     webrtcFeature = initWebRtcFeature(socket, "camera", {
         getStunServer: () => activeStunServer,
+        getTurnServer: () => activeTurnServer,
         isActive: () => cameraActive,
         onError: handleCameraError,
         onOfferReceived: () => {

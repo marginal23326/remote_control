@@ -26,6 +26,10 @@ export function updateSettingsDisplay(settings: StreamSettings | null | undefine
         streamState.stunServer = settings.stun_server;
     }
 
+    if (settings.turn_server !== undefined) {
+        streamState.turnServer = settings.turn_server;
+    }
+
     if (settings.native_width !== undefined) {
         setNativeDimensions(settings.native_width, settings.native_height);
     }

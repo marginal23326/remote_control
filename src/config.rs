@@ -13,6 +13,7 @@ pub struct AppConfig {
     pub session_token: String,
     pub port: u16,
     pub stun_server: Option<String>,
+    pub turn_server: Option<String>,
 }
 
 pub async fn load() -> Result<AppConfig> {
@@ -25,6 +26,9 @@ pub async fn load() -> Result<AppConfig> {
 
     if let Ok(env_stun) = std::env::var("STUN_SERVER") {
         config.stun_server = Some(env_stun);
+    }
+    if let Ok(env_turn) = std::env::var("TURN_SERVER") {
+        config.turn_server = Some(env_turn);
     }
 
     Ok(config)
@@ -53,6 +57,7 @@ async fn prompt_and_save_new_config() -> Result<AppConfig> {
         session_token,
         port,
         stun_server: None,
+        turn_server: None,
     };
 
     let json = serde_json::to_string_pretty(&config)?;
