@@ -1,4 +1,4 @@
-import { apiCall } from "@/shared/api";
+import { apiCall, apiCallWithFeedback } from "@/shared/api";
 import { CLASSES, type ContextMenuContext, ListManager } from "@/shared/list-manager";
 import type { ContextMenuItem } from "@/shared/context-menu";
 import { formatDate, formatFileSize } from "@/shared/format";
@@ -11,7 +11,7 @@ import {
     updateSortIndicators as renderSortIndicators,
 } from "@/shared/dom-helpers";
 import { showConfirmModal, showPromptModal } from "@/shared/modal";
-import { LoadingButton, showNotification, withErrorNotification } from "@/shared/feedback";
+import { LoadingButton, showNotification } from "@/shared/feedback";
 import { registerShortcuts } from "@/core/shortcuts";
 import { getParentPath, getSeparator, joinPath, sanitizeFileName } from "./path-utils";
 import { renderBreadcrumbs } from "./breadcrumbs";
@@ -21,7 +21,7 @@ import { DropZone } from "./drop-zone";
 import { renderEmptyRow, renderFileRow } from "./file-list-renderer";
 import { openFileEditor } from "./file-editor";
 import { VirtualList } from "./virtual-list";
-import type { ApiMessageResponse, FileListItem, RenderableFileItem } from "@/shared/types";
+import type { FileListItem, RenderableFileItem } from "@/shared/types";
 
 type SortColumn = "name" | "size" | "modified";
 type SortDirection = "asc" | "desc";
@@ -31,19 +31,6 @@ interface FileManagerElements {
     currentPath: HTMLElement | null;
     searchInput: HTMLInputElement | null;
     scrollContainer: HTMLElement | null;
-}
-
-async function handleApiCall(
-    apiEndpoint: string,
-    method: string,
-    data: unknown,
-    successCallback?: (response: ApiMessageResponse) => void | Promise<void>,
-): Promise<void> {
-    await withErrorNotification(async () => {
-        const response = await apiCall<ApiMessageResponse>(apiEndpoint, method, data);
-        if (response.message) showNotification(response.message, "info");
-        await successCallback?.(response);
-    }, "Error");
 }
 
 function handleDownload(paths: string[]): void {
@@ -468,7 +455,7 @@ async function handleDelete(paths: string[]): Promise<void> {
     });
     if (!confirmed) return;
 
-    await handleApiCall("/api/delete", "POST", { paths }, async (_response) => {
+    await apiCallWithFeedback("/api/delete", "POST", { paths }, async (_response) => {
         await listFiles(currentPath);
         listManager.clearSelection();
     });
@@ -531,7 +518,7 @@ function initializeEventListeners(): void {
         });
         if (!folderName) return;
 
-        await handleApiCall("/api/create_folder", "POST", { folderName, parentPath: currentPath }, async () => {
+        await apiCallWithFeedback("/api/create_folder", "POST", { folderName, parentPath: currentPath }, async () => {
             await listFiles(currentPath, joinPath(currentPath, folderName));
         });
     });
@@ -661,7 +648,7 @@ function startInlineRename(oldPath: string): void {
         }
 
         settled = true;
-        await handleApiCall("/api/rename", "POST", { newName, oldPath }, async () => {
+        await apiCallWithFeedback("/api/rename", "POST", { newName, oldPath }, async () => {
             await listFiles(currentPath, joinPath(currentPath, newName));
         });
         // Rebuild already replaced this row on success; on failure, put the original name back.

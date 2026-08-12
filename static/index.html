@@ -930,23 +930,40 @@
                     class="section hidden h-full flex flex-col animate-in fade-in duration-150"
                 >
                     <div class="flex justify-between items-center gap-2 mb-4 min-h-8">
-                        <div class="relative w-full max-w-xs">
-                            <svg
-                                class="w-4 h-4 text-zinc-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                        <div class="flex items-center gap-2 w-full">
+                            <div class="relative w-full max-w-xs">
+                                <svg
+                                    class="w-4 h-4 text-zinc-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle cx="11" cy="11" r="5" stroke-width="2" />
+                                    <path stroke-linecap="round" stroke-width="2" d="m21 21-6-6" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    id="taskSearchInput"
+                                    placeholder="Search processes..."
+                                    spellcheck="false"
+                                    class="w-full h-8 pl-8 pr-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none transition-colors"
+                                />
+                            </div>
+                            <button
+                                id="runProcessButton"
+                                title="Run a new process"
+                                class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 shrink-0"
                             >
-                                <circle cx="11" cy="11" r="5" stroke-width="2" />
-                                <path stroke-linecap="round" stroke-width="2" d="m21 21-6-6" />
-                            </svg>
-                            <input
-                                type="text"
-                                id="taskSearchInput"
-                                placeholder="Search processes..."
-                                spellcheck="false"
-                                class="w-full h-8 pl-8 pr-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none transition-colors"
-                            />
+                                <svg fill="none" stroke="currentColor" class="w-3.5 h-3.5" viewBox="0 0 24 24">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M7 5L19 12L7 19Z"
+                                    ></path>
+                                </svg>
+                                <span class="hidden sm:inline">Run</span>
+                            </button>
                         </div>
                         <div id="endTaskContainer" class="flex items-center shrink-0">
                             <span id="taskSelectionCount" class="mr-3 text-xs text-zinc-500"></span>

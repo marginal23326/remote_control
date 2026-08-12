@@ -7,7 +7,7 @@ use crate::api::{
     middleware::auth_middleware,
     stream::{get_screenshot_handler, get_settings_handler, stop_stream_handler, update_settings_handler},
     system::{get_clipboard_handler, get_system_info_handler, power_action_handler, set_clipboard_handler},
-    tasks::{get_process_details_handler, kill_process_handler},
+    tasks::{get_process_details_handler, kill_process_handler, launch_process_handler},
 };
 use crate::state::AppState;
 use crate::utils::auth::is_authenticated;
@@ -89,6 +89,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/upload", post(upload_handler).layer(DefaultBodyLimit::disable()))
         .route("/download", post(download_handler))
         .route("/tasks/kill", post(kill_process_handler))
+        .route("/tasks/run", post(launch_process_handler))
         .route("/tasks/{pid}", get(get_process_details_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 

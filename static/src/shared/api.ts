@@ -1,3 +1,6 @@
+import { showNotification, withErrorNotification } from "./feedback";
+import type { ApiMessageResponse } from "./types";
+
 interface ApiErrorBody {
     message?: string;
 }
@@ -36,4 +39,17 @@ export async function apiCall<T = unknown>(endpoint: string, method: string = "G
     }
 
     return parseApiResult<T>(response.status, await response.text());
+}
+
+export async function apiCallWithFeedback(
+    endpoint: string,
+    method: string,
+    data: unknown,
+    successCallback?: (response: ApiMessageResponse) => void | Promise<void>,
+): Promise<void> {
+    await withErrorNotification(async () => {
+        const response = await apiCall<ApiMessageResponse>(endpoint, method, data);
+        if (response.message) showNotification(response.message, "info");
+        await successCallback?.(response);
+    }, "Error");
 }

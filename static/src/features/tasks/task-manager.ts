@@ -1,6 +1,6 @@
-import { apiCall } from "@/shared/api";
+import { apiCall, apiCallWithFeedback } from "@/shared/api";
 import { CLASSES, type ContextMenuContext, ListManager } from "@/shared/list-manager";
-import { showConfirmModal } from "@/shared/modal";
+import { showConfirmModal, showPromptModal } from "@/shared/modal";
 import { showNotification } from "@/shared/feedback";
 import {
     bindDebouncedInput,
@@ -39,6 +39,17 @@ async function killProcesses(items: string[]): Promise<void> {
         }
     }
     byId("endTaskContainer")!.classList.remove("is-visible");
+}
+
+async function runProcess(): Promise<void> {
+    const command = await showPromptModal({
+        confirmLabel: "Run",
+        label: "Command to execute",
+        title: "Run new process",
+    });
+    if (!command) return;
+
+    await apiCallWithFeedback("/api/tasks/run", "POST", { command });
 }
 
 function sortProcesses(rows: ProcessInfo[], column: SortColumn, order: SortOrder): ProcessInfo[] {
@@ -140,6 +151,10 @@ function renderTaskList(newProcesses?: ProcessInfo[]): void {
 export function initializeTaskManager(socket: AppSocket): void {
     byId("endTaskButton")?.addEventListener("click", () => {
         void killProcesses(taskManager.getSelectedItems());
+    });
+
+    byId("runProcessButton")?.addEventListener("click", () => {
+        void runProcess();
     });
 
     // Handle sorting

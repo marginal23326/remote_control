@@ -25,6 +25,20 @@ pub async fn kill_process_handler(
     Ok(success!("message": "Process killed"))
 }
 
+#[derive(Deserialize)]
+pub struct LaunchPayload {
+    command: String,
+}
+
+pub async fn launch_process_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<LaunchPayload>,
+) -> AppResult<Json<Value>> {
+    state.tasks.launch_process(&payload.command)?;
+
+    Ok(success!("message": "Process launched"))
+}
+
 pub async fn get_process_details_handler(
     State(state): State<AppState>,
     Path(pid): Path<u32>,

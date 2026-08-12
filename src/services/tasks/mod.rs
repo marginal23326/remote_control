@@ -162,4 +162,27 @@ impl TaskManager {
         }
         Err(anyhow!("Failed to kill process or process not found"))
     }
+
+    pub fn launch_process(&self, command: &str) -> Result<()> {
+        let command = command.trim();
+        if command.is_empty() {
+            return Err(anyhow!("Command cannot be empty"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            std::process::Command::new("cmd")
+                .arg("/C")
+                .raw_arg(command)
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()?;
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        std::process::Command::new("sh").arg("-c").arg(command).spawn()?;
+
+        Ok(())
+    }
 }
