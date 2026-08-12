@@ -223,8 +223,7 @@ async function refreshAudioSources(socket: AppSocket): Promise<void> {
         (source.kind === "system" ? systemGroup : micGroup).append(option);
     }
 
-    select.append(micGroup);
-    select.append(systemGroup);
+    select.append(micGroup, systemGroup);
 
     if ([...select.options].some((option) => option.value === previousValue)) {
         select.value = previousValue;

@@ -189,8 +189,7 @@ export function showNotification(message: string, type: NotificationType = "erro
     `;
 
     toast.querySelector(".notification-text")!.textContent = message;
-    wrapper.append(badge);
-    wrapper.append(toast);
+    wrapper.append(badge, toast);
     container.append(wrapper);
 
     requestAnimationFrame(() => {
