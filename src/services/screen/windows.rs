@@ -48,9 +48,7 @@ pub(crate) async fn start_capture(
     capture_cursor: bool,
     on_exit: impl FnOnce() + Send + 'static,
 ) -> anyhow::Result<CaptureHandles> {
-    unsafe {
-        *native_size.lock() = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
-    }
+    *native_size.lock() = get_display_native_size();
 
     let monitor = Monitor::primary().map_err(|e| anyhow::anyhow!("No primary monitor found: {}", e))?;
 
