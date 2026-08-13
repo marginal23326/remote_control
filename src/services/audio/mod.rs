@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -26,7 +26,7 @@ pub(crate) fn f32_to_i16(sample: f32) -> i16 {
     (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16
 }
 
-#[derive(Debug, Clone, Copy, Serialize, TS)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "bindings.ts")]
 pub enum AudioSourceKind {
@@ -102,7 +102,7 @@ impl AudioManager {
     pub fn start_server_stream(
         &self,
         socket: SocketRef,
-        source: String,
+        source: AudioSourceKind,
         device_id: Option<String>,
         rate: u32,
     ) -> anyhow::Result<()> {

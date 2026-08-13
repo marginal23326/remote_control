@@ -2,7 +2,7 @@
 
 export type ActiveWindowPayload = { title: string, };
 
-export type AudioConfig = { source?: string | null, rate?: number | null, device_id?: string | null, };
+export type AudioConfig = { source?: AudioSourceKind | null, rate?: number | null, device_id?: string | null, };
 
 export type AudioFormatPayload = { rate: number, channels: number, };
 

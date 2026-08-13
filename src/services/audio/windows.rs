@@ -40,7 +40,7 @@ fn encode_sample(f: f32, sample_type: SampleType, bytes_per_sample: usize, out: 
 
 pub(crate) fn server_loop(
     socket: SocketRef,
-    source: String,
+    source: super::AudioSourceKind,
     device_id: Option<String>,
     _rate: u32,
     is_running: Arc<AtomicBool>,
@@ -50,10 +50,9 @@ pub(crate) fn server_loop(
     let device = match device_id.filter(|id| !id.is_empty()) {
         Some(id) => enumerator.get_device(&id)?,
         None => {
-            let direction = if source == "system" {
-                Direction::Render
-            } else {
-                Direction::Capture
+            let direction = match source {
+                super::AudioSourceKind::System => Direction::Render,
+                super::AudioSourceKind::Mic => Direction::Capture,
             };
             enumerator.get_default_device(&direction)?
         }

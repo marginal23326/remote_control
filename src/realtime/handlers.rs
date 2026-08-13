@@ -2,7 +2,7 @@ use crate::realtime::event_names::ServerEvent;
 use crate::realtime::payloads::{
     AudioSourcesPayload, AvailableShellsPayload, CameraListPayload, MessagePayload, ShellCreatedPayload,
 };
-use crate::services::audio::AudioManager;
+use crate::services::audio::{AudioManager, AudioSourceKind};
 use crate::services::camera::CameraManager;
 use crate::services::input::{MouseButton, MouseEventPayload, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
@@ -68,7 +68,7 @@ struct ShellPendingMarker;
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
 pub struct AudioConfig {
-    pub source: Option<String>,
+    pub source: Option<AudioSourceKind>,
     pub rate: Option<u32>,
     pub device_id: Option<String>,
 }
@@ -225,7 +225,7 @@ pub async fn handle_start_server_audio(
     State(state): State<AppState>,
 ) {
     let audio = &state.audio;
-    let source = data.source.unwrap_or("mic".to_string());
+    let source = data.source.unwrap_or(AudioSourceKind::Mic);
     let rate = data.rate.unwrap_or(48000);
     let device_id = data.device_id.filter(|id| !id.is_empty());
 

@@ -4,7 +4,7 @@ import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
 import audioWorkletProcessorUrl from "./audio-worklet-processor.ts?worker&url";
 import type { AppSocket } from "@/core/socket";
-import type { AudioSourceInfo, AudioFormat } from "@/shared/types";
+import type { AudioSourceInfo, AudioSourceKind, AudioFormat } from "@/shared/types";
 import type { AudioStartPayload } from "@/core/socket-events";
 
 const MIN_RATE = 3000;
@@ -20,7 +20,7 @@ const AUDIO_KIND_CONFIG = {
 interface AudioKindSettings {
     rate: number;
     chunk?: number;
-    source?: string;
+    source?: AudioSourceKind;
     device_id?: string | null;
 }
 
@@ -351,7 +351,7 @@ function getServerAudioSettingsFromForm(): AudioKindSettings {
     return {
         device_id: isDefault ? null : selected.value,
         rate: intValue(byId<HTMLInputElement>("serverAudioRate")!.value),
-        source: selected.dataset.kind ?? "mic",
+        source: (selected.dataset.kind as AudioSourceKind | undefined) ?? "mic",
     };
 }
 

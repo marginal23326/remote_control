@@ -2,6 +2,7 @@ import type {
     AudioConfig,
     AudioFormatPayload as AudioFormat,
     AudioSourceInfo,
+    AudioSourceKind,
     CameraDeviceInfo,
     CameraStartConfig as StartCameraStreamPayload,
     CurrentSettingsResponse,
@@ -58,6 +59,7 @@ export interface ProcessDetailsResponse {
 export type {
     AudioFormat,
     AudioSourceInfo,
+    AudioSourceKind,
     CameraDeviceInfo,
     EncoderPropertyConstraint,
     KeyboardEventPayload,

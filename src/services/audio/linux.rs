@@ -35,7 +35,7 @@ fn serialize_audio_format(rate: u32) -> anyhow::Result<Vec<u8>> {
 
 pub(crate) fn server_loop(
     socket: SocketRef,
-    source: String,
+    source: super::AudioSourceKind,
     device_id: Option<String>,
     rate: u32,
     is_running: Arc<AtomicBool>,
@@ -62,19 +62,18 @@ pub(crate) fn server_loop(
         socket: socket.clone(),
     };
 
-    let mut props = if source == "system" {
-        properties! {
+    let mut props = match source {
+        super::AudioSourceKind::System => properties! {
             *pw::keys::MEDIA_TYPE => "Audio",
             *pw::keys::MEDIA_CATEGORY => "Capture",
             *pw::keys::MEDIA_ROLE => "Music",
             *pw::keys::STREAM_CAPTURE_SINK => "true",
-        }
-    } else {
-        properties! {
+        },
+        super::AudioSourceKind::Mic => properties! {
             *pw::keys::MEDIA_TYPE => "Audio",
             *pw::keys::MEDIA_CATEGORY => "Capture",
             *pw::keys::MEDIA_ROLE => "Communication",
-        }
+        },
     };
 
     if let Some(id) = device_id.filter(|id| !id.is_empty()) {
