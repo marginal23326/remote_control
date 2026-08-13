@@ -13,7 +13,7 @@ export function createModalOverlay(): HTMLDivElement {
     return overlay;
 }
 
-export const MODAL_EXIT_MS = 150;
+const MODAL_EXIT_MS = 150;
 
 export function closeModalOverlay(overlay: HTMLDivElement): void {
     overlay.classList.remove("is-open");
