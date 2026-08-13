@@ -8,6 +8,7 @@ use crate::services::system::WanInfo;
 use crate::services::tasks::TaskManager;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use sysinfo::{Networks, System};
 use tokio::sync::OnceCell;
 
@@ -23,6 +24,7 @@ pub struct AppState {
     pub audio: Arc<AudioManager>,
     pub camera: Arc<CameraManager>,
     pub wan_info: Arc<OnceCell<WanInfo>>,
+    pub task_watchers: Arc<AtomicUsize>,
 }
 
 impl AppState {
@@ -51,6 +53,7 @@ impl AppState {
             audio: Arc::new(audio),
             camera: Arc::new(camera),
             wan_info: Arc::new(OnceCell::new()),
+            task_watchers: Arc::new(AtomicUsize::new(0)),
         }
     }
 }

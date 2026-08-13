@@ -10,10 +10,8 @@ use crate::state::AppState;
 use crate::utils::blocking::{run, run_or_log_default};
 use serde::Deserialize;
 use socketioxide::extract::{Data, SocketRef, State};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::Ordering;
 use ts_rs::TS;
-
-pub static ACTIVE_WATCHERS: AtomicUsize = AtomicUsize::new(0);
 
 // --- DATA STRUCTURES ---
 
@@ -185,7 +183,7 @@ pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>
 
 pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.remove::<TaskPollMarker>().is_some() {
-        ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
+        state.task_watchers.fetch_sub(1, Ordering::SeqCst);
     }
 
     state.shell.close_session(&socket.id.to_string());
@@ -205,16 +203,16 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>)
     }
 }
 
-pub async fn handle_task_poll_start(socket: SocketRef) {
+pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.insert(TaskPollMarker).is_none() {
-        ACTIVE_WATCHERS.fetch_add(1, Ordering::SeqCst);
+        state.task_watchers.fetch_add(1, Ordering::SeqCst);
         socket.join("task_watchers");
     }
 }
 
-pub async fn handle_task_poll_stop(socket: SocketRef) {
+pub async fn handle_task_poll_stop(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.remove::<TaskPollMarker>().is_some() {
-        ACTIVE_WATCHERS.fetch_sub(1, Ordering::SeqCst);
+        state.task_watchers.fetch_sub(1, Ordering::SeqCst);
         socket.leave("task_watchers");
     }
 }

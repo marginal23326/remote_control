@@ -28,7 +28,7 @@ fn spawn_task_stats_broadcaster(io: SocketIo, state: AppState) {
         loop {
             interval.tick().await;
 
-            if crate::realtime::handlers::ACTIVE_WATCHERS.load(std::sync::atomic::Ordering::SeqCst) == 0 {
+            if state.task_watchers.load(std::sync::atomic::Ordering::SeqCst) == 0 {
                 continue;
             }
 
