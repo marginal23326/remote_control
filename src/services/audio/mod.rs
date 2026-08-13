@@ -134,7 +134,7 @@ impl AudioManager {
             .try_start(owner_id)
             .map_err(|_| anyhow::anyhow!("Client audio is already active on another client"))?;
 
-        while self.client_audio_buffer.pop().is_some() {}
+        self.drain_client_buffer();
 
         let queue = self.client_audio_buffer.clone();
         Self::finish_thread_session(&self.client, guard, move |is_running| {
@@ -160,8 +160,12 @@ impl AudioManager {
 
     pub fn stop_client_playback_if_owner(&self, owner_id: &str) {
         if self.client.stop_if_owner(owner_id) {
-            while self.client_audio_buffer.pop().is_some() {}
+            self.drain_client_buffer();
         }
+    }
+
+    fn drain_client_buffer(&self) {
+        while self.client_audio_buffer.pop().is_some() {}
     }
 
     pub fn disconnect_if_owner(&self, owner_id: &str) {
