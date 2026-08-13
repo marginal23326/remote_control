@@ -4,9 +4,9 @@ import { calculateStreamDimensions } from "@/features/stream/geometry";
 import { sendMouseEventOverDataChannel } from "@/features/stream/peer-connection";
 import { captureState } from "./capture-state";
 import type { AppSocket } from "@/core/socket";
-import type { MouseEventPayload } from "@/core/socket-events";
+import type { MouseButton, MouseEventPayload } from "@/core/socket-events";
 
-function mouseButtonName(button: number): "left" | "right" | "middle" {
+function mouseButtonName(button: number): MouseButton {
     return button === 0 ? "left" : button === 2 ? "right" : "middle";
 }
 

@@ -4,7 +4,7 @@ use crate::realtime::payloads::{
 };
 use crate::services::audio::AudioManager;
 use crate::services::camera::CameraManager;
-use crate::services::input::{MouseEventPayload, apply_mouse_event};
+use crate::services::input::{MouseButton, MouseEventPayload, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
 use crate::utils::blocking::{run, run_or_log_default};
@@ -198,9 +198,9 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>)
     if was_screen_owner {
         let input = state.input.clone();
         tokio::spawn(async move {
-            input.click_mouse("left".to_string(), false).await;
-            input.click_mouse("right".to_string(), false).await;
-            input.click_mouse("middle".to_string(), false).await;
+            input.click_mouse(MouseButton::Left, false).await;
+            input.click_mouse(MouseButton::Right, false).await;
+            input.click_mouse(MouseButton::Middle, false).await;
         });
     }
 }

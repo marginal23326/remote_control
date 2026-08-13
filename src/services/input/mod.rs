@@ -16,11 +16,20 @@ use windows as backend;
 
 pub(crate) trait OsInput {
     async fn move_mouse(&self, x: i32, y: i32) -> anyhow::Result<()>;
-    async fn click_mouse(&self, button: &str, pressed: bool) -> anyhow::Result<()>;
+    async fn click_mouse(&self, button: MouseButton, pressed: bool) -> anyhow::Result<()>;
     async fn scroll_mouse(&self, dx: i32, dy: i32) -> anyhow::Result<()>;
     async fn type_text(&self, text: &str) -> anyhow::Result<()>;
     async fn send_shortcut(&self, key: &str, modifiers: Vec<String>) -> anyhow::Result<()>;
     async fn set_key_state(&self, key: &str, pressed: bool) -> anyhow::Result<()>;
+}
+
+#[derive(Clone, Copy, Deserialize, Debug, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "bindings.ts", rename_all = "lowercase")]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
 }
 
 #[derive(Clone, Deserialize, Debug, TS)]
@@ -35,7 +44,7 @@ pub enum MouseEventPayload {
     Click {
         x: f64,
         y: f64,
-        button: String,
+        button: MouseButton,
         pressed: bool,
     },
     Scroll {
@@ -73,7 +82,7 @@ macro_rules! input_commands {
 
 input_commands! {
     move_mouse(x: i32, y: i32) => MoveMouse => |os| os.move_mouse(x, y).await,
-    click_mouse(button: String, pressed: bool) => ClickMouse => |os| os.click_mouse(&button, pressed).await,
+    click_mouse(button: MouseButton, pressed: bool) => ClickMouse => |os| os.click_mouse(button, pressed).await,
     scroll_mouse(dx: i32, dy: i32) => ScrollMouse => |os| os.scroll_mouse(dx, dy).await,
     type_text(text: String) => TypeText => |os| os.type_text(&text).await,
     send_shortcut(key: String, modifiers: Vec<String>) => SendShortcut => |os| os.send_shortcut(&key, modifiers).await,

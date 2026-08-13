@@ -40,7 +40,9 @@ export type KeyboardEventPayload = { "type": "text", text: string, } | { "type":
 
 export type MessagePayload = { message: string, };
 
-export type MouseEventPayload = { "type": "move", seq?: number, x: number, y: number, } | { "type": "click", x: number, y: number, button: string, pressed: boolean, } | { "type": "scroll", dx: number, dy: number, };
+export type MouseButton = "left" | "right" | "middle";
+
+export type MouseEventPayload = { "type": "move", seq?: number, x: number, y: number, } | { "type": "click", x: number, y: number, button: MouseButton, pressed: boolean, } | { "type": "scroll", dx: number, dy: number, };
 
 export type NetworkInfo = { mac_address: string | null, lan_ip: string, wan_ip: string | null, asn: string | null, isp: string | null, antivirus: Array<string>, firewall: string, };
 

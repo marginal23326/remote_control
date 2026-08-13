@@ -121,15 +121,16 @@ impl super::OsInput for OsInputManager {
         Ok(())
     }
 
-    async fn click_mouse(&self, button: &str, pressed: bool) -> anyhow::Result<()> {
+    async fn click_mouse(&self, button: super::MouseButton, pressed: bool) -> anyhow::Result<()> {
+        use super::MouseButton::{Left, Middle, Right};
+
         let flags = match (button, pressed) {
-            ("left", true) => MOUSEEVENTF_LEFTDOWN,
-            ("left", false) => MOUSEEVENTF_LEFTUP,
-            ("right", true) => MOUSEEVENTF_RIGHTDOWN,
-            ("right", false) => MOUSEEVENTF_RIGHTUP,
-            ("middle", true) => MOUSEEVENTF_MIDDLEDOWN,
-            ("middle", false) => MOUSEEVENTF_MIDDLEUP,
-            _ => return Ok(()),
+            (Left, true) => MOUSEEVENTF_LEFTDOWN,
+            (Left, false) => MOUSEEVENTF_LEFTUP,
+            (Right, true) => MOUSEEVENTF_RIGHTDOWN,
+            (Right, false) => MOUSEEVENTF_RIGHTUP,
+            (Middle, true) => MOUSEEVENTF_MIDDLEDOWN,
+            (Middle, false) => MOUSEEVENTF_MIDDLEUP,
         };
         // Mouse data is 0 for clicks
         self.send_mouse_input(flags, 0, 0, 0);

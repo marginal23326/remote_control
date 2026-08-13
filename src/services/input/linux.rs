@@ -25,12 +25,11 @@ impl super::OsInput for OsInputManager {
             .await
     }
 
-    async fn click_mouse(&self, button: &str, pressed: bool) -> Result<()> {
+    async fn click_mouse(&self, button: super::MouseButton, pressed: bool) -> Result<()> {
         let code = match button {
-            "left" => 0x110,
-            "right" => 0x111,
-            "middle" => 0x112,
-            _ => return Ok(()),
+            super::MouseButton::Left => 0x110,
+            super::MouseButton::Right => 0x111,
+            super::MouseButton::Middle => 0x112,
         };
 
         let state = if pressed { KeyState::Pressed } else { KeyState::Released };
