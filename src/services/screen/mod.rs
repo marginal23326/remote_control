@@ -170,7 +170,7 @@ impl ScreenManager {
             let is_running_emit = is_running.clone();
             thread::spawn(move || {
                 let mut last = String::new();
-                while is_running_emit.load(Ordering::SeqCst) {
+                while is_running_emit.load(Ordering::Relaxed) {
                     let title = backend::get_active_window_title();
                     if title != last {
                         last = title;
@@ -308,12 +308,12 @@ impl ScreenManager {
             let mut last_width = 0;
             let mut last_height = 0;
 
-            while is_running.load(Ordering::SeqCst) {
+            while is_running.load(Ordering::Relaxed) {
                 let Ok(mut raw) = frame_rx.recv_timeout(Duration::from_millis(100)) else {
                     continue;
                 };
 
-                if !is_running.load(Ordering::SeqCst) {
+                if !is_running.load(Ordering::Relaxed) {
                     break;
                 }
 

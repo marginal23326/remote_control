@@ -14,7 +14,7 @@ pub(crate) fn connect(fd: Option<OwnedFd>) -> anyhow::Result<(MainLoopRc, CoreRc
 }
 
 pub(crate) fn should_stop(is_running: &AtomicBool, main_loop: *mut pipewire::sys::pw_main_loop) -> bool {
-    if is_running.load(Ordering::SeqCst) {
+    if is_running.load(Ordering::Relaxed) {
         return false;
     }
     unsafe {

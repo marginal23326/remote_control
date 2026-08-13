@@ -183,7 +183,7 @@ pub async fn handle_list_shells(socket: SocketRef, State(state): State<AppState>
 
 pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.remove::<TaskPollMarker>().is_some() {
-        state.task_watchers.fetch_sub(1, Ordering::SeqCst);
+        state.task_watchers.fetch_sub(1, Ordering::Relaxed);
     }
 
     state.shell.close_session(&socket.id.to_string());
@@ -205,14 +205,14 @@ pub async fn handle_disconnect(socket: SocketRef, State(state): State<AppState>)
 
 pub async fn handle_task_poll_start(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.insert(TaskPollMarker).is_none() {
-        state.task_watchers.fetch_add(1, Ordering::SeqCst);
+        state.task_watchers.fetch_add(1, Ordering::Relaxed);
         socket.join("task_watchers");
     }
 }
 
 pub async fn handle_task_poll_stop(socket: SocketRef, State(state): State<AppState>) {
     if socket.extensions.remove::<TaskPollMarker>().is_some() {
-        state.task_watchers.fetch_sub(1, Ordering::SeqCst);
+        state.task_watchers.fetch_sub(1, Ordering::Relaxed);
         socket.leave("task_watchers");
     }
 }

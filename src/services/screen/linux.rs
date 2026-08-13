@@ -417,7 +417,7 @@ async fn monitor_active_window(is_running: Arc<AtomicBool>) -> Result<()> {
 
     let mut stream = MessageStream::for_match_rule(rule, &connection, Some(4)).await?;
 
-    while is_running.load(Ordering::SeqCst) {
+    while is_running.load(Ordering::Relaxed) {
         match tokio::time::timeout(Duration::from_millis(500), stream.next()).await {
             Ok(Some(Ok(message))) => {
                 if let Ok(title) = message.body().deserialize::<String>() {

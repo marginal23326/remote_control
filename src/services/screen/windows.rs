@@ -151,7 +151,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         frame: &mut Frame,
         capture_control: InternalCaptureControl,
     ) -> Result<(), Self::Error> {
-        if !self.ctx.is_running.load(Ordering::SeqCst) {
+        if !self.ctx.is_running.load(Ordering::Relaxed) {
             capture_control.stop();
             return Ok(());
         }

@@ -42,7 +42,7 @@ impl StreamOwnership {
             return Err(());
         }
         *guard = Some(owner_id);
-        self.is_running.store(true, Ordering::SeqCst);
+        self.is_running.store(true, Ordering::Relaxed);
         Ok(StartGuard {
             ownership: self,
             started: false,
@@ -54,7 +54,7 @@ impl StreamOwnership {
     }
 
     pub fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
+        self.is_running.load(Ordering::Relaxed)
     }
 
     pub fn owns(&self, owner_id: &str) -> bool {
@@ -63,7 +63,7 @@ impl StreamOwnership {
 
     pub fn clear(&self) {
         let mut guard = self.owner_id.0.lock();
-        self.is_running.store(false, Ordering::SeqCst);
+        self.is_running.store(false, Ordering::Relaxed);
         *guard = None;
     }
 }

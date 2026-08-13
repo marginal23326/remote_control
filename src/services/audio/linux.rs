@@ -146,7 +146,7 @@ pub(crate) fn server_loop(
     thread::spawn(move || {
         let mut pcm = Vec::new();
 
-        while thread_running.load(Ordering::SeqCst) {
+        while thread_running.load(Ordering::Relaxed) {
             if wake_rx.recv().is_err() {
                 break;
             }

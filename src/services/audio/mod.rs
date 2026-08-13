@@ -60,7 +60,7 @@ impl ThreadWorker {
 
 impl Stoppable for ThreadWorker {
     fn stop(self) {
-        self.running.store(false, Ordering::SeqCst);
+        self.running.store(false, Ordering::Relaxed);
         tokio::task::spawn_blocking(move || {
             let _ = self.handle.join();
         });

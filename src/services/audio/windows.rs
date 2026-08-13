@@ -90,7 +90,7 @@ pub(crate) fn server_loop(
     let mut pcm = Vec::new();
 
     loop {
-        if !is_running.load(Ordering::SeqCst) {
+        if !is_running.load(Ordering::Relaxed) {
             let _ = audio_client.stop_stream();
             break;
         }
@@ -155,7 +155,7 @@ pub(crate) fn client_loop(_rate: u32, is_running: Arc<AtomicBool>, queue: Arc<Ar
     let mut sample_queue = VecDeque::new();
 
     loop {
-        if !is_running.load(Ordering::SeqCst) {
+        if !is_running.load(Ordering::Relaxed) {
             let _ = audio_client.stop_stream();
             break;
         }
