@@ -150,10 +150,9 @@ fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> Option<String> {
     None
 }
 
-pub(crate) fn disk_usage_from(disks: &sysinfo::Disks) -> (u64, u64, u64) {
+pub(crate) fn disk_usage_from(disks: &sysinfo::Disks, is_system_drive: impl Fn(&str) -> bool) -> (u64, u64, u64) {
     for disk in disks.list() {
-        let mount = disk.mount_point().to_string_lossy();
-        if mount == "/" || mount.starts_with("C:") {
+        if is_system_drive(&disk.mount_point().to_string_lossy()) {
             let total = bytes_to_gb(disk.total_space());
             let free = bytes_to_gb(disk.available_space());
             return (total, total.saturating_sub(free), free);

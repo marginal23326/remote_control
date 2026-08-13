@@ -3,11 +3,14 @@ use tokio::process::Command;
 
 use super::{OsSpecificInfo, PowerAction};
 
+const SYSTEM_DRIVE: &str = "/";
+
 pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
     let (disks, disk_total_gb, disk_used_gb, disk_free_gb, os, gpu, monitors, battery) =
         tokio::task::spawn_blocking(move || {
             let disks_snapshot = sysinfo::Disks::new_with_refreshed_list();
-            let (disk_total_gb, disk_used_gb, disk_free_gb) = super::disk_usage_from(&disks_snapshot);
+            let (disk_total_gb, disk_used_gb, disk_free_gb) =
+                super::disk_usage_from(&disks_snapshot, |mount| mount == SYSTEM_DRIVE);
 
             (
                 get_disk_labels(&disks_snapshot),
@@ -32,7 +35,7 @@ pub(crate) async fn get_os_specific_info(cpu_frequency: u64) -> OsSpecificInfo {
         disks,
         battery,
         domain: None,
-        system_drive: "/".to_string(),
+        system_drive: SYSTEM_DRIVE.to_string(),
         antivirus: Vec::new(),
         firewall,
         cpu_max_speed_mhz: (cpu_frequency > 0).then_some(cpu_frequency as u32),
