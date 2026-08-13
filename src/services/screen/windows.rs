@@ -23,7 +23,6 @@ use windows::Win32::Graphics::Gdi::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW}
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-use super::CaptureHandles;
 use super::StreamSettings;
 use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
@@ -47,7 +46,7 @@ pub(crate) async fn start_capture(
     native_size: Arc<Mutex<(i32, i32)>>,
     capture_cursor: bool,
     on_exit: impl FnOnce() + Send + 'static,
-) -> anyhow::Result<CaptureHandles> {
+) -> anyhow::Result<()> {
     *native_size.lock() = get_display_native_size();
 
     let monitor = Monitor::primary().map_err(|e| anyhow::anyhow!("No primary monitor found: {}", e))?;
@@ -79,10 +78,7 @@ pub(crate) async fn start_capture(
         on_exit();
     });
 
-    Ok(CaptureHandles {
-        capture: None,
-        title: None,
-    })
+    Ok(())
 }
 
 pub(crate) fn get_display_native_size() -> (i32, i32) {

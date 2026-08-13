@@ -63,10 +63,7 @@ pub(crate) struct InnerState {
     pipeline: gst::Pipeline,
     encoder: gst::Element,
     cmd_tx: Sender<GstCommand>,
-    input_handle: Option<tokio::task::JoinHandle<()>>,
-    capture_handle: Option<thread::JoinHandle<()>>,
-    title_handle: Option<thread::JoinHandle<()>>,
-    emit_handle: Option<thread::JoinHandle<()>>,
+    input_handle: tokio::task::JoinHandle<()>,
 }
 
 impl GstSession for InnerState {
@@ -79,23 +76,13 @@ impl GstSession for InnerState {
     }
 
     fn on_stop(self) {
-        drop(self.capture_handle);
-        drop(self.title_handle);
-        drop(self.emit_handle);
-        if let Some(handle) = self.input_handle {
-            handle.abort();
-        }
+        self.input_handle.abort();
 
         #[cfg(target_os = "linux")]
         tokio::spawn(async move {
             linux::portal_session().close().await;
         });
     }
-}
-
-pub(crate) struct CaptureHandles {
-    pub(crate) capture: Option<thread::JoinHandle<()>>,
-    pub(crate) title: Option<thread::JoinHandle<()>>,
 }
 
 impl ScreenManager {
@@ -167,10 +154,7 @@ impl ScreenManager {
             stop_owner_on_exit(state.screen.clone(), socket.id.to_string()),
         );
 
-        let CaptureHandles {
-            capture: capture_handle,
-            title: title_handle,
-        } = backend::start_capture(
+        backend::start_capture(
             frame_tx,
             recycle_rx,
             settings.clone(),
@@ -181,17 +165,7 @@ impl ScreenManager {
         )
         .await?;
 
-        let mut inner = InnerState {
-            pipeline,
-            encoder,
-            cmd_tx,
-            input_handle: Some(input_handle),
-            capture_handle,
-            title_handle,
-            emit_handle: None,
-        };
-
-        let emit_handle = {
+        {
             let socket_emit = socket.clone();
             let is_running_emit = is_running.clone();
             thread::spawn(move || {
@@ -207,12 +181,18 @@ impl ScreenManager {
                     }
                     thread::sleep(Duration::from_millis(500));
                 }
-            })
-        };
+            });
+        }
 
         Self::spawn_resize_encode_thread(is_running, settings, frame_rx, appsrc, min_dim, recycle_tx);
 
-        inner.emit_handle = Some(emit_handle);
+        let inner = InnerState {
+            pipeline,
+            encoder,
+            cmd_tx,
+            input_handle,
+        };
+
         self.session.finish_or_abort(
             startup_guard,
             inner,

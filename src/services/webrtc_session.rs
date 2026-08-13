@@ -112,11 +112,7 @@ pub(crate) fn wire_webrtc_signaling(
     });
 }
 
-pub(crate) fn spawn_bus_watch(
-    pipeline: gst::Pipeline,
-    label: &'static str,
-    on_exit: impl FnOnce() + Send + 'static,
-) -> thread::JoinHandle<()> {
+pub(crate) fn spawn_bus_watch(pipeline: gst::Pipeline, label: &'static str, on_exit: impl FnOnce() + Send + 'static) {
     let pipeline_weak = pipeline.downgrade();
 
     thread::spawn(move || {
@@ -146,7 +142,7 @@ pub(crate) fn spawn_bus_watch(
         }
         let _ = pipeline_weak.upgrade().map(|p| p.set_state(gst::State::Null));
         on_exit();
-    })
+    });
 }
 
 pub(crate) trait GstSession: Sized {
