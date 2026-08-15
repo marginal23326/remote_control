@@ -29,7 +29,7 @@ use std::sync::LazyLock;
 use tokio::sync::Mutex as AsyncMutex;
 use zbus::{Connection, MatchRule, MessageStream, Proxy, message::Type as DbusMessageType};
 
-use super::StreamSettings;
+use super::ScreenState;
 use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
 static PORTAL_SESSION: LazyLock<Arc<PortalSessionManager>> = LazyLock::new(|| Arc::new(PortalSessionManager::new()));
@@ -61,26 +61,17 @@ pub(crate) fn get_max_fps() -> u64 {
 pub(crate) async fn start_capture(
     frame_tx: Sender<RawFrame>,
     recycle_rx: Receiver<Vec<u8>>,
-    settings: Arc<Mutex<StreamSettings>>,
+    state: Arc<Mutex<ScreenState>>,
     is_running: Arc<AtomicBool>,
-    native_size: Arc<Mutex<(i32, i32)>>,
     capture_cursor: bool,
     on_exit: impl FnOnce() + Send + 'static,
 ) -> Result<()> {
     let (pw_node_id, pw_size, pw_fd) = portal_session().open_pipewire_remote(capture_cursor).await?;
-    *native_size.lock() = pw_size;
+    state.lock().native_size = pw_size;
 
     let title_is_running = is_running.clone();
     thread::spawn(move || {
-        if let Err(e) = run_pipewire_capture(
-            pw_node_id,
-            pw_fd,
-            frame_tx,
-            recycle_rx,
-            settings,
-            is_running,
-            native_size,
-        ) {
+        if let Err(e) = run_pipewire_capture(pw_node_id, pw_fd, frame_tx, recycle_rx, state, is_running) {
             tracing::error!("PipeWire capture error: {e:#}");
         }
         on_exit();
@@ -96,9 +87,8 @@ pub(crate) fn run_pipewire_capture(
     fd: OwnedFd,
     work_tx: Sender<RawFrame>,
     recycle_rx: Receiver<Vec<u8>>,
-    settings: Arc<Mutex<StreamSettings>>,
+    state: Arc<Mutex<ScreenState>>,
     is_running: Arc<AtomicBool>,
-    native_size: Arc<Mutex<(i32, i32)>>,
 ) -> Result<()> {
     let (mainloop, core) = crate::services::pipewire_core::connect(Some(fd))?;
 
@@ -107,9 +97,8 @@ pub(crate) fn run_pipewire_capture(
         work_tx: Sender<RawFrame>,
         recycle_rx: Receiver<Vec<u8>>,
         is_running: Arc<AtomicBool>,
-        native_size: Arc<Mutex<(i32, i32)>>,
         main_loop: *mut pw::sys::pw_main_loop,
-        settings: Arc<Mutex<StreamSettings>>,
+        state: Arc<Mutex<ScreenState>>,
         limiter: FrameRateLimiter,
         cached_buffer: Option<Vec<u8>>,
     }
@@ -119,9 +108,8 @@ pub(crate) fn run_pipewire_capture(
         work_tx,
         recycle_rx,
         is_running,
-        native_size,
         main_loop: mainloop.as_raw_ptr(),
-        settings,
+        state,
         limiter: FrameRateLimiter::new(),
         cached_buffer: None,
     };
@@ -156,15 +144,16 @@ pub(crate) fn run_pipewire_capture(
 
             if user_data.format.parse(param).is_ok() {
                 let size = user_data.format.size();
-                *user_data.native_size.lock() = (size.width as i32, size.height as i32);
-
                 let fr = user_data.format.framerate();
+
+                let mut state = user_data.state.lock();
+                state.native_size = (size.width as i32, size.height as i32);
                 if fr.denom > 0 {
                     if let Some(fps_val) = fr.num.checked_div(fr.denom).filter(|&v| v > 0) {
-                        user_data.settings.lock().max_fps = fps_val as u64;
+                        state.settings.max_fps = fps_val as u64;
                     }
                 } else {
-                    user_data.settings.lock().max_fps = fr.num.max(1) as u64;
+                    state.settings.max_fps = fr.num.max(1) as u64;
                 }
             }
         })
@@ -178,8 +167,8 @@ pub(crate) fn run_pipewire_capture(
             };
 
             let (target_fps, max_fps) = {
-                let s = user_data.settings.lock();
-                (s.target_fps, s.max_fps)
+                let s = user_data.state.lock();
+                (s.settings.target_fps, s.settings.max_fps)
             };
             if !user_data.limiter.should_process(target_fps, max_fps) {
                 return;

@@ -23,7 +23,7 @@ use windows::Win32::Graphics::Gdi::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW}
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
 use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
 
-use super::StreamSettings;
+use super::ScreenState;
 use super::frame::{FrameRateLimiter, RawFrame, send_or_cache, take_or_recycle};
 
 pub(crate) fn get_max_fps() -> u64 {
@@ -41,18 +41,17 @@ pub(crate) fn get_max_fps() -> u64 {
 pub(crate) async fn start_capture(
     work_tx: Sender<RawFrame>,
     recycle_rx: Receiver<Vec<u8>>,
-    settings: Arc<Mutex<StreamSettings>>,
+    state: Arc<Mutex<ScreenState>>,
     is_running: Arc<AtomicBool>,
-    native_size: Arc<Mutex<(i32, i32)>>,
     capture_cursor: bool,
     on_exit: impl FnOnce() + Send + 'static,
 ) -> anyhow::Result<()> {
-    *native_size.lock() = get_display_native_size();
+    state.lock().native_size = get_display_native_size();
 
     let monitor = Monitor::primary().map_err(|e| anyhow::anyhow!("No primary monitor found: {}", e))?;
 
     thread::spawn(move || {
-        let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), settings, native_size.clone());
+        let capture_ctx = CaptureContext::new(work_tx, recycle_rx, is_running.clone(), state);
 
         let cursor_capture_settings = if capture_cursor {
             CursorCaptureSettings::WithCursor
@@ -104,10 +103,9 @@ struct CaptureContext {
     work_tx: Sender<RawFrame>,
     recycle_rx: Receiver<Vec<u8>>,
     is_running: Arc<AtomicBool>,
-    settings: Arc<Mutex<StreamSettings>>,
+    state: Arc<Mutex<ScreenState>>,
     limiter: FrameRateLimiter,
     cached_buffer: Option<Vec<u8>>,
-    native_size: Arc<Mutex<(i32, i32)>>,
     last_width: u32,
     last_height: u32,
 }
@@ -117,17 +115,15 @@ impl CaptureContext {
         work_tx: Sender<RawFrame>,
         recycle_rx: Receiver<Vec<u8>>,
         is_running: Arc<AtomicBool>,
-        settings: Arc<Mutex<StreamSettings>>,
-        native_size: Arc<Mutex<(i32, i32)>>,
+        state: Arc<Mutex<ScreenState>>,
     ) -> Self {
         Self {
             work_tx,
             recycle_rx,
             is_running,
-            settings,
+            state,
             limiter: FrameRateLimiter::new(),
             cached_buffer: None,
-            native_size,
             last_width: 0,
             last_height: 0,
         }
@@ -157,8 +153,8 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         }
 
         let (target_fps, max_fps) = {
-            let s = self.ctx.settings.lock();
-            (s.target_fps, s.max_fps)
+            let s = self.ctx.state.lock();
+            (s.settings.target_fps, s.settings.max_fps)
         };
 
         if !self.ctx.limiter.should_process(target_fps, max_fps) {
@@ -174,7 +170,7 @@ impl GraphicsCaptureApiHandler for CaptureHandler {
         if width != self.ctx.last_width || height != self.ctx.last_height {
             self.ctx.last_width = width;
             self.ctx.last_height = height;
-            *self.ctx.native_size.lock() = (width as i32, height as i32);
+            self.ctx.state.lock().native_size = (width as i32, height as i32);
         }
 
         let mut buffer = take_or_recycle(&mut self.ctx.cached_buffer, &self.ctx.recycle_rx);

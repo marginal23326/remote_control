@@ -51,11 +51,16 @@ impl Default for StreamSettings {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ScreenState {
+    pub settings: StreamSettings,
+    pub native_size: (i32, i32),
+    pub encoder_type: String,
+    pub encoder_property_constraints: HashMap<String, EncoderPropertyConstraint>,
+}
+
 pub struct ScreenManager {
-    pub settings: Arc<Mutex<StreamSettings>>,
-    pub native_size: Arc<Mutex<(i32, i32)>>,
-    pub encoder_type: Arc<Mutex<String>>,
-    pub encoder_property_constraints: Arc<Mutex<HashMap<String, EncoderPropertyConstraint>>>,
+    state: Arc<Mutex<ScreenState>>,
     session: OwnedSession<InnerState>,
 }
 
@@ -87,18 +92,17 @@ impl GstSession for InnerState {
 
 impl ScreenManager {
     pub fn new() -> Self {
-        let max_fps = backend::get_max_fps();
-        let native_size = detect_native_size();
         Self {
-            settings: Arc::new(Mutex::new(StreamSettings {
-                max_fps,
+            state: Arc::new(Mutex::new(ScreenState {
+                native_size: detect_native_size(),
                 ..Default::default()
             })),
-            native_size: Arc::new(Mutex::new(native_size)),
-            encoder_type: Arc::new(Mutex::new(String::new())),
-            encoder_property_constraints: Arc::new(Mutex::new(HashMap::new())),
             session: OwnedSession::new(),
         }
+    }
+
+    pub fn snapshot(&self) -> ScreenState {
+        self.state.lock().clone()
     }
 
     pub async fn start_stream(
@@ -146,7 +150,7 @@ impl ScreenManager {
             Self::setup_input_data_channels(&webrtcbin, state.input.clone(), tokio::runtime::Handle::current());
 
         let is_running = self.session.ownership().running_flag();
-        let settings = self.settings.clone();
+        let screen_state = self.state.clone();
 
         spawn_bus_watch(
             pipeline.clone(),
@@ -157,9 +161,8 @@ impl ScreenManager {
         backend::start_capture(
             frame_tx,
             recycle_rx,
-            settings.clone(),
+            screen_state.clone(),
             is_running.clone(),
-            self.native_size.clone(),
             capture_cursor,
             stop_owner_on_exit(state.screen.clone(), socket.id.to_string()),
         )
@@ -184,7 +187,7 @@ impl ScreenManager {
             });
         }
 
-        Self::spawn_resize_encode_thread(is_running, settings, frame_rx, appsrc, min_dim, recycle_tx);
+        Self::spawn_resize_encode_thread(is_running, screen_state, frame_rx, appsrc, min_dim, recycle_tx);
 
         let inner = InnerState {
             pipeline,
@@ -290,7 +293,7 @@ impl ScreenManager {
 
     fn spawn_resize_encode_thread(
         is_running: Arc<AtomicBool>,
-        settings: Arc<Mutex<StreamSettings>>,
+        state: Arc<Mutex<ScreenState>>,
         frame_rx: Receiver<RawFrame>,
         appsrc: gstreamer_app::AppSrc,
         min_dim: u32,
@@ -317,7 +320,7 @@ impl ScreenManager {
                     break;
                 }
 
-                let scale_pct = settings.lock().resolution_percentage;
+                let scale_pct = state.lock().settings.resolution_percentage;
 
                 let new_w = ((raw.width * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
                 let new_h = ((raw.height * scale_pct as u32 / 100).max(min_dim) / 2) * 2;
@@ -398,31 +401,32 @@ impl ScreenManager {
         let resolution = resolution.clamp(5, 100);
 
         {
-            let mut s = self.settings.lock();
-            s.bitrate = bitrate;
-            s.resolution_percentage = resolution;
+            let mut state = self.state.lock();
+            state.settings.bitrate = bitrate;
+            state.settings.resolution_percentage = resolution;
         }
 
-        self.session.with_inner(|state| {
-            state.encoder.set_property_from_str("bitrate", &bitrate.to_string());
+        self.session.with_inner(|inner| {
+            inner.encoder.set_property_from_str("bitrate", &bitrate.to_string());
         });
     }
 
     pub fn set_target_fps(&self, fps: u64) {
-        let mut s = self.settings.lock();
-        s.target_fps = fps.clamp(1, s.max_fps);
+        let mut state = self.state.lock();
+        let max_fps = state.settings.max_fps;
+        state.settings.target_fps = fps.clamp(1, max_fps);
     }
 
     pub fn set_encoder_properties(&self, properties: HashMap<String, String>) -> Vec<String> {
         let rejected = self
             .session
-            .with_inner(|state| apply_encoder_properties(&state.encoder, &properties))
+            .with_inner(|inner| apply_encoder_properties(&inner.encoder, &properties))
             .unwrap_or_default();
         {
-            let mut s = self.settings.lock();
-            s.encoder_properties = properties;
+            let mut state = self.state.lock();
+            state.settings.encoder_properties = properties;
             for key in &rejected {
-                s.encoder_properties.remove(key);
+                state.settings.encoder_properties.remove(key);
             }
         }
         rejected

@@ -36,23 +36,18 @@ pub struct CurrentSettingsResponse {
 }
 
 fn build_settings_response(state: &AppState) -> CurrentSettingsResponse {
-    let screen = state.screen.clone();
-    let s = screen.settings.lock();
-    let (native_width, native_height) = *screen.native_size.lock();
-    let encoder_type = screen.encoder_type.lock().clone();
-    let encoder_properties = s.encoder_properties.clone();
-    let encoder_property_constraints = screen.encoder_property_constraints.lock().clone();
+    let screen = state.screen.snapshot();
 
     CurrentSettingsResponse {
-        bitrate: s.bitrate,
-        resolution_percentage: s.resolution_percentage,
-        target_fps: s.target_fps,
-        max_fps: s.max_fps,
-        native_width,
-        native_height,
-        encoder_type,
-        encoder_properties,
-        encoder_property_constraints,
+        bitrate: screen.settings.bitrate,
+        resolution_percentage: screen.settings.resolution_percentage,
+        target_fps: screen.settings.target_fps,
+        max_fps: screen.settings.max_fps,
+        native_width: screen.native_size.0,
+        native_height: screen.native_size.1,
+        encoder_type: screen.encoder_type,
+        encoder_properties: screen.settings.encoder_properties,
+        encoder_property_constraints: screen.encoder_property_constraints,
         rejected_properties: Vec::new(),
         stun_server: state.config.stun_server.clone(),
         turn_server: state.config.turn_server.clone(),
@@ -69,14 +64,11 @@ pub async fn update_settings_handler(
 ) -> Json<CurrentSettingsResponse> {
     let screen = state.screen.clone();
 
-    let (current_bitrate, current_res) = {
-        let s = screen.settings.lock();
-        (s.bitrate, s.resolution_percentage)
-    };
+    let current = screen.snapshot().settings;
 
     screen.update_settings(
-        payload.bitrate.unwrap_or(current_bitrate),
-        payload.resolution_percentage.unwrap_or(current_res),
+        payload.bitrate.unwrap_or(current.bitrate),
+        payload.resolution_percentage.unwrap_or(current.resolution_percentage),
     );
 
     if let Some(fps) = payload.target_fps {

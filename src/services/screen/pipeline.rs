@@ -163,12 +163,12 @@ pub(crate) struct PipelineHandles {
 impl ScreenManager {
     pub(crate) fn build_pipeline(&self) -> anyhow::Result<PipelineHandles> {
         let encoder_info = detect_encoder();
-        *self.encoder_type.lock() = encoder_info.name.to_string();
 
         {
-            let mut s = self.settings.lock();
-            if s.encoder_properties.is_empty() {
-                s.encoder_properties = encoder_info
+            let mut state = self.state.lock();
+            state.encoder_type = encoder_info.name.to_string();
+            if state.settings.encoder_properties.is_empty() {
+                state.settings.encoder_properties = encoder_info
                     .default_properties
                     .iter()
                     .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -210,12 +210,13 @@ impl ScreenManager {
             .ok_or_else(|| anyhow::anyhow!("Encoder not found"))?;
 
         let property_names: Vec<&str> = encoder_info.default_properties.iter().map(|(k, _)| *k).collect();
-        *self.encoder_property_constraints.lock() = encoder_constraints(&encoder, &property_names);
 
-        let default_bitrate = self.settings.lock().bitrate;
+        let (default_bitrate, encoder_properties) = {
+            let mut state = self.state.lock();
+            state.encoder_property_constraints = encoder_constraints(&encoder, &property_names);
+            (state.settings.bitrate, state.settings.encoder_properties.clone())
+        };
         encoder.set_property_from_str("bitrate", &default_bitrate.to_string());
-
-        let encoder_properties = self.settings.lock().encoder_properties.clone();
         apply_encoder_properties(&encoder, &encoder_properties);
 
         pipeline
