@@ -51,21 +51,18 @@ async fn auth_gated_page(
     }
 }
 
-async fn index_handler(State(state): State<AppState>, req: Request) -> Response {
-    auth_gated_page(state, req, "static/dist/index.html", true, "/login").await
-}
-
-async fn login_page_handler(State(state): State<AppState>, req: Request) -> Response {
-    auth_gated_page(state, req, "static/dist/login.html", false, "/").await
-}
-
 pub fn create_router(state: AppState) -> Router {
     // Serve static files (JS, CSS, assets)
     let serve_static = ServeDir::new("static");
 
     // 1. Define Public Routes
     let auth_routes = Router::new()
-        .route("/login", post(login_handler).get(login_page_handler))
+        .route(
+            "/login",
+            post(login_handler).get(|State(state): State<AppState>, req: Request| {
+                auth_gated_page(state, req, "static/dist/login.html", false, "/")
+            }),
+        )
         .route("/logout", get(logout_handler));
 
     // 2. Define Protected API Routes
@@ -116,7 +113,12 @@ pub fn create_router(state: AppState) -> Router {
 
     // 3. Assemble
     Router::new()
-        .route("/", get(index_handler))
+        .route(
+            "/",
+            get(|State(state): State<AppState>, req: Request| {
+                auth_gated_page(state, req, "static/dist/index.html", true, "/login")
+            }),
+        )
         .merge(auth_routes)
         .nest("/api", api_routes)
         .nest("/assets", assets_routes)
