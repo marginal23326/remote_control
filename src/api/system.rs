@@ -1,10 +1,10 @@
-use crate::services::system::{PowerAction, SystemInfoDTO, execute_power_action, get_system_info};
+use crate::services::system::{PowerAction, SystemInfo, execute_power_action, get_system_info};
 use crate::state::AppState;
 use crate::utils::blocking::run_blocking;
 use crate::utils::error::success;
 use axum::{Json, extract::State};
 
-pub async fn get_system_info_handler(State(state): State<AppState>) -> Json<SystemInfoDTO> {
+pub async fn get_system_info_handler(State(state): State<AppState>) -> Json<SystemInfo> {
     let info = get_system_info(&state).await;
     Json(info)
 }

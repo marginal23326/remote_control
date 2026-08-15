@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 use crate::services::audio::AudioSourceInfo;
 use crate::services::camera::CameraDeviceInfo;
-use crate::services::tasks::ProcessDTO;
+use crate::services::tasks::ProcessInfo;
 
 macro_rules! ts_payload {
     ($item:item) => {
@@ -71,7 +71,7 @@ pub struct ActiveWindowPayload {
 }
 
 ts_payload! {
-pub struct AudioFormatPayload {
+pub struct AudioFormat {
     pub rate: u32,
     pub channels: u32,
 }
@@ -85,8 +85,8 @@ pub struct RemoteIceCandidatePayload {
 }
 
 ts_payload! {
-pub struct TaskPayload {
-    pub processes: Vec<ProcessDTO>,
+pub struct TaskListPayload {
+    pub processes: Vec<ProcessInfo>,
     pub total_cpu_usage: f32,
     pub total_memory_percentage: f64,
 }

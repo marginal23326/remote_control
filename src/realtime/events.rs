@@ -7,7 +7,7 @@ use crate::realtime::handlers::{
     handle_stop_client_audio, handle_stop_server_audio, handle_task_poll_start, handle_task_poll_stop,
     handle_webrtc_answer, handle_webrtc_ice,
 };
-use crate::realtime::payloads::{AuthStatusPayload, MessagePayload, TaskPayload};
+use crate::realtime::payloads::{AuthStatusPayload, MessagePayload, TaskListPayload};
 use crate::state::AppState;
 use crate::utils::auth::is_authenticated;
 use socketioxide::{
@@ -45,7 +45,7 @@ fn spawn_task_stats_broadcaster(io: SocketIo, state: AppState) {
                     (cpu, state_bg.tasks.memory_usage_percent())
                 };
 
-                TaskPayload {
+                TaskListPayload {
                     processes,
                     total_cpu_usage: cpu_global,
                     total_memory_percentage: mem_pct,

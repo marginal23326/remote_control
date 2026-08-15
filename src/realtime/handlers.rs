@@ -36,7 +36,7 @@ pub enum KeyboardEventPayload {
 
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields)]
-pub struct ShellCreateEvent {
+pub struct ShellCreatePayload {
     pub cols: u16,
     pub rows: u16,
     pub session_id: String,
@@ -46,13 +46,13 @@ pub struct ShellCreateEvent {
 
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts")]
-pub struct ShellInputEvent {
+pub struct ShellInputPayload {
     pub command: String,
 }
 
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts")]
-pub struct ShellResizeEvent {
+pub struct ShellResizePayload {
     pub cols: u16,
     pub rows: u16,
 }
@@ -65,7 +65,7 @@ struct ShellPendingMarker;
 
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
-pub struct AudioConfig {
+pub struct AudioStartPayload {
     pub source: Option<AudioSourceKind>,
     pub rate: Option<u32>,
     pub device_id: Option<String>,
@@ -73,13 +73,13 @@ pub struct AudioConfig {
 
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
-pub struct CameraStartConfig {
+pub struct StartCameraStreamPayload {
     pub device_id: Option<String>,
 }
 
 #[derive(Deserialize, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields)]
-pub struct StartStreamConfig {
+pub struct StartStreamPayload {
     pub capture_cursor: Option<bool>,
 }
 
@@ -111,7 +111,11 @@ pub async fn handle_keyboard_event(Data(data): Data<KeyboardEventPayload>, State
     };
 }
 
-pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreateEvent>, State(state): State<AppState>) {
+pub async fn handle_shell_create(
+    socket: SocketRef,
+    Data(data): Data<ShellCreatePayload>,
+    State(state): State<AppState>,
+) {
     let socket_id = socket.id.to_string();
 
     if socket.extensions.insert(ShellPendingMarker).is_some() {
@@ -155,13 +159,17 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
     }
 }
 
-pub async fn handle_shell_input(socket: SocketRef, Data(data): Data<ShellInputEvent>, State(state): State<AppState>) {
+pub async fn handle_shell_input(socket: SocketRef, Data(data): Data<ShellInputPayload>, State(state): State<AppState>) {
     if let Err(e) = state.shell.write_to_shell(&socket.id.to_string(), &data.command) {
         tracing::error!("Shell write error: {}", e);
     }
 }
 
-pub async fn handle_shell_resize(socket: SocketRef, Data(data): Data<ShellResizeEvent>, State(state): State<AppState>) {
+pub async fn handle_shell_resize(
+    socket: SocketRef,
+    Data(data): Data<ShellResizePayload>,
+    State(state): State<AppState>,
+) {
     if let Err(e) = state.shell.resize_shell(&socket.id.to_string(), data.cols, data.rows) {
         tracing::error!("Shell resize error: {}", e);
     }
@@ -219,7 +227,7 @@ pub async fn handle_task_poll_stop(socket: SocketRef, State(state): State<AppSta
 
 pub async fn handle_start_server_audio(
     socket: SocketRef,
-    Data(data): Data<AudioConfig>,
+    Data(data): Data<AudioStartPayload>,
     State(state): State<AppState>,
 ) {
     let audio = &state.audio;
@@ -247,7 +255,7 @@ pub async fn handle_stop_server_audio(socket: SocketRef, State(state): State<App
 
 pub async fn handle_start_client_audio(
     socket: SocketRef,
-    Data(data): Data<AudioConfig>,
+    Data(data): Data<AudioStartPayload>,
     State(state): State<AppState>,
 ) {
     let audio = &state.audio;
@@ -272,7 +280,7 @@ pub async fn handle_client_audio_data(
 
 pub async fn handle_start_stream(
     socket: SocketRef,
-    Data(data): Data<StartStreamConfig>,
+    Data(data): Data<StartStreamPayload>,
     State(state): State<AppState>,
 ) {
     let screen = state.screen.clone();
@@ -291,7 +299,7 @@ pub async fn handle_list_cameras(socket: SocketRef) {
 
 pub async fn handle_start_camera_stream(
     socket: SocketRef,
-    Data(data): Data<CameraStartConfig>,
+    Data(data): Data<StartCameraStreamPayload>,
     State(state): State<AppState>,
 ) {
     let camera = state.camera.clone();

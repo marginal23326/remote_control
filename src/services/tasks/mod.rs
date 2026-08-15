@@ -14,7 +14,7 @@ use windows as backend;
 
 #[derive(Serialize, Clone, Debug, TS)]
 #[ts(export, export_to = "bindings.ts", optional_fields = nullable)]
-pub struct ProcessDTO {
+pub struct ProcessInfo {
     pub pid: u32,
     pub name: String,
     pub cpu_percent: f32,
@@ -24,7 +24,7 @@ pub struct ProcessDTO {
 
 #[derive(Serialize, TS)]
 #[ts(export, export_to = "bindings.ts")]
-pub struct ProcessDetailsDTO {
+pub struct ProcessDetails {
     pub pid: u32,
     pub name: String,
     pub rss_memory_mb: f64,
@@ -107,7 +107,7 @@ impl TaskManager {
         }
     }
 
-    pub fn get_processes(&self) -> Vec<ProcessDTO> {
+    pub fn get_processes(&self) -> Vec<ProcessInfo> {
         self.refresh_sysinfo_if_needed();
 
         #[cfg(target_os = "windows")]
@@ -115,7 +115,7 @@ impl TaskManager {
 
         let sys = self.sys.read();
         let num_cpus = sys.cpus().len().max(1) as f32;
-        let mut result: Vec<ProcessDTO> = Vec::new();
+        let mut result: Vec<ProcessInfo> = Vec::new();
 
         for (pid, proc_info) in sys.processes() {
             let pid_u32 = pid.as_u32();
@@ -137,7 +137,7 @@ impl TaskManager {
                 mem_mb = 0.0;
             }
 
-            result.push(ProcessDTO {
+            result.push(ProcessInfo {
                 pid: pid_u32,
                 name: proc_info.name().to_string_lossy().to_string(),
                 cpu_percent: cpu,
@@ -149,7 +149,7 @@ impl TaskManager {
         result
     }
 
-    pub fn get_process_details(&self, pid: u32) -> Result<ProcessDetailsDTO> {
+    pub fn get_process_details(&self, pid: u32) -> Result<ProcessDetails> {
         let sys = self.sys.read();
         let proc = sys
             .process(Pid::from_u32(pid))
@@ -175,7 +175,7 @@ impl TaskManager {
             }
         }
 
-        Ok(ProcessDetailsDTO {
+        Ok(ProcessDetails {
             pid,
             name: proc.name().to_string_lossy().to_string(),
             rss_memory_mb,

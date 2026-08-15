@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use crate::realtime::event_names::ServerEvent;
-use crate::realtime::payloads::AudioFormatPayload;
+use crate::realtime::payloads::AudioFormat;
 use crossbeam_channel::bounded;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
@@ -95,7 +95,7 @@ pub(crate) fn server_loop(
                 let negotiated_rate = format.rate();
                 let _ = user_data.socket.emit(
                     ServerEvent::ServerAudioFormat.as_str(),
-                    &AudioFormatPayload {
+                    &AudioFormat {
                         rate: negotiated_rate,
                         channels: 1,
                     },

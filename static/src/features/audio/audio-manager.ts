@@ -4,7 +4,7 @@ import { bindMediaSessionReconnect } from "@/shared/media-session";
 import AudioConverterWorker from "./audio-converter.worker.ts?worker";
 import audioWorkletProcessorUrl from "./audio-worklet-processor.ts?worker&url";
 import type { AppSocket } from "@/core/socket";
-import type { AudioSourceInfo, AudioSourceKind, AudioFormat } from "@/shared/types";
+import type { AudioSourceInfo, AudioSourceKind, AudioFormat } from "@/generated/bindings";
 import type { AudioStartPayload } from "@/core/socket-events";
 
 const MIN_RATE = 3000;

@@ -2,15 +2,15 @@
 
 export type ActiveWindowPayload = { title: string, };
 
-export type AudioConfig = { source?: AudioSourceKind | null, rate?: number | null, device_id?: string | null, };
-
-export type AudioFormatPayload = { rate: number, channels: number, };
+export type AudioFormat = { rate: number, channels: number, };
 
 export type AudioSourceInfo = { id: string, name: string, kind: AudioSourceKind, };
 
 export type AudioSourceKind = "mic" | "system";
 
 export type AudioSourcesPayload = { sources: Array<AudioSourceInfo>, };
+
+export type AudioStartPayload = { source?: AudioSourceKind | null, rate?: number | null, device_id?: string | null, };
 
 export type AuthStatusPayload = { authenticated: boolean, };
 
@@ -19,8 +19,6 @@ export type AvailableShellsPayload = { shells: Array<string>, default: string, }
 export type CameraDeviceInfo = { id: string, name: string, };
 
 export type CameraListPayload = { cameras: Array<CameraDeviceInfo>, };
-
-export type CameraStartConfig = { device_id?: string | null, };
 
 export type ClientEvent = "mouse_event" | "keyboard_event" | "shell_create" | "shell_input" | "shell_resize" | "shell_close" | "list_shells" | "task_poll_start" | "task_poll_stop" | "list_audio_sources" | "start_server_audio" | "stop_server_audio" | "start_client_audio" | "stop_client_audio" | "client_audio_data" | "start_stream" | "webrtc_answer" | "webrtc_ice_candidate" | "list_cameras" | "start_camera_stream" | "stop_camera_stream" | "camera_webrtc_answer" | "camera_webrtc_ice_candidate";
 
@@ -48,9 +46,9 @@ export type NetworkInfo = { mac_address: string | null, lan_ip: string, wan_ip: 
 
 export type PowerAction = "shutdown" | "restart" | "sleep" | "lock";
 
-export type ProcessDTO = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
+export type ProcessDetails = { pid: number, name: string, rss_memory_mb: number, exact_memory_mb: number, };
 
-export type ProcessDetailsDTO = { pid: number, name: string, rss_memory_mb: number, exact_memory_mb: number, };
+export type ProcessInfo = { pid: number, name: string, cpu_percent: number, memory_usage: number, ppid?: number | null, };
 
 export type RemoteIceCandidatePayload = { sdp_mline_index: number, candidate: string, };
 
@@ -58,22 +56,24 @@ export type ServerEvent = "auth_status" | "auth_error" | "shell_output" | "shell
 
 export type ShellClosedPayload = { session_id: string, };
 
-export type ShellCreateEvent = { cols: number, rows: number, session_id: string, shell?: string, };
+export type ShellCreatePayload = { cols: number, rows: number, session_id: string, shell?: string, };
 
 export type ShellCreatedPayload = { status: string, session_id: string, };
 
-export type ShellInputEvent = { command: string, };
+export type ShellInputPayload = { command: string, };
 
 export type ShellOutputPayload = { session_id: string, output: string, };
 
-export type ShellResizeEvent = { cols: number, rows: number, };
+export type ShellResizePayload = { cols: number, rows: number, };
 
-export type StartStreamConfig = { capture_cursor?: boolean, };
+export type StartCameraStreamPayload = { device_id?: string | null, };
+
+export type StartStreamPayload = { capture_cursor?: boolean, };
 
 export type StorageInfo = { disks: Array<string>, system_drive: string, disk_total_gb: number, disk_used_gb: number, disk_free_gb: number, active_processes: number, };
 
 export type StreamSettingsDTO = { bitrate?: number, resolution_percentage?: number, target_fps?: number, encoder_properties?: { [key in string]: string }, };
 
-export type SystemInfoDTO = { identity: IdentityInfo, hardware: HardwareInfo, network: NetworkInfo, storage: StorageInfo, };
+export type SystemInfo = { identity: IdentityInfo, hardware: HardwareInfo, network: NetworkInfo, storage: StorageInfo, };
 
-export type TaskPayload = { processes: Array<ProcessDTO>, total_cpu_usage: number, total_memory_percentage: number, };
+export type TaskListPayload = { processes: Array<ProcessInfo>, total_cpu_usage: number, total_memory_percentage: number, };

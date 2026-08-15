@@ -1,30 +1,28 @@
 import type {
     ActiveWindowPayload,
+    AudioFormat,
     AudioSourcesPayload,
+    AudioStartPayload,
     AuthStatusPayload,
     AvailableShellsPayload,
     CameraListPayload,
     ClientEvent,
+    KeyboardEventPayload,
     MessagePayload,
+    MouseButton,
+    MouseEventPayload,
     RemoteIceCandidatePayload,
     ServerEvent,
     ShellClosedPayload,
-    ShellCreatedPayload,
-    ShellOutputPayload,
-} from "@/generated/bindings";
-import type {
-    AudioFormat,
-    AudioStartPayload,
-    KeyboardEventPayload,
-    MouseButton,
-    MouseEventPayload,
     ShellCreatePayload,
+    ShellCreatedPayload,
     ShellInputPayload,
+    ShellOutputPayload,
     ShellResizePayload,
     StartCameraStreamPayload,
     StartStreamPayload,
     TaskListPayload,
-} from "@/shared/types";
+} from "@/generated/bindings";
 
 export type {
     ActiveWindowPayload,

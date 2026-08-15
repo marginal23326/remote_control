@@ -3,8 +3,9 @@ import { LoadingButton, showNotification } from "@/shared/feedback";
 import { byId, escapeHtml, setToggleStyle } from "@/shared/dom-helpers";
 import { bindMediaSessionReconnect } from "@/shared/media-session";
 import { initWebRtcFeature } from "@/shared/webrtc-feature";
+import type { CameraDeviceInfo } from "@/generated/bindings";
 import type { AppSocket } from "@/core/socket";
-import type { CameraDeviceInfo, StreamSettings } from "@/shared/types";
+import type { StreamSettings } from "@/shared/types";
 import type { WebRtcFeature } from "@/shared/webrtc-feature";
 
 interface CameraPipElements {

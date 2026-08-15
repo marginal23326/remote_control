@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::realtime::event_names::ServerEvent;
-use crate::realtime::payloads::AudioFormatPayload;
+use crate::realtime::payloads::AudioFormat;
 use crossbeam_queue::ArrayQueue;
 use socketioxide::extract::SocketRef;
 use wasapi::*;
@@ -76,7 +76,7 @@ pub(crate) fn server_loop(
 
     let _ = socket.emit(
         ServerEvent::ServerAudioFormat.as_str(),
-        &AudioFormatPayload {
+        &AudioFormat {
             rate: actual_rate,
             channels: 1,
         },

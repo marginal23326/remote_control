@@ -11,8 +11,9 @@ import {
     updateSortIndicators,
 } from "@/shared/dom-helpers";
 import { registerShortcuts } from "@/core/shortcuts";
+import type { ProcessInfo } from "@/generated/bindings";
 import type { AppSocket } from "@/core/socket";
-import type { ProcessDetailsResponse, ProcessInfo } from "@/shared/types";
+import type { ProcessDetailsResponse } from "@/shared/types";
 
 type SortColumn = "name" | "cpu_percent" | "memory_usage" | "pid";
 type SortOrder = "asc" | "desc";

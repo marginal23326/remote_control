@@ -1,4 +1,4 @@
-import type { AudioFormat } from "@/shared/types.ts";
+import type { AudioFormat } from "@/generated/bindings.ts";
 
 interface FormatMessage {
     type: "format";

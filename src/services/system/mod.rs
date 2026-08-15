@@ -76,7 +76,7 @@ pub struct StorageInfo {
 
 #[derive(Serialize, TS)]
 #[ts(export, export_to = "bindings.ts")]
-pub struct SystemInfoDTO {
+pub struct SystemInfo {
     pub identity: IdentityInfo,
     pub hardware: HardwareInfo,
     pub network: NetworkInfo,
@@ -213,7 +213,7 @@ pub(crate) fn refresh_system_info(tasks: &TaskManager) -> SystemBaseInfo {
     }
 }
 
-pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
+pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfo {
     let tasks = state.tasks.clone();
 
     let (base, lan_ip, mac, username, pc_name, hostname) = tokio::task::spawn_blocking(move || {
@@ -248,7 +248,7 @@ pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
     let os_info = backend::get_os_specific_info(base.cpu_frequency).await;
     let cpu_base_speed = get_cpu_base_speed(&base.cpu_brand);
 
-    SystemInfoDTO {
+    SystemInfo {
         identity: IdentityInfo {
             os: os_info.os,
             architecture: std::env::consts::ARCH.to_string(),

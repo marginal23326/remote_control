@@ -3,7 +3,7 @@ import { byId, escapeHtml, onAsync } from "@/shared/dom-helpers";
 import { LoadingButton, runWithFeedback, showNotification } from "@/shared/feedback";
 import { SVG_TEMPLATES } from "@/shared/icons";
 import { showConfirmModal } from "@/shared/modal";
-import type { PowerAction, SystemInfo } from "@/shared/types";
+import type { PowerAction, SystemInfo } from "@/generated/bindings";
 
 function formatUptime(totalSeconds: number): string {
     const days = Math.floor(totalSeconds / 86400);
