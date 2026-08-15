@@ -7,7 +7,7 @@ use crate::services::camera::CameraManager;
 use crate::services::input::{MouseButton, MouseEventPayload, apply_mouse_event};
 use crate::services::webrtc_session::WebRtcManager;
 use crate::state::AppState;
-use crate::utils::blocking::{run, run_or_log_default};
+use crate::utils::blocking::{run, run_or_log_default, spawn_drop};
 use serde::Deserialize;
 use socketioxide::extract::{Data, SocketRef, State};
 use std::sync::atomic::Ordering;
@@ -148,7 +148,7 @@ pub async fn handle_shell_create(socket: SocketRef, Data(data): Data<ShellCreate
                     },
                 );
             } else {
-                std::thread::spawn(move || drop(session));
+                spawn_drop(session);
             }
         }
         Err(e) => emit_error(&socket, ServerEvent::ShellError, "create shell", e),

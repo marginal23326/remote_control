@@ -1,5 +1,9 @@
 use crate::utils::error::{AppError, AppResult};
 
+pub fn spawn_drop<T: Send + 'static>(value: T) {
+    std::thread::spawn(move || drop(value));
+}
+
 pub async fn run<T, E>(f: impl FnOnce() -> Result<T, E> + Send + 'static) -> Result<T, E>
 where
     T: Send + 'static,

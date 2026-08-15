@@ -1,5 +1,6 @@
 use crate::realtime::event_names::ServerEvent;
 use crate::realtime::payloads::{ShellClosedPayload, ShellOutputPayload};
+use crate::utils::blocking::spawn_drop;
 use anyhow::Result;
 use parking_lot::Mutex;
 use portable_pty::{ChildKiller, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
@@ -134,7 +135,7 @@ impl ShellManager {
             if active_for_wait.load(Ordering::Acquire) {
                 let removed = sessions_for_wait.lock().remove(&socket_id_wait);
                 if let Some(session) = removed {
-                    thread::spawn(move || drop(session));
+                    spawn_drop(session);
                 }
             }
         });
@@ -208,7 +209,7 @@ impl ShellManager {
 
 fn retire(session: ShellSession) {
     session.active.store(false, Ordering::Release);
-    std::thread::spawn(move || drop(session));
+    spawn_drop(session);
 }
 
 fn default_shell() -> String {
