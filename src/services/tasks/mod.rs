@@ -4,8 +4,7 @@ use anyhow::{Result, anyhow};
 use parking_lot::Mutex;
 use parking_lot::RwLock;
 use serde::Serialize;
-use std::sync::Arc;
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{Networks, Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use ts_rs::TS;
 
 #[cfg(windows)]
@@ -33,16 +32,21 @@ pub struct ProcessDetailsDTO {
 }
 
 pub struct TaskManager {
-    sys: Arc<RwLock<System>>,
+    sys: RwLock<System>,
+    networks: RwLock<Networks>,
     last_refresh: RwLock<std::time::Instant>,
     #[cfg(target_os = "windows")]
     cpu_tracker: Mutex<backend::CpuTracker>,
 }
 
 impl TaskManager {
-    pub fn new(sys: Arc<RwLock<System>>) -> Self {
+    pub fn new() -> Self {
+        let mut sys = System::new_all();
+        sys.refresh_all();
+
         Self {
-            sys,
+            sys: RwLock::new(sys),
+            networks: RwLock::new(Networks::new_with_refreshed_list()),
             last_refresh: RwLock::new(
                 std::time::Instant::now()
                     .checked_sub(std::time::Duration::from_secs(10))
@@ -56,6 +60,32 @@ impl TaskManager {
     #[cfg(target_os = "windows")]
     pub fn cpu_usage(&self) -> f32 {
         self.cpu_tracker.lock().sample()
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn global_cpu_usage(&self) -> f32 {
+        self.sys.read().global_cpu_usage()
+    }
+
+    pub fn memory_usage_percent(&self) -> f64 {
+        let sys = self.sys.read();
+        let total = sys.total_memory() as f64;
+        if total <= 0.0 {
+            return 0.0;
+        }
+        (sys.used_memory() as f64 / total) * 100.0
+    }
+
+    pub fn with_sys<T>(&self, f: impl FnOnce(&System) -> T) -> T {
+        f(&self.sys.read())
+    }
+
+    pub fn refresh_networks(&self) {
+        self.networks.write().refresh(true);
+    }
+
+    pub fn with_networks<T>(&self, f: impl FnOnce(&Networks) -> T) -> T {
+        f(&self.networks.read())
     }
 
     pub fn refresh_sysinfo_if_needed(&self) {

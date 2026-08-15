@@ -1,7 +1,6 @@
+use crate::services::tasks::TaskManager;
 use crate::utils::units::{BYTES_PER_MB, bytes_to_gb};
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use sysinfo::{Networks, System};
 use ts_rs::TS;
 
@@ -139,8 +138,7 @@ async fn fetch_wan_info() -> Result<WanInfo, ()> {
     }
 }
 
-fn get_mac_address(net_lock: &Arc<RwLock<Networks>>) -> Option<String> {
-    let networks = net_lock.read();
+fn get_mac_address(networks: &Networks) -> Option<String> {
     for data in networks.values() {
         let mac = data.mac_address().to_string();
         if mac != "00:00:00:00:00:00" && mac != "00:00:00:00:00:00:00:00" {
@@ -190,14 +188,10 @@ pub(crate) struct OsSpecificInfo {
     pub disk_free_gb: u64,
 }
 
-pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc<RwLock<Networks>>) -> SystemBaseInfo {
-    {
-        let mut networks = net_lock.write();
-        networks.refresh(true);
-    }
+pub(crate) fn refresh_system_info(tasks: &TaskManager) -> SystemBaseInfo {
+    tasks.refresh_networks();
 
-    let (memory_total_mb, active_processes, cpu_threads, cpu_brand, cpu_frequency) = {
-        let sys = sys_lock.read();
+    let (memory_total_mb, active_processes, cpu_threads, cpu_brand, cpu_frequency) = tasks.with_sys(|sys| {
         (
             sys.total_memory() / BYTES_PER_MB,
             sys.processes().len(),
@@ -205,7 +199,7 @@ pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc
             sys.cpus().first().map(|c| c.brand().to_string()).unwrap_or_default(),
             sys.cpus().first().map(|c| c.frequency()).unwrap_or(0),
         )
-    };
+    });
 
     let cpu_cores = System::physical_core_count().unwrap_or(0);
 
@@ -220,16 +214,14 @@ pub(crate) fn refresh_system_info(sys_lock: &Arc<RwLock<System>>, net_lock: &Arc
 }
 
 pub async fn get_system_info(state: &crate::state::AppState) -> SystemInfoDTO {
-    let sys_lock = state.sys.clone();
-    let net_lock = state.networks.clone();
     let tasks = state.tasks.clone();
 
     let (base, lan_ip, mac, username, pc_name, hostname) = tokio::task::spawn_blocking(move || {
         tasks.refresh_sysinfo_if_needed();
 
-        let base = refresh_system_info(&sys_lock, &net_lock);
+        let base = refresh_system_info(&tasks);
         let lan_ip = get_local_ip();
-        let mac = get_mac_address(&net_lock);
+        let mac = tasks.with_networks(get_mac_address);
         let username = whoami::username().unwrap_or_else(|_| "Unknown".to_string());
         let pc_name = whoami::devicename().unwrap_or_else(|_| "Unknown".to_string());
         let hostname = hostname::get()

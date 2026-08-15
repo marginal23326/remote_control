@@ -6,17 +6,13 @@ use crate::services::screen::ScreenManager;
 use crate::services::shell::ShellManager;
 use crate::services::system::WanInfo;
 use crate::services::tasks::TaskManager;
-use parking_lot::RwLock;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use sysinfo::{Networks, System};
 use tokio::sync::OnceCell;
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
-    pub sys: Arc<RwLock<System>>,
-    pub networks: Arc<RwLock<Networks>>,
     pub input: InputManager,
     pub shell: ShellManager,
     pub screen: Arc<ScreenManager>,
@@ -29,23 +25,15 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-
-        let sys_shared = Arc::new(RwLock::new(sys));
-
-        let networks = Networks::new_with_refreshed_list();
         let input = InputManager::new();
         let shell = ShellManager::new();
         let screen = ScreenManager::new();
-        let tasks = TaskManager::new(sys_shared.clone());
+        let tasks = TaskManager::new();
         let audio = AudioManager::new();
         let camera = CameraManager::new();
 
         Self {
             config: Arc::new(config),
-            sys: sys_shared,
-            networks: Arc::new(RwLock::new(networks)),
             input,
             shell,
             screen: Arc::new(screen),
