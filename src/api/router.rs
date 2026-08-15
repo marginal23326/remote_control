@@ -23,6 +23,8 @@ use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
 
+const DIST_DIR: &str = "static/dist";
+
 async fn serve_no_cache(file: &str, req: Request) -> Response {
     match ServeFile::new(file).try_call(req).await {
         Ok(res) => {
@@ -40,12 +42,12 @@ async fn serve_no_cache(file: &str, req: Request) -> Response {
 async fn auth_gated_page(
     state: AppState,
     req: Request,
-    file: &'static str,
+    page: &str,
     want_authenticated: bool,
-    redirect: &'static str,
+    redirect: &str,
 ) -> Response {
     if is_authenticated(req.headers(), &state.config.session_token) == want_authenticated {
-        serve_no_cache(file, req).await
+        serve_no_cache(&format!("{DIST_DIR}/{page}"), req).await
     } else {
         Redirect::to(redirect).into_response()
     }
@@ -60,7 +62,7 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/login",
             post(login_handler).get(|State(state): State<AppState>, req: Request| {
-                auth_gated_page(state, req, "static/dist/login.html", false, "/")
+                auth_gated_page(state, req, "login.html", false, "/")
             }),
         )
         .route("/logout", get(logout_handler));
@@ -98,7 +100,7 @@ pub fn create_router(state: AppState) -> Router {
 
     // Serve assets at /assets path (Vite builds with /assets/* references)
     // Vite hashes filenames, so these can be cached indefinitely
-    let serve_assets = ServeDir::new("static/dist/assets");
+    let serve_assets = ServeDir::new(format!("{DIST_DIR}/assets"));
     let assets_routes = Router::new()
         .fallback_service(serve_assets)
         .layer(middleware::map_response(|mut res: Response| async move {
@@ -116,7 +118,7 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/",
             get(|State(state): State<AppState>, req: Request| {
-                auth_gated_page(state, req, "static/dist/index.html", true, "/login")
+                auth_gated_page(state, req, "index.html", true, "/login")
             }),
         )
         .merge(auth_routes)
