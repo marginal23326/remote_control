@@ -37,20 +37,26 @@ async fn serve_no_cache(file: &str, req: Request) -> Response {
     }
 }
 
-async fn index_handler(State(state): State<AppState>, req: Request) -> Response {
-    if is_authenticated(req.headers(), &state.config.session_token) {
-        serve_no_cache("static/dist/index.html", req).await
+async fn auth_gated_page(
+    state: AppState,
+    req: Request,
+    file: &'static str,
+    want_authenticated: bool,
+    redirect: &'static str,
+) -> Response {
+    if is_authenticated(req.headers(), &state.config.session_token) == want_authenticated {
+        serve_no_cache(file, req).await
     } else {
-        Redirect::to("/login").into_response()
+        Redirect::to(redirect).into_response()
     }
 }
 
+async fn index_handler(State(state): State<AppState>, req: Request) -> Response {
+    auth_gated_page(state, req, "static/dist/index.html", true, "/login").await
+}
+
 async fn login_page_handler(State(state): State<AppState>, req: Request) -> Response {
-    if is_authenticated(req.headers(), &state.config.session_token) {
-        Redirect::to("/").into_response()
-    } else {
-        serve_no_cache("static/dist/login.html", req).await
-    }
+    auth_gated_page(state, req, "static/dist/login.html", false, "/").await
 }
 
 pub fn create_router(state: AppState) -> Router {
