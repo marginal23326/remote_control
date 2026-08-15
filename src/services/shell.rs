@@ -160,8 +160,8 @@ impl ShellManager {
         })
     }
 
-    pub fn add_session(&self, session_id: String, session: ShellSession) {
-        let replaced = self.sessions.lock().insert(session_id, session);
+    pub fn add_session(&self, socket_id: String, session: ShellSession) {
+        let replaced = self.sessions.lock().insert(socket_id, session);
         if let Some(old_session) = replaced {
             retire(old_session);
         }
